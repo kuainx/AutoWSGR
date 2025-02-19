@@ -500,7 +500,8 @@ class NormalFightPlan(FightPlan):
                 self.timer.logger.debug('now_map:', now_map)
             if target_map > now_map:
                 for i in range(target_map - now_map):
-                    self.timer.swipe(715, 147, 552, 147, duration=0.25)
+                    self.timer.click(937, 277)
+                    # self.timer.swipe(715, 147, 552, 147, duration=0.25)
                     if not self._verify_map(now_map + (i + 1), chapter, timeout=4):
                         raise ImageNotFoundErr(
                             "after 'move map' operation but the chapter do not move",
@@ -508,7 +509,8 @@ class NormalFightPlan(FightPlan):
                     time.sleep(0.15)
             else:
                 for i in range(now_map - target_map):
-                    self.timer.swipe(552, 147, 715, 147, duration=0.25)
+                    self.timer.click(247, 277)
+                    # self.timer.swipe(552, 147, 715, 147, duration=0.25)
                     if not self._verify_map(now_map - (i + 1), chapter, timeout=4):
                         raise ImageNotFoundErr(
                             "after 'move map' operation but the chapter do not move",
