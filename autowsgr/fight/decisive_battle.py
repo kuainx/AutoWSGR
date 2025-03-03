@@ -440,7 +440,7 @@ class DecisiveBattle:
             )
             ships = [ship[1] for ship in ship_results]
             self.timer.logger.info(f'使用技能获得: {ships}')
-            if not self.check_skill(ships):
+            if self.config.useful_skill and not self.check_skill(ships):
                 self.timer.logger.info('技能效果不佳, 撤退重试')
                 self.timer.relative_click(*SKILL_POS, times=2, delay=0.3)
                 return False
@@ -450,8 +450,6 @@ class DecisiveBattle:
         return True
 
     def check_skill(self, ships: list[str]) -> bool:
-        if not self.config.useful_skill:
-            return True
         if len(ships) == 1:
             return ships[0] in self.logic.level2
         useful_ships = set(ships) & set(self.config.level1)
