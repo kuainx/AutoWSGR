@@ -22,7 +22,7 @@ def get_ship(timer: Timer):
         assert ship_name_recognize_result is not None
         ship_name = ship_name_recognize_result[1]
 
-        TYPE_POSITION = [(0.804, 0.27), (0.881, 0.167), 25]
+        TYPE_POSITION = [(0.79, 0.29), (0.95, 0.1), 25]
         ship_type_recognize_result = timer.recognize(crop_image(timer.screen, *TYPE_POSITION))
         # 因为 allow_nan 为 False, 所以肯定不是 None
         assert ship_type_recognize_result is not None
@@ -44,11 +44,8 @@ def get_ship(timer: Timer):
             ship_name, ship_type = recognize_get_ship(timer)
         except Exception as e:
             print(e)
-        current_screen = timer.screen.copy()
         timer.click(915, 515, delay=0.25, times=1)
-        if timer.confirm_operation():
-            timer.logger.info('获得新船, 已截图!')
-            timer.logger.log_image(current_screen)
+        timer.confirm_operation()
     timer.logger.info(f'获取舰船: {ship_name} {ship_type}')
     return ship_name, ship_type
 
