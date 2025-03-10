@@ -480,9 +480,10 @@ class DecisiveBattle:
         return int(text[-1])
 
     def _move_chapter(self) -> None:
-        if self._get_chapter() < self.stats.chapter:
+        current_chapter = self._get_chapter()
+        if current_chapter < self.stats.chapter:
             self.timer.click(900, 507)
-        elif self._get_chapter() > self.stats.chapter:
+        elif current_chapter > self.stats.chapter:
             self.timer.click(788, 507)
         else:
             return
