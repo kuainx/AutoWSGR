@@ -177,8 +177,8 @@ class Logic:
         self.logger.debug(f'(不考虑破损情况) 当前最优：{best_ships}')
         return best_ships
 
-    def _retreat(self) -> bool:
-        ship_num = count_ship(self.get_best_fleet())
+    def _retreat(self, fleet: list[str]) -> bool:
+        ship_num = count_ship(fleet)
         if self.stats.node == 'A':
             return ship_num < 2
         if ship_num < 1:
@@ -649,7 +649,7 @@ class DecisiveBattle:
             and any(self.timer.port.get_ship_by_name(ship).status in [1, 2] for ship in self.rships)
         ):  # 中破修
             return self.leave()
-        if self.logic._retreat():
+        if self.logic._retreat(self.fleet):
             self.timer.logger.info('舰船组队不合适, 准备撤退')
             return self.retreat()
         if self.stats.fleet != self.fleet:
