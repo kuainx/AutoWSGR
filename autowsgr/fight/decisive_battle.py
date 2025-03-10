@@ -1,7 +1,8 @@
 import os
+import time
 from typing import Literal
 
-from autowsgr.constants.custom_exceptions import ImageNotFoundErr
+from autowsgr.constants.custom_exceptions import ImageNotFoundErr, ShipNotFoundErr
 from autowsgr.constants.data_roots import MAP_ROOT
 from autowsgr.constants.image_templates import IMG
 from autowsgr.fight.battle import BattleInfo, BattlePlan
@@ -177,9 +178,12 @@ class Logic:
         return best_ships
 
     def _retreat(self) -> bool:
-        if type(self) is not Logic:
-            return count_ship(self.get_best_fleet()) < 2
-        return count_ship(self.get_best_fleet()) < 2
+        ship_num = count_ship(self.get_best_fleet())
+        if self.stats.node == 'A':
+            return ship_num < 2
+        if ship_num < 1:
+            raise ShipNotFoundErr('舰船识别异常')
+        return False
 
     def _leave(self) -> Literal[False]:
         return False
@@ -361,12 +365,22 @@ class DecisiveBattle:
             self.timer.logger.warning('读取当前可用费用失败')
             self.stats.score = 0
         self.timer.logger.debug(f'当前可用费用为：{self.stats.score}')
-        results = self.timer.recognize_number(
-            crop_image(screen, *COST_AREA),
-            extra_chars='x',
-            multiple=True,
-        )
-        costs = [t[1] for t in results]
+        for i in range(3):
+            results = self.timer.recognize_number(
+                crop_image(screen, *COST_AREA),
+                extra_chars='x',
+                multiple=True,
+            )
+            costs = [t[1] for t in results]
+            if all(x > 1 for x in costs):
+                break
+            if i == 2:
+                self.timer.logger.warning('识别费用多次出错, 跳过异常项')
+                costs = [99 if x < 2 else x for x in costs]
+            else:
+                self.timer.logger.warning('识别费用出错，正在重试')
+            time.sleep(0.5)
+
         _costs, ships, real_position = [], [], []
         for i, cost in enumerate(costs):
             try:
@@ -607,13 +621,15 @@ class DecisiveBattle:
             [IMG.decisive_battle_image[2], IMG.decisive_battle_image[8]],
             timeout=2,
         ):
-            choose_success = self.choose()  # 获取战备舰队
-            if not choose_success:
-                return self.retreat()
+            choose_fail = not self.choose()  # 获取战备舰队
         # 升级副官坏了,经验检测也停用
         # self._get_exp()
         self.timer.wait_image(IMG.decisive_battle_image[9])
         self.stats.node = self.recognize_node()
+        if choose_fail:
+            if self.stats.node == 'A':
+                return self.retreat()
+            self.timer.logger.info('由于不在A节点, 取消撤退, 继续战斗')
         # 升级副官, 现在这功能坏掉了
         # while self.logic._up_level():
         #     self.up_level_assistant()
@@ -634,6 +650,7 @@ class DecisiveBattle:
         ):  # 中破修
             return self.leave()
         if self.logic._retreat():
+            self.timer.logger.info('舰船组队不合适, 准备撤退')
             return self.retreat()
         if self.stats.fleet != self.fleet:
             self._change_fleet(self.fleet)
