@@ -617,16 +617,17 @@ class DecisiveBattle:
         if self.timer.wait_image(IMG.confirm_image[1:], timeout=1):
             self.timer.click(300, 225)  # 选上中下路
             self.timer.confirm_operation(must_confirm=1)
+        choose_success = True
         if self.timer.wait_image(
             [IMG.decisive_battle_image[2], IMG.decisive_battle_image[8]],
             timeout=2,
         ):
-            choose_fail = not self.choose()  # 获取战备舰队
+            choose_success = self.choose()  # 获取战备舰队
         # 升级副官坏了,经验检测也停用
         # self._get_exp()
         self.timer.wait_image(IMG.decisive_battle_image[9])
         self.stats.node = self.recognize_node()
-        if choose_fail:
+        if not choose_success:
             if self.stats.node == 'A':
                 return self.retreat()
             self.timer.logger.info('由于不在A节点, 取消撤退, 继续战斗')
