@@ -426,7 +426,7 @@ class DecisiveBattle:
                     candidates=self.timer.ship_names,
                 )[1]
             )
-            if last_ship in self.timer.ship_names.Other:
+            if last_ship in self.timer.ship_names[-10:]:
                 self.timer.logger.debug(f'最后一艘船为技能:{last_ship}, 判断不是A节点')
                 is_first_node = False
         choose = self.logic._choose_ship(is_first_node)
