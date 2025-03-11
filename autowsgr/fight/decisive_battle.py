@@ -1,5 +1,4 @@
 import os
-import time
 from typing import Literal
 
 from autowsgr.constants.custom_exceptions import ImageNotFoundErr, ShipNotFoundErr
@@ -365,22 +364,15 @@ class DecisiveBattle:
             self.timer.logger.warning('读取当前可用费用失败')
             self.stats.score = 0
         self.timer.logger.debug(f'当前可用费用为：{self.stats.score}')
-        for i in range(3):
-            results = self.timer.recognize_number(
-                crop_image(screen, *COST_AREA),
-                extra_chars='x',
-                multiple=True,
-            )
-            costs = [t[1] for t in results]
-            if all(x > 1 for x in costs):
-                break
-            if i == 2:
-                self.timer.logger.warning('识别费用多次出错, 跳过异常项')
-                costs = [99 if x < 2 else x for x in costs]
-            else:
-                self.timer.logger.warning('识别费用出错，正在重试')
-            time.sleep(0.5)
-
+        results = self.timer.recognize_number(
+            crop_image(screen, *COST_AREA),
+            extra_chars='x',
+            multiple=True,
+        )
+        costs = [t[1] for t in results]
+        if not all(x > 1 for x in costs):
+            self.timer.logger.warning('识别费用出错, 跳过异常项')
+            costs = [99 if x < 2 else x for x in costs]
         _costs, ships, real_position = [], [], []
         for i, cost in enumerate(costs):
             if cost > self.stats.score:
