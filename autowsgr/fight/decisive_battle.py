@@ -397,6 +397,9 @@ class DecisiveBattle:
             )
             _costs.append(cost)
             real_position.append(i)
+            # 如果识别过最后一艘船, 后面不再重复识别
+            if i == 4:
+                last_ship = ships[-1]
         # print("Scan result:", costs)
         costs = _costs
         selections = {
@@ -411,14 +414,18 @@ class DecisiveBattle:
         is_first_node = self.stats.map == 1 and self.stats.node == 'A'
         if is_first_node:
             # 判断最后一艘船是否为技能, 如果是技能则不是A节点
-            last_ship = self.timer.recognize(
-                crop_image(
-                    screen,
-                    (SHIP_X[4][0], SHIP_Y[0]),
-                    (SHIP_X[4][1], SHIP_Y[1]),
-                ),
-                candidates=self.timer.ship_names,
-            )[1]
+            last_ship = (
+                last_ship
+                if last_ship is not None
+                else self.timer.recognize(
+                    crop_image(
+                        screen,
+                        (SHIP_X[4][0], SHIP_Y[0]),
+                        (SHIP_X[4][1], SHIP_Y[1]),
+                    ),
+                    candidates=self.timer.ship_names,
+                )[1]
+            )
             if last_ship in self.timer.ship_names.Other:
                 self.timer.logger.debug(f'最后一艘船为技能:{last_ship}, 判断不是A节点')
                 is_first_node = False
