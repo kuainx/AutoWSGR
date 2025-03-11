@@ -413,6 +413,19 @@ class DecisiveBattle:
         self.stats.selections = selections
         self.timer.logger.debug('可购买舰船：', selections)
         is_first_node = self.stats.map == 1 and self.stats.node == 'A'
+        if is_first_node:
+            # 判断最后一艘船是否为技能, 如果是技能则不是A节点
+            last_ship = self.timer.recognize(
+                crop_image(
+                    screen,
+                    (SHIP_X[4][0], SHIP_Y[0]),
+                    (SHIP_X[4][1], SHIP_Y[1]),
+                ),
+                candidates=self.timer.ship_names,
+            )[1]
+            if last_ship in self.timer.ship_names.Other:
+                self.timer.logger.debug(f'最后一艘船为技能:{last_ship}, 判断不是A节点')
+                is_first_node = False
         choose = self.logic._choose_ship(is_first_node)
         if len(choose) == 0:
             if not refreshed:
