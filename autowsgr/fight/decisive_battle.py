@@ -383,11 +383,7 @@ class DecisiveBattle:
 
         _costs, ships, real_position = [], [], []
         for i, cost in enumerate(costs):
-            try:
-                if cost > self.stats.score:
-                    continue
-            except Exception as e:
-                self.timer.logger.warning(f'读取购买费用出错，错误如下:\n {e}')
+            if cost > self.stats.score:
                 continue
             ships.append(
                 self.timer.recognize(
