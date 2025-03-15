@@ -330,7 +330,7 @@ class DecisiveBattle:
         if res in ['next', 'quit']:
             self.timer.confirm_operation(timeout=5, must_confirm=True)  # 确认通关
             self.timer.confirm_operation(timeout=5, must_confirm=True)  # 确认领取奖励
-            get_ship(self.timer, multi=True)
+            get_ship(self.timer)
         return res
 
     def choose(self, refreshed: bool = False, rec_only: bool = False) -> bool:
