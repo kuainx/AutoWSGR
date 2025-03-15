@@ -9,7 +9,7 @@ from autowsgr.types import DestroyShipWorkMode, RepairMode, ShipType
 from autowsgr.utils.api_image import absolute_to_relative, crop_image
 
 
-def get_ship(timer: Timer, multi=False):
+def get_ship(timer: Timer):
     """获取掉落舰船"""
 
     def recognize_get_ship(timer: Timer):
@@ -42,14 +42,11 @@ def get_ship(timer: Timer, multi=False):
     while timer.wait_image(symbol_images, timeout=1):
         try:
             ship_name, ship_type = recognize_get_ship(timer)
-            if multi:
-                timer.logger.info(f'获取舰船: {ship_name} {ship_type}')
+            timer.logger.info(f'获取舰船: {ship_name} {ship_type}')
         except Exception as e:
             print(e)
         timer.click(915, 515, delay=0.5, times=1)
         timer.confirm_operation()
-    if not multi:
-        timer.logger.info(f'获取舰船: {ship_name} {ship_type}')
     return ship_name, ship_type
 
 
