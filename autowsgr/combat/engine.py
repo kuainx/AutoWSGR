@@ -213,7 +213,9 @@ class CombatEngine(PhaseHandlersMixin):
         if self._plan.mode == CombatMode.NORMAL:
             self._phase = CombatPhase.START_FIGHT
             self._last_action = "yes"
-        elif self._plan.mode in [CombatMode.BATTLE, CombatMode.EXERCISE]:
+        elif self._plan.mode in [
+            CombatMode.BATTLE, CombatMode.DECISIVE, CombatMode.EXERCISE,
+        ]:
             self._phase = CombatPhase.START_FIGHT
             self._last_action = ""
 
@@ -281,7 +283,7 @@ class CombatEngine(PhaseHandlersMixin):
 
                 return _speed_up
 
-        elif self._plan.mode == CombatMode.BATTLE:
+        elif self._plan.mode in (CombatMode.BATTLE, CombatMode.DECISIVE):
             if last_phase == CombatPhase.PROCEED:
 
                 def _speed_up_battle() -> None:

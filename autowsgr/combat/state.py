@@ -200,6 +200,37 @@ BATTLE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
 }
 
 
+# ── 决战 (单点) ──
+#
+# 与 BATTLE 几乎一致，但 RESULT 是终止阶段 —— 决战单点战斗结束后
+# 游戏直接回到决战地图 (可能出现 ADVANCE_CHOICE / CHOOSE_FLEET / STAGE_CLEAR),
+# 不会出现普通战役的 BATTLE_PAGE。引擎在 RESULT 阶段执行完点击后退出。
+
+DECISIVE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
+    CombatPhase.START_FIGHT: [
+        CombatPhase.SPOT_ENEMY_SUCCESS,
+        CombatPhase.FORMATION,
+        CombatPhase.FIGHT_PERIOD,
+        CombatPhase.DOCK_FULL,
+    ],
+    CombatPhase.DOCK_FULL: [],
+    CombatPhase.SPOT_ENEMY_SUCCESS: {
+        "retreat": [],          # 决战没有独立的 "战役页" 可回
+        "fight": [CombatPhase.FORMATION, CombatPhase.FIGHT_PERIOD],
+    },
+    CombatPhase.FORMATION: [CombatPhase.FIGHT_PERIOD],
+    CombatPhase.FIGHT_PERIOD: [
+        CombatPhase.NIGHT_PROMPT,
+        CombatPhase.RESULT,
+    ],
+    CombatPhase.NIGHT_PROMPT: {
+        "yes": [CombatPhase.RESULT],
+        "no": [(CombatPhase.RESULT, 7.0)],
+    },
+    # RESULT 是终止阶段，无后继 —— _make_decision 直接返回 FIGHT_END
+}
+
+
 # ── 演习 ──
 
 EXERCISE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {

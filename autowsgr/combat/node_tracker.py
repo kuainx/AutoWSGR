@@ -12,7 +12,6 @@ note. 已通过测试
 
 数据来源:
   - 地图节点坐标: ``autowsgr/data/map/normal/{chapter}-{map}.yaml``
-  - 小船图标模板: ``autowsgr/data/images/combat/ship_icon_{1,2}.png``
 """
 
 from __future__ import annotations

@@ -19,6 +19,7 @@ from loguru import logger
 from autowsgr.combat.rules import RuleEngine
 from autowsgr.combat.state import (
     BATTLE_TRANSITIONS,
+    DECISIVE_TRANSITIONS,
     EXERCISE_TRANSITIONS,
     NORMAL_FIGHT_TRANSITIONS,
     CombatPhase,
@@ -158,16 +159,21 @@ class CombatMode:
     EXERCISE = "exercise"
     """演习。"""
 
+    DECISIVE = "decisive"
+    """决战 (单点战斗，RESULT 即终止)。"""
+
 
 MODE_TRANSITIONS: dict[str, dict[CombatPhase, PhaseBranch]] = {
     CombatMode.NORMAL: NORMAL_FIGHT_TRANSITIONS,
     CombatMode.BATTLE: BATTLE_TRANSITIONS,
+    CombatMode.DECISIVE: DECISIVE_TRANSITIONS,
     CombatMode.EXERCISE: EXERCISE_TRANSITIONS,
 }
 
 MODE_END_PHASES: dict[str, CombatPhase] = {
     CombatMode.NORMAL: CombatPhase.MAP_PAGE,
     CombatMode.BATTLE: CombatPhase.BATTLE_PAGE,
+    CombatMode.DECISIVE: CombatPhase.RESULT,
     CombatMode.EXERCISE: CombatPhase.EXERCISE_PAGE,
 }
 

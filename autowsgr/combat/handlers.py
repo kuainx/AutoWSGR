@@ -81,6 +81,15 @@ class PhaseHandlersMixin:
         # ── 终止状态 ──
         end_phase = self._plan.end_phase
         if phase == end_phase:
+            # 终止阶段可能本身也需要交互操作 (如 DECISIVE 模式下
+            # RESULT 是终止阶段，但仍需点击关闭结算界面)。
+            # 先执行对应 handler，再返回 FIGHT_END。
+            _TERMINAL_HANDLERS = {
+                CombatPhase.RESULT: self._handle_result,
+            }
+            handler = _TERMINAL_HANDLERS.get(phase)
+            if handler is not None:
+                handler()
             self._history.add(CombatEvent(
                 event_type=EventType.AUTO_RETURN,
                 node=self._node,
