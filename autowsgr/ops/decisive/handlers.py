@@ -205,7 +205,7 @@ class DecisivePhaseHandlers(DecisiveBase):
 
         # ── 恢复模式: 扫描当前舰队与可用舰船 ─────────────────────────
         # 对齐 legacy: if fleet.empty() and not is_begin(): _check_fleet()
-        if self._resume_mode and not self._state.ships:
+        if self._resume_mode:
             _log.info("[决战] 恢复模式: 扫描当前舰队")
             fleet, damage, all_ships = self._map.check_fleet()
             self._state.ship_stats = [
