@@ -22,7 +22,6 @@
 
 from __future__ import annotations
 
-import inspect
 import time
 import cv2
 from abc import ABC, abstractmethod
@@ -30,41 +29,14 @@ from dataclasses import dataclass
 from .detector import detect_emulators, prompt_user_select, resolve_serial
 
 import numpy as np
-from loguru import logger
 from autowsgr.infra import EmulatorConfig, EmulatorConnectionError
+from autowsgr.infra.logger import caller_info, get_logger
 from airtest.core.api import connect_device
 from airtest.core.api import device as get_device
 from airtest.core.error import AdbError, DeviceConnectionError
 from airtest.core.android import Android
 
-# ── 日志开关（由 infra.logger.setup_logger 写入）──────────────────────────────
-_show_screenshot_detail: bool = False
-
-
-def _caller_info(depth: int = 2) -> str:
-    """返回调用栈中指定深度的调用者信息（文件名:行号 in 函数名）。
-
-    depth=2 表示跳过 _caller_info 本身与直接调用它的函数，指向再上一层的调用者。
-    """
-    try:
-        frame = inspect.stack()[depth]
-        filename = frame.filename.replace("\\", "/").rsplit("/", 1)[-1]
-        return f"{filename}:{frame.lineno} in {frame.function}"
-    except Exception:
-        return "<unknown>"
-
-
-def configure(*, show_screenshot_detail: bool = False) -> None:
-    """配置 controller 模块的日志行为。
-
-    Parameters
-    ----------
-    show_screenshot_detail:
-        ``True`` 时输出每次截图的完成日志（尺寸/耗时）；
-        ``False``（默认）时静默该日志，避免刷屏。
-    """
-    global _show_screenshot_detail
-    _show_screenshot_detail = show_screenshot_detail
+_log = get_logger("emulator")
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,7 +247,7 @@ class ADBController(AndroidController):
             candidates = detect_emulators()
             if len(candidates) == 1:
                 resolved = candidates[0].serial
-                logger.info("[Emulator] 自动检测到唯一设备: {}", candidates[0].description)
+                _log.info("[Emulator] 自动检测到唯一设备: {}", candidates[0].description)
             elif len(candidates) == 0:
                 resolved = ""  # 交给 airtest "Android:///" 兜底
             else:
@@ -327,16 +299,16 @@ class ADBController(AndroidController):
                     w_s, h_s = h_s, w_s  # 旋转后的尺寸
                 actual = (w_s, h_s)
                 if actual != self._resolution:
-                    logger.warning(
+                    _log.warning(
                         "[Emulator] display_info 分辨率 {}x{} 与实际截图 {}x{} 不符 "
                         "(设备可能处于横屏)，已修正",
                         *self._resolution, w_s, h_s,
                     )
                     self._resolution = actual
         except Exception as exc:
-            logger.warning("[Emulator] 分辨率校验截图失败，使用 display_info 值: {}", exc)
+            _log.warning("[Emulator] 分辨率校验截图失败，使用 display_info 值: {}", exc)
 
-        logger.info(
+        _log.info(
             "[Emulator] 已连接设备: {} ({}x{})", self._serial or "auto", *self._resolution
         )
         return DeviceInfo(
@@ -348,7 +320,7 @@ class ADBController(AndroidController):
         serial = self._serial or "auto"
         self._device = None
         self._resolution = (0, 0)
-        logger.info("[Emulator] 已断开设备连接: {}", serial)
+        _log.info("[Emulator] 已断开设备连接: {}", serial)
 
     @property
     def resolution(self) -> tuple[int, int]:
@@ -381,16 +353,15 @@ class ADBController(AndroidController):
                 elapsed = time.monotonic() - start
                 # 运行时自动同步分辨率（防止旋转后首次使用仍是旧值）
                 if self._resolution != (w, h):
-                    logger.warning(
+                    _log.warning(
                         "[Emulator] 截图尺寸 {}x{} 与缓存分辨率 {}x{} 不符，已更新",
                         w, h, *self._resolution,
                     )
                     self._resolution = (w, h)
-                if _show_screenshot_detail:
-                    logger.debug(
-                        "[Emulator] 截图完成 {}x{} 耗时={:.3f}s",
-                        w, h, elapsed,
-                    )
+                _log.trace(
+                    "[Emulator] 截图完成 {}x{} 耗时={:.3f}s",
+                    w, h, elapsed,
+                )
                 return rgb
             if time.monotonic() - start > self._screenshot_timeout:
                 raise EmulatorConnectionError(
@@ -404,7 +375,7 @@ class ADBController(AndroidController):
         dev = self._require_device()
         w, h = self._resolution
         px, py = int(x * w), int(y * h)
-        logger.debug("[Emulator] click({:.3f}, {:.3f}) → pixel({}, {})  res={}x{}  {}", x, y, px, py, w, h, _caller_info())
+        _log.debug("[Emulator] click({:.3f}, {:.3f}) → pixel({}, {})  res={}x{}  {}", x, y, px, py, w, h, caller_info())
         dev.shell(f"input tap {px} {py}")
 
     def swipe(
@@ -420,9 +391,9 @@ class ADBController(AndroidController):
         px2, py2 = int(x2 * w), int(y2 * h)
         ms = int(duration * 1000)
         dev = self._require_device()
-        logger.debug(
+        _log.debug(
             "[Emulator] swipe({:.3f},{:.3f}→{:.3f},{:.3f}) → pixel({},{}→{},{}) {}ms  {}",
-            x1, y1, x2, y2, px1, py1, px2, py2, ms, _caller_info(),
+            x1, y1, x2, y2, px1, py1, px2, py2, ms, caller_info(),
         )
         dev.shell(f"input swipe {px1} {py1} {px2} {py2} {ms}")
 
@@ -433,25 +404,25 @@ class ADBController(AndroidController):
 
     def key_event(self, key_code: int) -> None:
         dev = self._require_device()
-        logger.debug("[Emulator] key_event({})  {}", key_code, _caller_info())
+        _log.debug("[Emulator] key_event({})  {}", key_code, caller_info())
         # airtest keyevent 内部调用 str.upper()，必须传字符串
         dev.keyevent(str(key_code))
 
     def text(self, content: str) -> None:
         dev = self._require_device()
-        logger.debug("[Emulator] text('{}')  {}", content, _caller_info())
+        _log.debug("[Emulator] text('{}')  {}", content, caller_info())
         dev.text(content)
 
     # ── 应用管理 ──
 
     def start_app(self, package: str) -> None:
         dev = self._require_device()
-        logger.info("[Emulator] 启动应用: {}  {}", package, _caller_info())
+        _log.info("[Emulator] 启动应用: {}  {}", package, caller_info())
         dev.start_app(package)
 
     def stop_app(self, package: str) -> None:
         dev = self._require_device()
-        logger.info("[Emulator] 停止应用: {}  {}", package, _caller_info())
+        _log.info("[Emulator] 停止应用: {}  {}", package, caller_info())
         dev.stop_app(package)
 
     def is_app_running(self, package: str) -> bool:
@@ -459,16 +430,16 @@ class ADBController(AndroidController):
             dev = self._require_device()
             ps_output = dev.shell("ps")
         except (AdbError, DeviceConnectionError, EmulatorConnectionError) as exc:
-            logger.debug("[Emulator] is_app_running('{}') → False (设备异常: {})  {}", package, exc, _caller_info())
+            _log.debug("[Emulator] is_app_running('{}') → False (设备异常: {})  {}", package, exc, caller_info())
             return False
         if not isinstance(ps_output, str):
-            logger.warning(
+            _log.warning(
                 "[Emulator] is_app_running: shell('ps') 返回非字符串 ({})，无法判断进程状态",
                 type(ps_output).__name__,
             )
             return False
         running = package in ps_output
-        logger.debug("[Emulator] is_app_running('{}') → {}  {}", package, running, _caller_info())
+        _log.debug("[Emulator] is_app_running('{}') → {}  {}", package, running, caller_info())
         return running
 
     # ── Shell ──

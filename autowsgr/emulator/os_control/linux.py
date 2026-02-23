@@ -5,9 +5,11 @@ from __future__ import annotations
 import shlex
 import subprocess
 
-from loguru import logger
-
 from airtest.core.android.adb import ADB
+
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("emulator")
 from .base import EmulatorProcessManager
 from autowsgr.infra import EmulatorConfig, EmulatorError, EmulatorNotFoundError
 from autowsgr.types import OSType
@@ -49,9 +51,9 @@ class LinuxEmulatorManager(EmulatorProcessManager):
             )
         try:
             subprocess.Popen(shlex.split(self._path))
-            logger.info("正在启动模拟器: {}", self._path)
+            _log.info("正在启动模拟器: {}", self._path)
             self.wait_until_online()
-            logger.info("模拟器已启动")
+            _log.info("模拟器已启动")
         except EmulatorError:
             raise
         except Exception as exc:
@@ -76,7 +78,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                     ["pkill", "-9", "-f", self._process_name],
                     check=True,
                 )
-            logger.info("模拟器已停止: {}", self._process_name)
+            _log.info("模拟器已停止: {}", self._process_name)
         except EmulatorError:
             raise
         except Exception as exc:
@@ -96,7 +98,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                 check=True,
             )
         except (ImportError, OSError, subprocess.CalledProcessError) as exc:
-            logger.debug("[OS-Linux] ADB 设备列表获取失败: {}", exc)
+            _log.debug("[OS-Linux] ADB 设备列表获取失败: {}", exc)
             return []
 
         devices: list[str] = []

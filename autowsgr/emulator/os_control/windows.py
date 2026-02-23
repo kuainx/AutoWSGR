@@ -7,9 +7,11 @@ import os
 import re
 import subprocess
 
-from loguru import logger
-
 from .base import EmulatorProcessManager
+
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("emulator")
 from autowsgr.infra import EmulatorError, EmulatorNotFoundError
 from autowsgr.types import EmulatorType
 
@@ -28,7 +30,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
         match self._emulator_type:
             case EmulatorType.leidian:
                 raw = self._ldconsole("isrunning")
-                logger.debug("雷电模拟器状态: {}", raw)
+                _log.debug("雷电模拟器状态: {}", raw)
                 return raw.strip() == "running"
             case EmulatorType.mumu:
                 raw = self._mumuconsole("is_android_started")
@@ -36,8 +38,9 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                     result = json.loads(raw)
                     is_started = result.get("is_android_started", False)
                 except (json.JSONDecodeError, KeyError):
+                    _log.debug("[Emulator] MuMu 状态查询解析失败", exc_info=True)
                     is_started = False
-                logger.debug("MuMu 模拟器状态: {}", is_started)
+                _log.debug("MuMu 模拟器状态: {}", is_started)
                 return bool(is_started)
             case EmulatorType.yunshouji:
                 return True  # 云手机始终在线
@@ -46,7 +49,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
 
     def start(self) -> None:
         if self._emulator_type == EmulatorType.yunshouji:
-            logger.info("云手机无需启动")
+            _log.info("云手机无需启动")
             return
 
         if self._path is None:
@@ -62,7 +65,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                     os.popen(self._path)
 
             self.wait_until_online()
-            logger.info("模拟器已启动")
+            _log.info("模拟器已启动")
         except EmulatorError:
             raise
         except Exception as exc:
@@ -76,7 +79,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                 case EmulatorType.mumu:
                     self._mumuconsole("shutdown")
                 case EmulatorType.yunshouji:
-                    logger.info("云手机无需关闭")
+                    _log.info("云手机无需关闭")
                     return
                 case _:
                     if not self._process_name:
@@ -86,7 +89,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                         check=True,
                         capture_output=True,
                     )
-            logger.info("模拟器已停止")
+            _log.info("模拟器已停止")
         except EmulatorError:
             raise
         except Exception as exc:

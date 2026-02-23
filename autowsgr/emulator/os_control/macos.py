@@ -6,9 +6,11 @@ import json
 import os
 import subprocess
 
-from loguru import logger
-
 from .base import EmulatorProcessManager
+
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("emulator")
 from autowsgr.infra import EmulatorError, EmulatorNotFoundError
 from autowsgr.types import EmulatorType
 
@@ -42,7 +44,7 @@ class MacEmulatorManager(EmulatorProcessManager):
             if self._emulator_type == EmulatorType.mumu:
                 self._mumu_restart_instance()
             self.wait_until_online()
-            logger.info("模拟器已启动")
+            _log.info("模拟器已启动")
         except EmulatorError:
             raise
         except Exception as exc:
@@ -50,7 +52,7 @@ class MacEmulatorManager(EmulatorProcessManager):
 
     def stop(self) -> None:
         if self._emulator_type == EmulatorType.mumu:
-            logger.info("MuMu macOS 版暂不支持 CLI 关闭")
+            _log.info("MuMu macOS 版暂不支持 CLI 关闭")
             return
         if not self._process_name:
             raise EmulatorError("未设置进程名，无法停止")
@@ -58,7 +60,7 @@ class MacEmulatorManager(EmulatorProcessManager):
             subprocess.Popen(
                 f"pkill -9 -f {self._process_name}", shell=True
             )
-            logger.info("模拟器已停止")
+            _log.info("模拟器已停止")
         except Exception as exc:
             raise EmulatorError(f"停止模拟器失败: {exc}") from exc
 
