@@ -36,7 +36,7 @@ class DecisiveState:
 
     chapter: int = 6
     stage: int = 0
-    node: str = "A"
+    node: str = "U" # U 表示未知节点
     phase: DecisivePhase = DecisivePhase.INIT
     score: int = 10
     ships: set[str] = field(default_factory=set)

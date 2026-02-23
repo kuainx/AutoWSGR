@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+
+from autowsgr.infra.file_utils import load_yaml
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 地图静态数据
@@ -26,6 +31,19 @@ _KEY_POINTS: dict[int, list[str]] = {
     5: ["", "DFH", "DGJ", "CGJ"],
     6: ["", "BGJ", "CHJ", "DGJ"],
 }
+
+
+@lru_cache(maxsize=1)
+def _load_enemy_spec_data() -> dict:
+    """加载决战 enemy_spec.yaml 数据。"""
+    data_path = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "map"
+        / "decisive_battle"
+        / "enemy_spec.yaml"
+    )
+    return load_yaml(data_path)
 
 
 class MapData:
@@ -95,5 +113,20 @@ class MapData:
     def is_key_point(chapter: int, stage: int, node: str) -> bool:
         """判断当前节点是否为关键点 (需夜战)。"""
         return node in MapData.get_key_points(chapter, stage)
+
+    @staticmethod
+    def get_enemy(chapter: int, stage: int, node: str) -> list[str]:
+        """获取指定章节/小关/节点的敌方编成。"""
+        try:
+            data = _load_enemy_spec_data()
+            enemy_data = data.get("enemy", [])
+            chapter_data = enemy_data[chapter]
+            stage_data = chapter_data[stage]
+            node_data = stage_data.get(node.upper())
+            if isinstance(node_data, list):
+                return [str(x) for x in node_data if x]
+        except Exception:
+            return []
+        return []
 
 

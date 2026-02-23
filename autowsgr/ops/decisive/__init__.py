@@ -23,34 +23,32 @@
     │  4. 战斗引擎 (CombatEngine)                                     │
     └──────────────────────────────────────────────────────────────────┘
 
-包结构
-======
+包结构 (继承体系)
+=================
 
 ::
 
     decisive/
-    ├── __init__.py           ← 本文件 (统一导出)
-    ├── _state.py             ← DecisivePhase, DecisiveState
-    ├── _config.py            ← MapData
-    ├── _logic.py             ← DecisiveLogic (纯决策)
-    └── _controller.py        ← DecisiveResult, DecisiveController (状态机编排)
+    ├── __init__.py     ← 本文件 (统一导出)
+    ├── base.py         ← DecisiveBase (成员声明 & 初始化)
+    ├── config.py       ← MapData (地图静态数据)
+    ├── state.py        ← DecisiveState (运行时状态)
+    ├── logic.py        ← DecisiveLogic (纯决策)
+    ├── chapter.py      ← DecisiveChapterOps(DecisiveBase) (章节管理)
+    ├── handlers.py     ← DecisivePhaseHandlers(DecisiveBase) (阶段处理器)
+    └── controller.py   ← DecisiveController(DecisivePhaseHandlers, DecisiveChapterOps)
+
+    DecisiveBase
+    ├── DecisiveChapterOps(DecisiveBase)
+    ├── DecisivePhaseHandlers(DecisiveBase)
+    └── DecisiveController(DecisivePhaseHandlers, DecisiveChapterOps)
 
 UI 层 (autowsgr.ui.decisive)::
 
     ui/decisive/
-    ├── overlay.py            ← 签名/坐标常量/检测函数/DecisiveOverlay
-    └── map_controller.py     ← DecisiveMapController (地图页 UI 操作)
-
-架构分层
-========
-
-::
-
-    DecisiveController (编排器)
-    ├── DecisiveLogic          ← 纯逻辑决策 (选船/编队/修理判断/小关结束)
-    ├── DecisiveMapController  ← 地图页 UI 操作 (overlay/出征/撤退/修理)
-    ├── BattlePreparationPage  ← 出征准备页 UI (编队/修理/出征)
-    └── DecisiveBattlePage     ← 决战总览页 UI (章节导航/重置)
+    ├── overlay.py          ← 签名/坐标常量/检测函数/DecisiveOverlay
+    ├── map_controller.py   ← DecisiveMapController (地图页 UI 操作)
+    └── fleet_ocr.py        ← 舰队 OCR 识别函数
 
 使用示例
 ========
@@ -76,15 +74,18 @@ UI 层 (autowsgr.ui.decisive)::
 """
 
 from autowsgr.types import DecisivePhase, FleetSelection
-from ._config import MapData
-from ._controller import DecisiveController, DecisiveResult
-from ._logic import DecisiveLogic
-from ._state import DecisiveState
+from .base import DecisiveBase
+from .config import MapData
+from .controller import DecisiveController, DecisiveResult
+from .logic import DecisiveLogic
+from .state import DecisiveState
 from autowsgr.ui.decisive import (
     DecisiveMapController,
 )
 
 __all__ = [
+    # 基类
+    "DecisiveBase",
     # 配置 & 地图数据
     "MapData",
     # 状态
