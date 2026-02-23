@@ -409,4 +409,5 @@ class DecisiveBattlePage:
         self._ctrl.click(*CLICK_RESET_CHAPTER)
         time.sleep(1.0)
         confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
+        time.sleep(1.0) # 防止后续 stage 识别出问题
         logger.info("[UI] 决战关卡重置完成")

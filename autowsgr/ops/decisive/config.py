@@ -71,7 +71,7 @@ class MapData:
         """
         if 1 <= chapter < len(_MAP_END) and 1 <= stage <= 3:
             return _MAP_END[chapter][stage]
-        return "J"
+        raise ValueError(f"无效章节/小关: chapter={chapter}, stage={stage}")
 
     @staticmethod
     def is_stage_end(chapter: int, stage: int, node: str) -> bool:

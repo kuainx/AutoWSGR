@@ -3,11 +3,12 @@
 提供统一的舰船血量状态检测函数，基于像素颜色的欧氏距离判断。
 供出征准备页面和战斗结算页面共同使用。
 
-五种血量颜色特征:
+六种血量颜色特征:
 
 - **绿血** → :attr:`ShipDamageState.NORMAL`
 - **黄血** → :attr:`ShipDamageState.MODERATE`
-- **红血** → :attr:`ShipDamageState.SEVERE`
+- **红血(结算页)** → :attr:`ShipDamageState.SEVERE`
+- **红血(准备页)** → :attr:`ShipDamageState.SEVERE` （准备页面红色偏亮，与结算页有差异）
 - **空血** → :attr:`ShipDamageState.SEVERE` （血条耗尽，同样判定为大破）
 - **蓝色无** → :attr:`ShipDamageState.NO_SHIP`
 """
@@ -29,7 +30,10 @@ BLOOD_YELLOW = Color.of(246, 184, 51)
 """黄血 — 中破。"""
 
 BLOOD_RED = Color.of(171, 18, 17)
-"""红血 — 大破。"""
+"""红血 — 大破（结算页）。"""
+
+BLOOD_RED_PREPARE = Color.of(230, 58, 89)
+"""红血 — 大破（准备页）。"""
 
 BLOOD_EMPTY = Color.of(58, 60, 62)
 """空血 — 血条耗尽（判定为大破）。"""
@@ -41,6 +45,7 @@ _BLOOD_COLORS: tuple[tuple[Color, ShipDamageState], ...] = (
     (BLOOD_GREEN, ShipDamageState.NORMAL),
     (BLOOD_YELLOW, ShipDamageState.MODERATE),
     (BLOOD_RED, ShipDamageState.SEVERE),
+    (BLOOD_RED_PREPARE, ShipDamageState.SEVERE),
     (BLOOD_EMPTY, ShipDamageState.SEVERE),
     (BLOOD_NO_SHIP, ShipDamageState.NO_SHIP),
 )
