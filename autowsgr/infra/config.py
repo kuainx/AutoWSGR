@@ -17,8 +17,11 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 from dataclasses import dataclass, field
-from loguru import logger
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("infra")
 
 from .file_utils import load_yaml
 from autowsgr.types import (
@@ -101,10 +104,10 @@ class LogConfig(BaseModel):
     show_match_fight_stage: bool = True
     show_decisive_battle_info: bool = True
     show_ocr_info: bool = True
-    show_pixel_detail: bool = False
-    """像素规则逐条匹配日志（调试时可置 True 查看每个像素点的期望/实际/距离）。"""
-    show_image_detail: bool = False
-    """图像模板逐条匹配日志（调试时可置 True 查看每个模板的置信度/坐标）。"""
+    channels: dict[str, str] = {}
+    """通道级别覆盖。键为通道名（支持前缀匹配），值为级别字符串，如
+    ``{"vision.pixel": "TRACE", "emulator": "INFO"}``。
+    详见 :func:`~autowsgr.infra.logger.setup_logger`。"""
 
     @model_validator(mode="after")
     def _set_log_dir(self) -> LogConfig:
@@ -270,7 +273,7 @@ class UserConfig(BaseModel):
                 try:
                     updates["path"] = emu.type.auto_emulator_path(os_type)
                 except (ValueError, FileNotFoundError) as e:
-                    logger.warning("自动检测模拟器路径失败: {}", e)
+                    _log.warning("自动检测模拟器路径失败: {}", e)
             resolved_path = updates.get("path", emu.path)
             if emu.process_name is None and resolved_path is not None:
                 updates["process_name"] = os.path.basename(str(resolved_path))
@@ -420,8 +423,8 @@ class ConfigManager:
         """从文件加载用户配置。不存在时返回默认配置。"""
         path = Path(path)
         if not path.exists():
-            logger.warning("配置文件 {} 不存在，使用默认配置", path)
+            _log.warning("配置文件 {} 不存在，使用默认配置", path)
             return UserConfig()
         config = UserConfig.from_yaml(path)
-        logger.info("已加载配置: {}", path)
+        _log.info("已加载配置: {}", path)
         return config

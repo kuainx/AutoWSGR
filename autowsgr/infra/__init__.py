@@ -35,7 +35,7 @@ from .exceptions import (
     VisionError,
 )
 from .file_utils import load_yaml, merge_dicts, save_yaml
-from .logger import save_image, setup_logger
+from .logger import caller_info, get_logger, save_image, setup_logger
 
 __all__ = [
     # config
@@ -77,4 +77,6 @@ __all__ = [
     # logger
     "setup_logger",
     "save_image",
+    "get_logger",
+    "caller_info",
 ]
