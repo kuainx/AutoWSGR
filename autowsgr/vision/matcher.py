@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Sequence
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 # 从 pixel.py 导入所有数据类型 (保持向后兼容)
 from .pixel import (
@@ -39,27 +39,7 @@ from .pixel import (
     PixelSignature,
 )
 
-# ── 模块级配置 ──
-
-_show_pixel_detail: bool = False
-"""是否输出逐像素规则的 DEBUG 日志。由 :func:`configure` 或 ``setup_logger`` 设置。"""
-
-
-def configure(*, show_pixel_detail: bool = False) -> None:
-    """配置 PixelChecker 的日志行为。
-
-    TODO: 这个实现太 TM 恶心了，必须换掉
-    通常由 ``setup_logger`` 在应用启动时根据 ``LogConfig.show_pixel_detail`` 调用，
-    也可在测试或调试时手动调用。
-
-    Parameters
-    ----------
-    show_pixel_detail:
-        是否输出每条像素规则的期望/实际/距离 DEBUG 日志。
-        默认 ``False``，仅显示签名级别的匹配结果。
-    """
-    global _show_pixel_detail
-    _show_pixel_detail = show_pixel_detail
+_log = get_logger("vision.pixel")
 
 class PixelChecker:
     """像素特征检测引擎 — 视觉层核心 API。
@@ -158,28 +138,26 @@ class PixelChecker:
                     )
                 )
 
-            if _show_pixel_detail:
-                logger.debug(
-                    "[Matcher] '{}' [{:.4f},{:.4f}] 期望{} 实际{} 距离={:.1f} {}",
-                    signature.name,
-                    rule.x,
-                    rule.y,
-                    rule.color.as_rgb_tuple(),
-                    actual.as_rgb_tuple(),
-                    dist,
-                    "✓" if is_match else f"✗(容差={rule.tolerance})",
-                )
+            _log.trace(
+                "[Matcher] '{}' [{:.4f},{:.4f}] 期望{} 实际{} 距离={:.1f} {}",
+                signature.name,
+                rule.x,
+                rule.y,
+                rule.color.as_rgb_tuple(),
+                actual.as_rgb_tuple(),
+                dist,
+                "OK" if is_match else f"FAIL(容差={rule.tolerance})",
+            )
 
             # 短路优化
             if signature.strategy == MatchStrategy.ALL and not is_match:
                 if not with_details:
-                    if _show_pixel_detail:
-                        logger.debug(
-                            "[Matcher] '{}' ✗ 短路退出 — ALL 首次失败于 [{:.4f},{:.4f}]",
-                            signature.name,
-                            rule.x,
-                            rule.y,
-                        )
+                    _log.trace(
+                        "[Matcher] '{}' FAIL 短路退出 - ALL 首次失败于 [{:.4f},{:.4f}]",
+                        signature.name,
+                        rule.x,
+                        rule.y,
+                    )
                     return PixelMatchResult(
                         matched=False,
                         signature_name=signature.name,
@@ -188,13 +166,12 @@ class PixelChecker:
                     )
             elif signature.strategy == MatchStrategy.ANY and is_match:
                 if not with_details:
-                    if _show_pixel_detail:
-                        logger.debug(
-                            "[Matcher] '{}' ✓ 短路退出 — ANY 首次成功于 [{:.4f},{:.4f}]",
-                            signature.name,
-                            rule.x,
-                            rule.y,
-                        )
+                    _log.trace(
+                        "[Matcher] '{}' OK 短路退出 - ANY 首次成功于 [{:.4f},{:.4f}]",
+                        signature.name,
+                        rule.x,
+                        rule.y,
+                    )
                     return PixelMatchResult(
                         matched=True,
                         signature_name=signature.name,
@@ -212,10 +189,10 @@ class PixelChecker:
             case MatchStrategy.COUNT:
                 matched = matched_count >= signature.threshold
 
-        logger.debug(
+        _log.debug(
             "[Matcher] '{}' {} ({}/{} 规则匹配, 策略={})",
             signature.name,
-            "✓" if matched else "✗",
+            "OK" if matched else "FAIL",
             matched_count,
             total,
             signature.strategy.value,
@@ -241,9 +218,9 @@ class PixelChecker:
                 screen, sig, with_details=with_details
             )
             if result:
-                logger.debug("[Matcher] identify() → '{}'", result.signature_name)
+                _log.debug("[Matcher] identify() → '{}'", result.signature_name)
                 return result
-        logger.debug(
+        _log.debug(
             "[Matcher] identify() → None（共 {} 个签名均未匹配）", len(signatures)
         )
         return None
@@ -263,7 +240,7 @@ class PixelChecker:
             )
             if result:
                 results.append(result)
-        logger.debug(
+        _log.debug(
             "[Matcher] identify_all() → {} / {} 匹配: [{}]",
             len(results),
             len(signatures),
@@ -303,7 +280,7 @@ class PixelChecker:
                 best_dist = dist
                 best_name = name
         result_name = best_name if best_dist <= tolerance else None
-        logger.debug(
+        _log.debug(
             "[Matcher] classify_color({:.3f},{:.3f}) → {} (dist={:.1f})",
             x,
             y,

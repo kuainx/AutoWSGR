@@ -17,9 +17,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import easyocr
 import numpy as np
-from loguru import logger
 
 from autowsgr.constants import SHIPNAMES
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("vision.ocr")
 
 
 # ── 结果数据类 ──
@@ -134,12 +136,12 @@ class OCREngine(ABC):
         无结果时返回空文本、零置信度的 OCRResult。
         """
         results = self.recognize(image, allowlist)
-        _log = logger.debug if self.verbose else logger.trace
+        _log_fn = _log.debug if self.verbose else _log.trace
         if not results:
-            _log("[OCR] recognize_single: 无结果")
+            _log_fn("[OCR] recognize_single: 无结果")
             return OCRResult(text="", confidence=0.0)
         best = max(results, key=lambda r: r.confidence)
-        _log("[OCR] recognize_single: '{}' (conf={:.2f})", best.text, best.confidence)
+        _log_fn("[OCR] recognize_single: '{}' (conf={:.2f})", best.text, best.confidence)
         return best
 
     def recognize_number(
@@ -175,13 +177,13 @@ class OCREngine(ABC):
             multiplier = 1_000_000
             text = text[:-1]
 
-        _log = logger.debug if self.verbose else logger.trace
+        _log_fn = _log.debug if self.verbose else _log.trace
         try:
             value = int(float(text) * multiplier)
-            _log("[OCR] recognize_number: '{}' → {}", result.text.strip(), value)
+            _log_fn("[OCR] recognize_number: '{}' → {}", result.text.strip(), value)
             return value
         except (ValueError, TypeError):
-            _log("[OCR] recognize_number: '{}' 解析失败", result.text.strip())
+            _log_fn("[OCR] recognize_number: '{}' 解析失败", result.text.strip())
             return None
 
     def recognize_ship_name(
@@ -209,19 +211,19 @@ class OCREngine(ABC):
         if candidates is None:
             candidates = SHIPNAMES
         result = self.recognize_single(image)
-        _log = logger.debug if self.verbose else logger.trace
+        _log_fn = _log.debug if self.verbose else _log.trace
         if not result.text:
-            _log("[OCR] recognize_ship_name: 无文本")
+            _log_fn("[OCR] recognize_ship_name: 无文本")
             return None
         if result.text in REPLACE_RULE:
             matched = REPLACE_RULE[result.text]
-            _log(
+            _log_fn(
                 "[OCR] recognize_ship_name: '{}' → '{}' (替换规则)",
                 result.text, matched,
             )
             return matched
         matched = _fuzzy_match(result.text, candidates, threshold)
-        _log(
+        _log_fn(
             "[OCR] recognize_ship_name: '{}' → '{}'",
             result.text, matched if matched else "\u672a匹配",
         )
@@ -266,7 +268,7 @@ class OCREngine(ABC):
         if candidates is None:
             candidates = SHIPNAMES
         results = self.recognize(image)
-        _log = logger.debug if self.verbose else logger.trace
+        _log_fn = _log.debug if self.verbose else _log.trace
         seen: set[str] = set()
         matched: list[str] = []
         for r in results:
@@ -275,7 +277,7 @@ class OCREngine(ABC):
                 continue
             best = _fuzzy_match(text, candidates, threshold)
             if best is not None:
-                _log("[OCR] recognize_ship_names: '{}' → '{}'", text, best)
+                _log_fn("[OCR] recognize_ship_names: '{}' → '{}'", text, best)
                 if best not in seen:
                     seen.add(best)
                     matched.append(best)
@@ -285,8 +287,8 @@ class OCREngine(ABC):
                     dist = _edit_distance(text, best_candidate)
                     if dist > max_threshold:
                         raise ShipNameMismatchError(text, best_candidate, dist, max_threshold)
-                _log("[OCR] recognize_ship_names: '{}' 无匹配 (阈值={})，跳过", text, threshold)
-        _log("[OCR] recognize_ship_names: 共识别 {} 艰: {}", len(matched), matched)
+                _log_fn("[OCR] recognize_ship_names: '{}' 无匹配 (阈值={})，跳过", text, threshold)
+        _log_fn("[OCR] recognize_ship_names: 共识别 {} 艰: {}", len(matched), matched)
         return matched
 
     # ── 工厂方法 ──
@@ -313,11 +315,11 @@ class OCREngine(ABC):
         """
         cache_key = f"{engine}:{gpu}"
         if cache_key in cls._instances:
-            logger.debug("[OCR] 复用已有 {} 实例（gpu={}）", engine, gpu)
+            _log.debug("[OCR] 复用已有 {} 实例（gpu={}）", engine, gpu)
             return cls._instances[cache_key]
 
         if engine == "easyocr":
-            logger.info("[OCR] 初始化 EasyOCR（gpu={}）", gpu)
+            _log.info("[OCR] 初始化 EasyOCR（gpu={}）", gpu)
             instance = EasyOCREngine(gpu=gpu)
             cls._instances[cache_key] = instance
             return instance

@@ -20,7 +20,7 @@ from typing import Sequence
 
 import cv2
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from .image_template import (
     ImageMatchDetail,
@@ -33,31 +33,10 @@ from .matcher import MatchStrategy
 from .roi import ROI
 
 # ── 模板采集基准分辨率 ──
-# 所有模板图片均在此分辨率下采集。当截图分辨率与此不同时，
-# 引擎会自动缩放模板以适配实际截图尺寸。
 TEMPLATE_SOURCE_RESOLUTION: tuple[int, int] = (960, 540)
 """模板图片采集时的屏幕分辨率 (width, height)。"""
 
-# ── 模块级配置 ──
-
-_show_image_detail: bool = False
-"""是否输出逐模板匹配的 DEBUG 日志。由 :func:`configure` 或 ``setup_logger`` 设置。"""
-
-
-def configure(*, show_image_detail: bool = False) -> None:
-    """配置 ImageChecker 的日志行为。
-
-    通常由 ``setup_logger`` 在应用启动时根据 ``LogConfig.show_image_detail`` 调用，
-    也可在测试或调试时手动调用。
-
-    Parameters
-    ----------
-    show_image_detail:
-        是否输出每条模板匹配的 DEBUG 日志（置信度/坐标等）。
-        默认 ``False``，仅显示签名级别的匹配结果。
-    """
-    global _show_image_detail
-    _show_image_detail = show_image_detail
+_log = get_logger("vision.image")
 
 
 class ImageChecker:
@@ -145,11 +124,10 @@ class ImageChecker:
         th, tw_ = tmpl_img.shape[:2]
 
         if th > ch or tw_ > cw:
-            if _show_image_detail:
-                logger.debug(
-                    "[ImageMatcher] 模板 '{}' ({}x{}) 大于搜索区域 ({}x{})，跳过",
-                    template.name, tw_, th, cw, ch,
-                )
+            _log.trace(
+                "[ImageMatcher] 模板 '{}' ({}x{}) 大于搜索区域 ({}x{})，跳过",
+                template.name, tw_, th, cw, ch,
+            )
             return None
 
         screen_gray = cv2.cvtColor(cropped, cv2.COLOR_RGB2GRAY)
@@ -166,11 +144,10 @@ class ImageChecker:
             best_loc = max_loc
 
         if best_val < confidence:
-            if _show_image_detail:
-                logger.debug(
-                    "[ImageMatcher] 模板 '{}' 未匹配 (confidence={:.3f} < {:.3f})",
-                    template.name, best_val, confidence,
-                )
+            _log.trace(
+                "[ImageMatcher] 模板 '{}' 未匹配 (confidence={:.3f} < {:.3f})",
+                template.name, best_val, confidence,
+            )
             return None
 
         local_x, local_y = best_loc
@@ -180,11 +157,10 @@ class ImageChecker:
         rel_x2, rel_y2 = (abs_x + tw_) / w, (abs_y + th) / h
         rel_cx, rel_cy = (rel_x1 + rel_x2) / 2, (rel_y1 + rel_y2) / 2
 
-        if _show_image_detail:
-            logger.debug(
-                "[ImageMatcher] 模板 '{}' ✓ confidence={:.3f} center=({:.4f},{:.4f})",
-                template.name, best_val, rel_cx, rel_cy,
-            )
+        _log.trace(
+            "[ImageMatcher] 模板 '{}' OK confidence={:.3f} center=({:.4f},{:.4f})",
+            template.name, best_val, rel_cx, rel_cy,
+        )
         return ImageMatchDetail(
             template_name=template.name, confidence=best_val,
             center=(rel_cx, rel_cy), top_left=(rel_x1, rel_y1),
@@ -210,11 +186,10 @@ class ImageChecker:
                     best = detail
 
         matched = len(all_details) > 0
-        if _show_image_detail:
-            logger.debug(
-                "[ImageMatcher] 规则 '{}' {} ({}/{} 模板匹配)",
-                rule.name, "✓" if matched else "✗", len(all_details), len(rule),
-            )
+        _log.trace(
+            "[ImageMatcher] 规则 '{}' {} ({}/{} 模板匹配)",
+            rule.name, "OK" if matched else "FAIL", len(all_details), len(rule),
+        )
         return ImageMatchResult(
             matched=matched, rule_name=rule.name,
             best=best, all_details=tuple(all_details),

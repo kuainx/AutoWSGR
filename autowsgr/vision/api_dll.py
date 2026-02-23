@@ -27,7 +27,10 @@ from ctypes import (
 from pathlib import Path
 
 import numpy as np
-from loguru import logger
+
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("vision.dll")
 
 # DLL 所在目录 — autowsgr/data/bin/
 _BIN_DIR = Path(__file__).resolve().parent.parent / "data" / "bin"
@@ -54,7 +57,7 @@ class ApiDll:
                 f"可用文件: {list(bin_dir.glob('*.bin'))}"
             )
 
-        logger.info("[DLL] 加载: {}", dll_path)
+        _log.info("[DLL] 加载: {}", dll_path)
         self._dll = cdll.LoadLibrary(str(dll_path))
 
         # 设置函数签名
