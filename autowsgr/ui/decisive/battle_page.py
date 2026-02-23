@@ -18,7 +18,7 @@ import re
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import DecisiveEntryStatus, PageName
@@ -33,6 +33,7 @@ from autowsgr.vision import (
     OCREngine,
 )
 
+_log = get_logger("ui.decisive")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面识别签名
@@ -167,17 +168,17 @@ class DecisiveBattlePage:
         """
         check_points = _STAGE_CHECK_POINTS.get(chapter)
         if check_points is None:
-            logger.warning("[UI] 决战 recognize_stage: 未知章节 {}", chapter)
+            _log.warning("[决战] 决战 recognize_stage: 未知章节 {}", chapter)
             return 0
 
         for i, (rx, ry) in enumerate(check_points):
             if not PixelChecker.check_pixel(
                 screen, rx, ry, _STAGE_CHECK_COLOR, _STAGE_CHECK_TOLERANCE,
             ):
-                logger.info("[UI] 识别决战地图参数, 第 {} 小节正在进行", i)
+                _log.info("[决战] 识别决战地图参数, 第 {} 小节正在进行", i)
                 return i
 
-        logger.info("[UI] 识别决战地图参数, 第 3 小节正在进行")
+        _log.info("[决战] 识别决战地图参数, 第 3 小节正在进行")
         return 3
 
     # ── 导航 ──────────────────────────────────────────────────────────────
@@ -186,7 +187,7 @@ class DecisiveBattlePage:
         """点击左上角 ◁，直接返回主页面 (跨级)。"""
         from autowsgr.ui.main_page import MainPage
 
-        logger.info("[UI] 决战页面 ◁ → 主页面")
+        _log.info("[决战] 决战页面 ◁ → 主页面")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -197,7 +198,7 @@ class DecisiveBattlePage:
 
     def click_enter_map(self) -> None:
         """从决战总览页进入当前章节的决战地图页。"""
-        logger.info("[UI] 决战总览 → 进入地图")
+        _log.info("[决战] 决战总览 → 进入地图")
         self._ctrl.click(*CLICK_ENTER_MAP)
 
     # ── 章节 OCR ──────────────────────────────────────────────────────────
@@ -213,29 +214,29 @@ class DecisiveBattlePage:
         cropped = PixelChecker.crop(screen, x1, y1, x2, y2)
         result = self._ocr.recognize_single(cropped)
         if not result.text:
-            logger.debug("[UI] 决战章节 OCR 无结果")
+            _log.debug("[决战] 决战章节 OCR 无结果")
             return None
 
         m = re.search(r"(\d)", result.text[::-1])
         if m:
             chapter = int(m.group(1))
-            logger.debug("[UI] 决战章节 OCR: '{}' → Ex-{}", result.text, chapter)
+            _log.debug("[决战] 决战章节 OCR: '{}' → Ex-{}", result.text, chapter)
             return chapter
 
-        logger.debug("[UI] 决战章节 OCR 解析失败: '{}'", result.text)
+        _log.debug("[决战] 决战章节 OCR 解析失败: '{}'", result.text)
         return None
 
     # ── 章节导航 ──────────────────────────────────────────────────────────
 
     def go_prev_chapter(self) -> None:
         """点击 ◁ 切换到前一章节。"""
-        logger.info("[UI] 决战页面 → 前一章节 ◁")
+        _log.info("[决战] 决战页面 → 前一章节 ◁")
         self._ctrl.click(*CLICK_PREV_CHAPTER)
         time.sleep(_CHAPTER_SWITCH_DELAY)
 
     def go_next_chapter(self) -> None:
         """点击 ▷ 切换到后一章节。"""
-        logger.info("[UI] 决战页面 → 后一章节 ▷")
+        _log.info("[决战] 决战页面 → 后一章节 ▷")
         self._ctrl.click(*CLICK_NEXT_CHAPTER)
         time.sleep(_CHAPTER_SWITCH_DELAY)
 
@@ -270,15 +271,15 @@ class DecisiveBattlePage:
         for attempt in range(_CHAPTER_NAV_MAX_ATTEMPTS):
             current = self._read_chapter()
             if current is None:
-                logger.warning(
-                    "[UI] 决战章节导航: OCR 识别失败 (第 {} 次尝试)",
+                _log.warning(
+                    "[决战] 决战章节导航: OCR 识别失败 (第 {} 次尝试)",
                     attempt + 1,
                 )
                 time.sleep(_CHAPTER_SWITCH_DELAY)
                 continue
 
             if current == target:
-                logger.info("[UI] 决战章节导航: 已到达 Ex-{}", target)
+                _log.info("[决战] 决战章节导航: 已到达 Ex-{}", target)
                 return
 
             if current > target:
@@ -317,7 +318,7 @@ class DecisiveBattlePage:
                 f"资源类型必须为 oil/ammo/steel/aluminum，收到: {use}"
             )
 
-        logger.info("[UI] 决战页面 → 购买磁盘 (资源: {}, 次数: {})", use, times)
+        _log.info("[决战] 决战页面 → 购买磁盘 (资源: {}, 次数: {})", use, times)
         self._ctrl.click(*CLICK_BUY_TICKET_OPEN)
         time.sleep(1.5)
 
@@ -328,7 +329,7 @@ class DecisiveBattlePage:
 
         self._ctrl.click(*CLICK_BUY_CONFIRM)
         time.sleep(1.0)
-        logger.info("[UI] 决战磁盘购买完成")
+        _log.info("[决战] 决战磁盘购买完成")
 
     # ── 入口状态检测 ─────────────────────────────────────────────────────
 
@@ -383,7 +384,7 @@ class DecisiveBattlePage:
                     if t.name == detail.template_name
                 )
                 status = statuses[idx]
-                logger.info("[UI] 决战入口状态: {}", status.value)
+                _log.info("[决战] 决战入口状态: {}", status.value)
                 return status
 
             if time.monotonic() >= deadline:
@@ -405,9 +406,9 @@ class DecisiveBattlePage:
             调用前需确保已在决战总览页且已导航到目标章节。
             船坞已满处理由调用方负责。
         """
-        logger.info("[UI] 决战页面 → 重置关卡")
+        _log.info("[决战] 决战页面 → 重置关卡")
         self._ctrl.click(*CLICK_RESET_CHAPTER)
         time.sleep(1.0)
         confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
         time.sleep(1.0) # 防止后续 stage 识别出问题
-        logger.info("[UI] 决战关卡重置完成")
+        _log.info("[决战] 决战关卡重置完成")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.image_resources import Templates
 from autowsgr.ui.map.base import BaseMapPage
@@ -18,6 +18,7 @@ from autowsgr.ui.page import confirm_operation, wait_for_page
 from autowsgr.types import PageName
 from autowsgr.vision import ImageChecker, PixelChecker
 
+_log = get_logger("ui")
 
 class ExpeditionPanelMixin(BaseMapPage):
     """Mixin: 远征面板操作 — 远征收取。"""
@@ -41,7 +42,7 @@ class ExpeditionPanelMixin(BaseMapPage):
         for i, (px, py) in enumerate(EXPEDITION_SLOT_PROBES):
             actual = PixelChecker.get_pixel(screen, px, py)
             if actual.near(EXPEDITION_READY_COLOR, EXPEDITION_SLOT_TOLERANCE):
-                logger.debug(
+                _log.debug(
                     "[UI] 远征槽位 {} 就绪: 实际颜色 {} ≈ 黄色",
                     i + 1,
                     actual.as_rgb_tuple(),
@@ -72,11 +73,11 @@ class ExpeditionPanelMixin(BaseMapPage):
             if slot_idx is None:
                 # 无黄色槽位 — 检查上方探测点是否仍报告有远征
                 if not self.has_expedition_notification(screen):
-                    logger.debug("[UI] 远征收取: 无就绪槽位且无通知，结束")
+                    _log.debug("[UI] 远征收取: 无就绪槽位且无通知，结束")
                     break
 
                 # 上方探测点仍亮 — 等待槽位刷新 (最多 10s)
-                logger.debug("[UI] 远征收取: 通知仍在，等待槽位刷新…")
+                _log.debug("[UI] 远征收取: 通知仍在，等待槽位刷新…")
                 deadline = time.monotonic() + 10.0
                 while time.monotonic() < deadline:
                     time.sleep(0.1)
@@ -85,7 +86,7 @@ class ExpeditionPanelMixin(BaseMapPage):
                     if slot_idx is not None:
                         break
                     if not self.has_expedition_notification(screen):
-                        logger.debug("[UI] 远征收取: 通知消失，结束")
+                        _log.debug("[UI] 远征收取: 通知消失，结束")
                         break
                 else:
                     from autowsgr.ui.page import NavigationError
@@ -98,7 +99,7 @@ class ExpeditionPanelMixin(BaseMapPage):
                     break
 
             slot_pos = EXPEDITION_SLOT_PROBES[slot_idx]
-            logger.info(
+            _log.info(
                 "[UI] 远征收取: 点击槽位 {} ({:.4f}, {:.4f})",
                 slot_idx + 1,
                 *slot_pos,
@@ -140,5 +141,5 @@ class ExpeditionPanelMixin(BaseMapPage):
 
             collected += 1
 
-        logger.info("[UI] 远征收取: {} 支", collected)
+        _log.info("[UI] 远征收取: {} 支", collected)
         return collected

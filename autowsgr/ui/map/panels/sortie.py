@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.ui.map.base import BaseMapPage
 from autowsgr.ui.map.data import (
@@ -17,6 +17,7 @@ from autowsgr.ui.map.data import (
 from autowsgr.ui.page import click_and_wait_for_page, wait_for_page
 from autowsgr.types import PageName
 
+_log = get_logger("ui")
 
 class SortiePanelMixin(BaseMapPage):
     """Mixin: 出征面板操作 — 选择章节 / 地图节点 / 进入出征准备。"""
@@ -40,7 +41,7 @@ class SortiePanelMixin(BaseMapPage):
         """
         from autowsgr.ui.battle.preparation import BattlePreparationPage
 
-        logger.info("[UI] 地图页面 → 进入出征 {}-{}", chapter, map_num)
+        _log.info("[UI] 地图页面 → 进入出征 {}-{}", chapter, map_num)
 
         # 1. 确保在出征面板
         self.ensure_panel(MapPanel.SORTIE)

@@ -15,7 +15,7 @@ from __future__ import annotations
 import enum
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.vision import (
     MatchStrategy,
@@ -24,6 +24,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui.decisive")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -217,7 +218,7 @@ def detect_decisive_overlay(screen: np.ndarray) -> DecisiveOverlay | None:
     """
     for overlay_type, sig in OVERLAY_SIGNATURES:
         if PixelChecker.check_signature(screen, sig):
-            logger.debug("[决战] 检测到 overlay: {}", overlay_type.value)
+            _log.debug("[决战] 检测到 overlay: {}", overlay_type.value)
             return overlay_type
     return None
 

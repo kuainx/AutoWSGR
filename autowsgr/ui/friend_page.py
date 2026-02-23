@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
@@ -28,6 +28,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面识别签名
@@ -102,7 +103,7 @@ class FriendPage:
         """
         from autowsgr.ui.sidebar_page import SidebarPage
 
-        logger.info("[UI] 好友 → 返回侧边栏")
+        _log.info("[UI] 好友 → 返回侧边栏")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,

@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.image_resources import Templates
@@ -30,6 +30,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面识别签名
@@ -137,7 +138,7 @@ class CanteenPage:
         """
         from autowsgr.ui.backyard_page import BackyardPage
 
-        logger.info("[UI] 食堂 → 返回后院")
+        _log.info("[UI] 食堂 → 返回后院")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -163,22 +164,22 @@ class CanteenPage:
         """
         if position not in CLICK_RECIPE:
             raise ValueError(f"菜谱编号必须为 1–3，收到: {position}")
-        logger.info("[UI] 食堂 → 选择菜谱 {}", position)
+        _log.info("[UI] 食堂 → 选择菜谱 {}", position)
         self._ctrl.click(*CLICK_RECIPE[position])
 
     def confirm_force_cook(self) -> None:
         """「效果正在生效」弹窗 → 点击继续做菜。"""
-        logger.info("[UI] 食堂 → 确认继续做菜 (覆盖生效中的菜)")
+        _log.info("[UI] 食堂 → 确认继续做菜 (覆盖生效中的菜)")
         self._ctrl.click(*CLICK_FORCE_COOK)
 
     def cancel_force_cook(self) -> None:
         """「效果正在生效」弹窗 → 取消做菜。"""
-        logger.info("[UI] 食堂 → 取消做菜 (保留生效中的菜)")
+        _log.info("[UI] 食堂 → 取消做菜 (保留生效中的菜)")
         self._ctrl.click(*CLICK_CANCEL_COOK)
 
     def dismiss_popup(self) -> None:
         """关闭弹窗 (通用关闭按钮)。"""
-        logger.info("[UI] 食堂 → 关闭弹窗")
+        _log.info("[UI] 食堂 → 关闭弹窗")
         self._ctrl.click(*CLICK_DISMISS_POPUP)
 
     def click_to_skip_animation(self) -> None:
@@ -186,7 +187,7 @@ class CanteenPage:
 
         目前仅在做菜过程中使用，点击坐标为屏幕右下角。
         """
-        logger.info("[UI] 食堂 → 点击跳过动画")
+        _log.info("[UI] 食堂 → 点击跳过动画")
         self._ctrl.click(0.9, 0.9)
     # ── 组合动作 — 做菜 ──
 
@@ -242,6 +243,6 @@ class CanteenPage:
                 return False
 
         self.click_to_skip_animation()
-        logger.info("[UI] 做菜完成 (菜谱 {})", position)
+        _log.info("[UI] 做菜完成 (菜谱 {})", position)
     
         return True

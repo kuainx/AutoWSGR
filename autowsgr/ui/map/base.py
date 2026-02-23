@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ui.map.data import (
@@ -45,6 +45,7 @@ from autowsgr.ui.tabbed_page import (
 )
 from autowsgr.vision import OCREngine, PixelChecker
 
+_log = get_logger("ui")
 
 class BaseMapPage:
     """地图页面基类。
@@ -122,7 +123,7 @@ class BaseMapPage:
             return None
 
         center = sum(bright_ys) / len(bright_ys)
-        logger.debug(
+        _log.debug(
             "[UI] 侧边栏选中章节: y_center={:.3f} ({}个亮点)",
             center,
             len(bright_ys),
@@ -143,14 +144,14 @@ class BaseMapPage:
         cropped = PixelChecker.crop(screen, x1, y1, x2, y2)
         result = ocr.recognize_single(cropped)
         if not result.text:
-            logger.debug("[UI] 地图标题 OCR 无结果")
+            _log.debug("[UI] 地图标题 OCR 无结果")
             return None
 
         info = parse_map_title(result.text)
         if info is None:
-            logger.debug("[UI] 地图标题解析失败: '{}'", result.text)
+            _log.debug("[UI] 地图标题解析失败: '{}'", result.text)
         else:
-            logger.debug(
+            _log.debug(
                 "[UI] 地图识别: 第{}章 {}-{} {}",
                 info.chapter,
                 info.chapter,
@@ -167,7 +168,7 @@ class BaseMapPage:
         """点击回退按钮 (◁)，返回主页面。"""
         from autowsgr.ui.main_page import MainPage
 
-        logger.info("[UI] 地图页面 → 回退")
+        _log.info("[UI] 地图页面 → 回退")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -179,7 +180,7 @@ class BaseMapPage:
     def switch_panel(self, panel: MapPanel) -> None:
         """切换到指定面板标签并验证到达。"""
         current = self.get_active_panel(self._ctrl.screenshot())
-        logger.info(
+        _log.info(
             "[UI] 地图页面: {} → {}",
             current.value if current else "未知",
             panel.value,
@@ -213,13 +214,13 @@ class BaseMapPage:
             screen = self._ctrl.screenshot()
         sel_y = self.find_selected_chapter_y(screen)
         if sel_y is None:
-            logger.warning("[UI] 侧边栏未找到选中章节，无法切换")
+            _log.warning("[UI] 侧边栏未找到选中章节，无法切换")
             return False
         target_y = sel_y - CHAPTER_SPACING
         if target_y < SIDEBAR_SCAN_Y_RANGE[0]:
-            logger.warning("[UI] 已在最前章节，无法继续向前")
+            _log.warning("[UI] 已在最前章节，无法继续向前")
             return False
-        logger.info("[UI] 地图页面 → 上一章 (y={:.3f})", target_y)
+        _log.info("[UI] 地图页面 → 上一章 (y={:.3f})", target_y)
         self._ctrl.click(SIDEBAR_CLICK_X, target_y)
         return True
 
@@ -229,13 +230,13 @@ class BaseMapPage:
             screen = self._ctrl.screenshot()
         sel_y = self.find_selected_chapter_y(screen)
         if sel_y is None:
-            logger.warning("[UI] 侧边栏未找到选中章节，无法切换")
+            _log.warning("[UI] 侧边栏未找到选中章节，无法切换")
             return False
         target_y = sel_y + CHAPTER_SPACING
         if target_y > SIDEBAR_SCAN_Y_RANGE[1]:
-            logger.warning("[UI] 已在最后章节，无法继续向后")
+            _log.warning("[UI] 已在最后章节，无法继续向后")
             return False
-        logger.info("[UI] 地图页面 → 下一章 (y={:.3f})", target_y)
+        _log.info("[UI] 地图页面 → 下一章 (y={:.3f})", target_y)
         self._ctrl.click(SIDEBAR_CLICK_X, target_y)
         return True
 
@@ -258,17 +259,17 @@ class BaseMapPage:
             screen = self._ctrl.screenshot()
             info = self.recognize_map(screen, self._ocr)
             if info is None:
-                logger.warning(
+                _log.warning(
                     "[UI] 章节导航: OCR 识别失败 (第 {} 次尝试)", attempt + 1
                 )
                 return None
 
             current = info.chapter
             if current == target:
-                logger.info("[UI] 章节导航: 已到达第 {} 章", target)
+                _log.info("[UI] 章节导航: 已到达第 {} 章", target)
                 return current
 
-            logger.info(
+            _log.info(
                 "[UI] 章节导航: 当前第 {} 章 → 目标第 {} 章",
                 current,
                 target,
@@ -280,12 +281,12 @@ class BaseMapPage:
                 ok = self.click_next_chapter(screen)
 
             if not ok:
-                logger.warning("[UI] 章节导航: 点击失败，终止")
+                _log.warning("[UI] 章节导航: 点击失败，终止")
                 return None
 
             time.sleep(CHAPTER_NAV_DELAY)
 
-        logger.warning(
+        _log.warning(
             "[UI] 章节导航: 超过最大尝试次数 ({}), 目标第 {} 章",
             CHAPTER_NAV_MAX_ATTEMPTS,
             target,

@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 
@@ -25,6 +25,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 点击坐标 (960×540 基准)
@@ -96,7 +97,7 @@ class ChooseShipPage:
 
     def click_search_box(self) -> None:
         """点击搜索框，准备输入舰船名。"""
-        logger.info("[UI] 选船 → 打开搜索框")
+        _log.info("[UI] 选船 → 打开搜索框")
         self._ctrl.click(*CLICK_SEARCH_BOX)
 
     def input_ship_name(self, name: str) -> None:
@@ -109,20 +110,20 @@ class ChooseShipPage:
         name:
             舰船名 (中文)。
         """
-        logger.info("[UI] 选船 → 输入舰船名 '{}'", name)
+        _log.info("[UI] 选船 → 输入舰船名 '{}'", name)
         self._ctrl.text(name)
 
     def dismiss_keyboard(self) -> None:
         """点击空白区域关闭软键盘。"""
-        logger.info("[UI] 选船 → 关闭键盘")
+        _log.info("[UI] 选船 → 关闭键盘")
         self._ctrl.click(*CLICK_DISMISS_KEYBOARD)
 
     def click_first_result(self) -> None:
         """点击搜索结果中的第一个舰船。"""
-        logger.info("[UI] 选船 → 点击第一个结果")
+        _log.info("[UI] 选船 → 点击第一个结果")
         self._ctrl.click(*CLICK_FIRST_RESULT)
 
     def click_remove(self) -> None:
         """点击「移除」按钮，移除当前槽位的舰船。"""
-        logger.info("[UI] 选船 → 移除舰船")
+        _log.info("[UI] 选船 → 移除舰船")
         self._ctrl.click(*CLICK_REMOVE_SHIP)

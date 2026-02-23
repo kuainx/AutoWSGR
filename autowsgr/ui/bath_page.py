@@ -40,7 +40,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.vision import (
@@ -50,6 +50,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面识别签名
@@ -221,7 +222,7 @@ class BathPage:
         """
         from autowsgr.ui.page import wait_for_page
 
-        logger.info("[UI] 浴室 → 打开选择修理 overlay")
+        _log.info("[UI] 浴室 → 打开选择修理 overlay")
         if not self.has_choose_repair_overlay(self._ctrl.screenshot()):
             self._ctrl.click(*CLICK_CHOOSE_REPAIR)
         wait_for_page(
@@ -241,7 +242,7 @@ class BathPage:
         """
         from autowsgr.ui.page import wait_for_page
 
-        logger.info("[UI] 关闭选择修理 overlay")
+        _log.info("[UI] 关闭选择修理 overlay")
         self._ctrl.click(*CLICK_CLOSE_OVERLAY)
         # 等待 overlay 消失，基础浴室签名恢复
         wait_for_page(
@@ -268,7 +269,7 @@ class BathPage:
         """
         from autowsgr.ui.page import NavigationError
 
-        logger.info("[UI] 选择修理 → 点击第一个舰船")
+        _log.info("[UI] 选择修理 → 点击第一个舰船")
 
         # 确认 overlay 已打开
         screen = self._ctrl.screenshot()
@@ -351,7 +352,7 @@ class BathPage:
 
         旧代码参考: ``timer.relative_swipe(0.33, 0.5, 0.66, 0.5)`` (反向)。
         """
-        logger.debug("[UI] 选择修理 overlay: 向左滑动")
+        _log.debug("[UI] 选择修理 overlay: 向左滑动")
         self._ctrl.swipe(
             *_SWIPE_START, *_SWIPE_END,
             duration=_SWIPE_DURATION,
@@ -396,7 +397,7 @@ class BathPage:
             self.close_choose_repair_overlay()
             return
 
-        logger.info("[UI] 浴室 → 返回")
+        _log.info("[UI] 浴室 → 返回")
         self._ctrl.click(*CLICK_BACK)
         wait_leave_page(
             self._ctrl,

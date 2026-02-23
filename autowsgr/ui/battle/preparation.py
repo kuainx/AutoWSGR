@@ -11,7 +11,7 @@ import time
 from collections.abc import Sequence
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ui.battle.blood import classify_blood
@@ -38,6 +38,7 @@ from autowsgr.ui.page import click_and_wait_leave_page
 from autowsgr.types import PageName, ShipDamageState
 from autowsgr.vision import PixelChecker, PixelSignature, PixelRule, MatchStrategy, OCREngine
 
+_log = get_logger("ui.preparation")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -155,7 +156,7 @@ class BattlePreparationPage:
         """点击回退按钮 (◁)，返回地图页面。"""
         from autowsgr.ui.map.page import MapPage
 
-        logger.info("[UI] 出征准备 → 回退")
+        _log.info("[UI] 出征准备 → 回退")
         click_and_wait_leave_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -166,7 +167,7 @@ class BattlePreparationPage:
 
     def start_battle(self) -> None:
         """点击「开始出征」按钮。"""
-        logger.info("[UI] 出征准备 → 开始出征")
+        _log.info("[UI] 出征准备 → 开始出征")
         self._ctrl.click(*CLICK_START_BATTLE)
 
     # ── 动作 — 舰队/面板选择 ──
@@ -175,12 +176,12 @@ class BattlePreparationPage:
         """选择舰队 (1–4)。"""
         if fleet not in CLICK_FLEET:
             raise ValueError(f"舰队编号必须为 1–4，收到: {fleet}")
-        logger.info("[UI] 出征准备 → 选择 {}队", fleet)
+        _log.info("[UI] 出征准备 → 选择 {}队", fleet)
         self._ctrl.click(*CLICK_FLEET[fleet])
 
     def select_panel(self, panel: Panel) -> None:
         """切换底部面板标签。"""
-        logger.info("[UI] 出征准备 → {}", panel.value)
+        _log.info("[UI] 出征准备 → {}", panel.value)
         self._ctrl.click(*CLICK_PANEL[panel])
 
     def quick_supply(self) -> None:
@@ -195,12 +196,12 @@ class BattlePreparationPage:
 
     def toggle_battle_support(self) -> None:
         """切换战役支援开关。"""
-        logger.info("[UI] 出征准备 → 切换战役支援")
+        _log.info("[UI] 出征准备 → 切换战役支援")
         self._ctrl.click(*CLICK_SUPPORT)
 
     def toggle_auto_supply(self) -> None:
         """切换自动补给开关。"""
-        logger.info("[UI] 出征准备 → 切换自动补给")
+        _log.info("[UI] 出征准备 → 切换自动补给")
         self._ctrl.click(*CLICK_AUTO_SUPPLY)
 
     # ── 状态查询 — 舰船血量 ──
@@ -218,7 +219,7 @@ class BattlePreparationPage:
         for slot, (x, y) in BLOOD_BAR_PROBE.items():
             pixel = PixelChecker.get_pixel(screen, x, y)
             result[slot] = classify_blood(pixel)
-        logger.debug(
+        _log.debug(
             "[准备页] 血量检测: {}",
             " | ".join(f"槽{i}={result[i].name}" for i in range(len(result))),
         )
@@ -248,11 +249,11 @@ class BattlePreparationPage:
         time.sleep(0.5)
         for sid in ship_ids:
             if sid not in CLICK_SHIP_SLOT:
-                logger.warning("[UI] 无效槽位: {}", sid)
+                _log.warning("[UI] 无效槽位: {}", sid)
                 continue
             self._ctrl.click(*CLICK_SHIP_SLOT[sid])
             time.sleep(0.3)
-        logger.info("[UI] 出征准备 → 补给 {}", ship_ids)
+        _log.info("[UI] 出征准备 → 补给 {}", ship_ids)
 
     def repair_slots(self, positions: list[int]) -> None:
         """切换到快速修理面板并修理指定位置的舰船。"""
@@ -262,17 +263,17 @@ class BattlePreparationPage:
         time.sleep(0.8)
         for pos in positions:
             if pos not in BLOOD_BAR_PROBE:
-                logger.warning("[UI] 无效修理位置: {}", pos)
+                _log.warning("[UI] 无效修理位置: {}", pos)
                 continue
             self._ctrl.click(*BLOOD_BAR_PROBE[pos])
             time.sleep(1.5)
-            logger.info("[UI] 出征准备 → 修理位置 {}", pos)
+            _log.info("[UI] 出征准备 → 修理位置 {}", pos)
 
     def click_ship_slot(self, slot: int) -> None:
         """点击指定舰船槽位 (0–5)。"""
         if slot not in CLICK_SHIP_SLOT:
             raise ValueError(f"舰船槽位必须为 0–5，收到: {slot}")
-        logger.info("[UI] 出征准备 → 点击舰船位 {}", slot)
+        _log.info("[UI] 出征准备 → 点击舰船位 {}", slot)
         self._ctrl.click(*CLICK_SHIP_SLOT[slot])
 
     # ── 组合动作 — 修理 / 补给 / 换船 ──
@@ -307,7 +308,7 @@ class BattlePreparationPage:
 
         if positions:
             self.repair_slots(positions)
-            logger.info("[UI] 修理位置: {} (策略: {})", positions, strategy.value)
+            _log.info("[UI] 修理位置: {} (策略: {})", positions, strategy.value)
         return positions
 
     def apply_supply(self) -> None:
@@ -340,7 +341,7 @@ class BattlePreparationPage:
         if fleet_id == 1:
             raise ValueError("不支持更换 1 队舰船编成")
 
-        logger.info("[UI] 更换 {} 队编成: {}", fleet_id, ship_names)
+        _log.info("[UI] 更换 {} 队编成: {}", fleet_id, ship_names)
 
         names = list(ship_names) + [None] * 6
         names = [n if n else None for n in names[:6]]
@@ -366,7 +367,7 @@ class BattlePreparationPage:
             self._change_single_ship(slot, name, slot_occupied=occupied)
             time.sleep(0.3)
 
-        logger.info("[UI] {} 队编成更换完成", fleet_id)
+        _log.info("[UI] {} 队编成更换完成", fleet_id)
         return True
 
     def _change_single_ship(
@@ -401,11 +402,11 @@ class BattlePreparationPage:
 
         screen = self._ctrl.screenshot()
         if self._ocr is None:
-            logger.warning("[UI] 未提供 OCR 引擎，无法验证舰船名称")
+            _log.warning("[UI] 未提供 OCR 引擎，无法验证舰船名称")
         else:
             ship_name = self._ocr.recognize_ship_name(screen, [name])
             if ship_name != name:
-                logger.warning("[UI] 未精确匹配 '{}', OCR 识别: '{}'", name, ship_name)
+                _log.warning("[UI] 未精确匹配 '{}', OCR 识别: '{}'", name, ship_name)
 
         choose_page.click_first_result()
         time.sleep(1.0)

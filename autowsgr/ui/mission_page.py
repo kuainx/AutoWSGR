@@ -15,7 +15,7 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.image_resources import Templates
@@ -24,6 +24,7 @@ from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.ui.tabbed_page import TabbedPageType, identify_page_type
 from autowsgr.vision import ImageChecker
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 点击坐标
@@ -80,7 +81,7 @@ class MissionPage:
         """
         from autowsgr.ui.main_page import MainPage
 
-        logger.info("[UI] 任务页面 → 返回主页面")
+        _log.info("[UI] 任务页面 → 返回主页面")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -93,7 +94,7 @@ class MissionPage:
 
     def dismiss_reward_popup(self) -> None:
         """点击屏幕中央，关闭领取奖励后的弹窗。"""
-        logger.info("[UI] 任务页面 → 关闭奖励弹窗")
+        _log.info("[UI] 任务页面 → 关闭奖励弹窗")
         self._ctrl.click(*CLICK_CONFIRM_CENTER)
 
     # ── 组合动作 — 奖励收取 ──

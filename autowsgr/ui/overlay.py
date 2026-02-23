@@ -34,7 +34,7 @@ from __future__ import annotations
 import enum
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.vision import (
@@ -44,6 +44,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ---------------------------------------------------------------------------
 # 异常
@@ -145,11 +146,11 @@ def detect_overlay(screen: np.ndarray) -> OverlayType | None:
         检测到的浮层类型，无浮层返回 ``None``。
     """
     if PixelChecker.check_signature(screen, _SIG_NEWS).matched:
-        logger.debug("[UI] 检测到浮层: 新闻公告")
+        _log.debug("[UI] 检测到浮层: 新闻公告")
         return OverlayType.NEWS
 
     if PixelChecker.check_signature(screen, _SIG_SIGN).matched:
-        logger.debug("[UI] 检测到浮层: 每日签到")
+        _log.debug("[UI] 检测到浮层: 每日签到")
         return OverlayType.SIGN
 
     return None
@@ -181,13 +182,13 @@ def dismiss_news(ctrl: AndroidController, screen: np.ndarray | None = None) -> N
     # 若「不再显示」未勾选，先勾选
     not_show_checked = PixelChecker.check_signature(screen, _SIG_NOT_SHOW_NEWS).matched
     if not not_show_checked:
-        logger.info("[UI] 新闻公告: 勾选「不再显示」")
+        _log.info("[UI] 新闻公告: 勾选「不再显示」")
         ctrl.click(*_CLICK_NEWS_NOT_SHOW)
         import time
         time.sleep(0.3)
 
     # 关闭新闻
-    logger.info("[UI] 新闻公告: 关闭")
+    _log.info("[UI] 新闻公告: 关闭")
     ctrl.click(*_CLICK_NEWS_CLOSE)
 
 
@@ -204,7 +205,7 @@ def dismiss_sign(ctrl: AndroidController) -> None:
     # TODO: 7 日签到可能会爆舰船出来，需要额外处理
     from .page import confirm_operation
     
-    logger.info("[UI] 每日签到: 关闭")
+    _log.info("[UI] 每日签到: 关闭")
     ctrl.click(*_CLICK_SIGN_CONFIRM)
     confirm_operation(ctrl, must_confirm=True, timeout=5.0)
 

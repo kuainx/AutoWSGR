@@ -15,7 +15,7 @@ import time
 
 import cv2
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.infra import DecisiveConfig, save_image
@@ -30,6 +30,7 @@ from autowsgr.ui.decisive.overlay import (
 )
 from autowsgr.vision import OCREngine, ROI
 
+_log = get_logger("ui.decisive")
 
 def recognize_fleet_options(
     ocr: OCREngine,
@@ -53,9 +54,9 @@ def recognize_fleet_options(
     score = score_val if score_val is not None else 0
     # TODO: 分数 OCR 需要改进
     if score_val is not None:
-        logger.debug("[舰队OCR] 可用分数: {}", score_val)
+        _log.debug("[舰队OCR] 可用分数: {}", score_val)
     else:
-        logger.warning("[舰队OCR] 分数 OCR 失败")
+        _log.warning("[舰队OCR] 分数 OCR 失败")
 
     # 2. 识别费用整行
     cost_roi = ROI(
@@ -71,8 +72,8 @@ def recognize_fleet_options(
         try:
             costs.append(int(text))
         except (ValueError, TypeError):
-            logger.debug("[舰队OCR] 费用解析跳过: '{}'", r.text)
-    logger.debug("[舰队OCR] 识别到 {} 项费用: {}", len(costs), costs)
+            _log.debug("[舰队OCR] 费用解析跳过: '{}'", r.text)
+    _log.debug("[舰队OCR] 识别到 {} 项费用: {}", len(costs), costs)
 
     # 3. 对可负担的卡识别舰船名
     selections: dict[str, FleetSelection] = {}
@@ -91,7 +92,7 @@ def recognize_fleet_options(
         if name is None:
             raw = ocr.recognize_single(name_img)
             name = raw.text.strip() if raw.text.strip() else f"未识别_{i}"
-            logger.debug("[舰队OCR] 舰船名模糊匹配失败, 原文: '{}'", name)
+            _log.debug("[舰队OCR] 舰船名模糊匹配失败, 原文: '{}'", name)
 
         click_x = FLEET_CARD_X_POSITIONS[i] if i < len(FLEET_CARD_X_POSITIONS) else 0.5
         click_y = FLEET_CARD_CLICK_Y
@@ -102,7 +103,7 @@ def recognize_fleet_options(
             click_position=(click_x, click_y),
         )
 
-    logger.info("[舰队OCR] 舰队选项: {}", {k: v.cost for k, v in selections.items()})
+    _log.info("[舰队OCR] 舰队选项: {}", {k: v.cost for k, v in selections.items()})
     return (score, selections)
 
 
@@ -218,7 +219,7 @@ def locate_ship_rows(
 
     dll = get_api_dll()
     rows = dll.locate(list_720p)
-    logger.debug("[舰队OCR] DLL 定位到 {} 行候选项", len(rows))
+    _log.debug("[舰队OCR] DLL 定位到 {} 行候选项", len(rows))
 
     # 在原始分辨率上裁剪并 OCR（用原图的左 82% 区域）
     list_w_native = int(w * _LEGACY_LIST_WIDTH / _LEGACY_WIDTH)
@@ -253,7 +254,7 @@ def locate_ship_rows(
                 cy = (y_start + y_end) / 2 / h
             found.append((name, cx, cy))
 
-    logger.debug(
+    _log.debug(
         "[舰队OCR] 选船列表识别: {} (共 {} 行)",
         sorted({n for n, _, _ in found}), len(rows),
     )

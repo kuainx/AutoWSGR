@@ -17,11 +17,12 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.vision import MatchStrategy, PixelChecker, PixelRule, PixelSignature
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面识别签名
@@ -95,6 +96,6 @@ class StartScreenPage:
         点击坐标为 :data:`CLICK_ENTER` ``(0.9, 0.85)``，点击后等待
         :data:`_CLICK_SETTLE` 秒让画面稳定，之后可开始检测登录浮层。
         """
-        logger.info("[StartScreen] 点击「点击进入」按钮 {}", CLICK_ENTER)
+        _log.info("[UI] 点击「点击进入」按钮 {}", CLICK_ENTER)
         self._ctrl.click(*CLICK_ENTER)
         time.sleep(_CLICK_SETTLE)

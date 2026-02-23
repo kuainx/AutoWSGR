@@ -16,7 +16,7 @@ from __future__ import annotations
 import enum
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
@@ -28,6 +28,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -131,7 +132,7 @@ class BackyardPage:
             BackyardTarget.BATH: BathPage.is_current_page,
             BackyardTarget.CANTEEN: CanteenPage.is_current_page,
         }
-        logger.info("[UI] 后院 → {}", target.value)
+        _log.info("[UI] 后院 → {}", target.value)
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_NAV[target],
@@ -160,7 +161,7 @@ class BackyardPage:
         """
         from autowsgr.ui.main_page import MainPage
 
-        logger.info("[UI] 后院 → 返回主页面")
+        _log.info("[UI] 后院 → 返回主页面")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,

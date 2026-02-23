@@ -19,7 +19,7 @@ from __future__ import annotations
 import enum
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
@@ -31,6 +31,7 @@ from autowsgr.ui.tabbed_page import (
     make_tab_checker,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -144,7 +145,7 @@ class IntensifyPage:
             超时未到达目标标签。
         """
         current = self.get_active_tab(self._ctrl.screenshot())
-        logger.info(
+        _log.info(
             "[UI] 强化页面: {} → {}",
             current.value if current else "未知",
             tab.value,
@@ -170,7 +171,7 @@ class IntensifyPage:
         """
         from autowsgr.ui.sidebar_page import SidebarPage
 
-        logger.info("[UI] 强化页面 → 返回侧边栏")
+        _log.info("[UI] 强化页面 → 返回侧边栏")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,

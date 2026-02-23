@@ -17,7 +17,7 @@ import time
 
 import cv2
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 from autowsgr.infra import save_image
 import autowsgr.ui.decisive.fleet_ocr as _fleet_ocr
 from autowsgr.ui.decisive.overlay import (
@@ -42,6 +42,8 @@ from autowsgr.vision import PixelChecker, ROI, get_api_dll, OCREngine, ImageChec
 from autowsgr.types import FleetSelection, DecisivePhase, ShipDamageState
 from autowsgr.infra import DecisiveConfig
 from autowsgr.emulator import AndroidController
+
+_log = get_logger("ui.decisive")
 
 SKILL_USED = PixelSignature(
     name="skill_used",
@@ -127,13 +129,13 @@ class DecisiveMapController:
         if ImageChecker.template_exists(
             screen, Templates.Build.SHIP_FULL_DEPOT, confidence=0.8,
         ):
-            logger.warning("[地图控制器] 检测到船坞已满弹窗")
+            _log.warning("[地图控制器] 检测到船坞已满弹窗")
             return DecisivePhase.DOCK_FULL
 
         if ImageChecker.template_exists(
             screen, Templates.Decisive.USE_LAST_FLEET, confidence=0.8,
         ):
-            logger.info("[地图控制器] 检测到「使用上次舰队」按钮")
+            _log.info("[地图控制器] 检测到「使用上次舰队」按钮")
             return DecisivePhase.USE_LAST_FLEET
 
         if is_decisive_map_page(screen):
@@ -217,7 +219,7 @@ class DecisiveMapController:
             if icon_rel_x is None:
                 raise RuntimeError("决战节点识别失败: 舰船指示器超时未出现")
 
-            logger.debug("[地图控制器] 舰船指示器位置: X={:.3f}", icon_rel_x)
+            _log.debug("[地图控制器] 舰船指示器位置: X={:.3f}", icon_rel_x)
 
             # 2. 取新截图，按舰标 X 裁剪竖列
             fresh_screen = self._ctrl.screenshot()
@@ -232,14 +234,14 @@ class DecisiveMapController:
             try:
                 result = dll.recognize_map(col_crop)
                 if result != "0":
-                    logger.info("[地图控制器] 识别决战节点: {}", result[0])
+                    _log.info("[地图控制器] 识别决战节点: {}", result[0])
                     return result[0]
             except Exception:
-                logger.warning("[地图控制器] DLL 节点识别异常", exc_info=True)
+                _log.warning("[地图控制器] DLL 节点识别异常", exc_info=True)
 
             if retry >= _MAX_RETRY:
                 break
-            logger.warning(
+            _log.warning(
                 "[地图控制器] 节点识别失败, 正在重试第 {} 次", retry + 1,
             )
 
@@ -339,7 +341,7 @@ class DecisiveMapController:
         """
         from autowsgr.ui.choose_ship_page import ChooseShipPage
 
-        logger.info("[地图控制器] 扫描当前编队与可用舰船")
+        _log.info("[地图控制器] 扫描当前编队与可用舰船")
 
         self.enter_formation()
         page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
@@ -371,7 +373,7 @@ class DecisiveMapController:
         page.go_back()
         time.sleep(1.0)
 
-        logger.info(
+        _log.info(
             "[地图控制器] 编队={}, 可用舰船={}",
             fleet, sorted(all_ships),
         )
@@ -416,7 +418,7 @@ class DecisiveMapController:
         self._ctrl.click(0.03, 0.06)
         time.sleep(1.0)
         if not is_decisive_map_page(self._ctrl.screenshot()):
-            logger.warning("[地图控制器] 无法确认已回到地图页")
+            _log.warning("[地图控制器] 无法确认已回到地图页")
 
     def open_retreat_dialog(self) -> None:
         """点击左上角撤退按钮，打开确认退出 overlay。"""
@@ -463,14 +465,14 @@ class DecisiveMapController:
                 if detail is None:
                     break
 
-            logger.info("[地图控制器] 检测到掉落: '{}'", detail.template_name)
+            _log.info("[地图控制器] 检测到掉落: '{}'", detail.template_name)
             collected.append(detail.template_name)
             self._ctrl.click(0.953, 0.954)
             time.sleep(0.5)
             confirm_operation(self._ctrl, timeout=1.0)
 
         if collected:
-            logger.info("[地图控制器] 小关通关共收集 {} 个掉落", len(collected))
+            _log.info("[地图控制器] 小关通关共收集 {} 个掉落", len(collected))
         return collected
 
     # ══════════════════════════════════════════════════════════════════════
@@ -479,7 +481,7 @@ class DecisiveMapController:
 
     def repair_at_node(self, repair_level: int) -> list[int]:
         """进入出征准备页 → 执行快速修理 → 返回地图页。"""
-        logger.info("[地图控制器] 节点间修理 (等级: {})", repair_level)
+        _log.info("[地图控制器] 节点间修理 (等级: {})", repair_level)
 
         self._ctrl.click(*CLICK_SORTIE)
         time.sleep(2.0)
@@ -489,9 +491,9 @@ class DecisiveMapController:
         repaired = page.apply_repair(strategy)
 
         if repaired:
-            logger.info("[地图控制器] 修理完成, 修理槽位: {}", repaired)
+            _log.info("[地图控制器] 修理完成, 修理槽位: {}", repaired)
         else:
-            logger.debug("[地图控制器] 无需修理")
+            _log.debug("[地图控制器] 无需修理")
 
         page.go_back()
         time.sleep(1.0)
@@ -514,7 +516,7 @@ class DecisiveMapController:
         ship_names:
             目标舰船名列表 (按槽位 0–5)；``None``/``""`` 表示该位留空。
         """
-        logger.info("[地图控制器] 进入准备页换船: {} 队 → {}", fleet_id, ship_names)
+        _log.info("[地图控制器] 进入准备页换船: {} 队 → {}", fleet_id, ship_names)
         page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
         page.change_fleet(fleet_id, ship_names)
 

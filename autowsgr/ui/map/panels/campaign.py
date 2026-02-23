@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.ui.map.base import BaseMapPage
 from autowsgr.ui.map.data import (
@@ -18,6 +18,7 @@ from autowsgr.ui.page import wait_for_page
 from autowsgr.types import PageName
 from autowsgr.vision import PixelChecker
 
+_log = get_logger("ui")
 
 class CampaignPanelMixin(BaseMapPage):
     """Mixin: 战役面板操作 — 难度识别 / 切换 / 进入战役。"""
@@ -50,7 +51,7 @@ class CampaignPanelMixin(BaseMapPage):
             time.sleep(0.25)
             retry += 1
 
-        logger.warning("[UI] 无法识别难度: 检测点颜色不匹配简单或困难")
+        _log.warning("[UI] 无法识别难度: 检测点颜色不匹配简单或困难")
         raise RuntimeError("无法识别战役难度")
 
     # ── 操作 ─────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ class CampaignPanelMixin(BaseMapPage):
         if difficulty not in ("easy", "hard"):
             raise ValueError(f"难度必须为 easy 或 hard，收到: {difficulty}")
 
-        logger.info(
+        _log.info(
             "[UI] 地图页面 → 进入战役 {} ({})",
             campaign_name,
             difficulty,
@@ -99,7 +100,7 @@ class CampaignPanelMixin(BaseMapPage):
         if self.recognize_difficulty() != difficulty:
             self._ctrl.click(*CLICK_DIFFICULTY)
         while self.recognize_difficulty() != difficulty:
-            logger.debug("[UI] 等待难度切换到 {}…", difficulty)
+            _log.debug("[UI] 等待难度切换到 {}…", difficulty)
             time.sleep(0.25)
         time.sleep(0.75)
 

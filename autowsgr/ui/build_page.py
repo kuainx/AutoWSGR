@@ -29,7 +29,7 @@ import enum
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName, ShipType
@@ -43,6 +43,7 @@ from .tabbed_page import (
 )
 from autowsgr.vision import ImageChecker
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -205,7 +206,7 @@ class BuildPage:
             超时未到达目标标签。
         """
         current = self.get_active_tab(self._ctrl.screenshot())
-        logger.info(
+        _log.info(
             "[UI] 建造页面: {} → {}",
             current.value if current else "未知",
             tab.value,
@@ -231,7 +232,7 @@ class BuildPage:
         """
         from autowsgr.ui.sidebar_page import SidebarPage
 
-        logger.info("[UI] 建造页面 → 返回侧边栏")
+        _log.info("[UI] 建造页面 → 返回侧边栏")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -252,7 +253,7 @@ class BuildPage:
         """
         if not 1 <= slot <= 4:
             raise ValueError(f"建造槽位必须为 1–4，收到: {slot}")
-        logger.info("[UI] 建造页面 → 点击槽位 {}", slot)
+        _log.info("[UI] 建造页面 → 点击槽位 {}", slot)
         self._ctrl.click(*BUILD_SLOT_POSITIONS[slot - 1])
         time.sleep(0.5)
 
@@ -266,7 +267,7 @@ class BuildPage:
         slot:
             槽位编号 (1–4)。
         """
-        logger.info("[UI] 建造页面 → 收取槽位 {}", slot)
+        _log.info("[UI] 建造页面 → 收取槽位 {}", slot)
         self.click_slot(slot)
         time.sleep(1.0)
 
@@ -280,7 +281,7 @@ class BuildPage:
         slot:
             槽位编号 (1–4)。
         """
-        logger.info("[UI] 建造页面 → 快速建造槽位 {}", slot)
+        _log.info("[UI] 建造页面 → 快速建造槽位 {}", slot)
         self.click_slot(slot)
         time.sleep(0.5)
 
@@ -294,7 +295,7 @@ class BuildPage:
             资源配方调整（滑块操作）需要 ops 层配合 OCR 实现。
             此方法仅执行确认点击。
         """
-        logger.info("[UI] 建造页面 → 确认建造")
+        _log.info("[UI] 建造页面 → 确认建造")
         self._ctrl.click(*CLICK_CONFIRM_BUILD)
         time.sleep(1.0)
 
@@ -306,42 +307,42 @@ class BuildPage:
 
     def destroy_click_add(self) -> None:
         """解体标签 → 点击「添加」按钮。"""
-        logger.info("[UI] 建造页面 (解体) → 添加")
+        _log.info("[UI] 建造页面 (解体) → 添加")
         self._ctrl.click(*CLICK_DESTROY_ADD)
 
     def destroy_quick_select(self) -> None:
         """解体标签 → 点击「快速选择」按钮。"""
-        logger.info("[UI] 建造页面 (解体) → 快速选择")
+        _log.info("[UI] 建造页面 (解体) → 快速选择")
         self._ctrl.click(*CLICK_DESTROY_QUICK_SELECT)
 
     def destroy_confirm_select(self) -> None:
         """解体标签 → 点击「确认选择」。"""
-        logger.info("[UI] 建造页面 (解体) → 确认选择")
+        _log.info("[UI] 建造页面 (解体) → 确认选择")
         self._ctrl.click(*CLICK_DESTROY_CONFIRM_SELECT)
 
     def destroy_toggle_remove_equip(self) -> None:
         """解体标签 → 点击「卸下装备」复选框。"""
-        logger.info("[UI] 建造页面 (解体) → 卸下装备")
+        _log.info("[UI] 建造页面 (解体) → 卸下装备")
         self._ctrl.click(*CLICK_DESTROY_REMOVE_EQUIP)
 
     def destroy_confirm(self) -> None:
         """解体标签 → 点击「解装确认」。"""
-        logger.info("[UI] 建造页面 (解体) → 解装确认")
+        _log.info("[UI] 建造页面 (解体) → 解装确认")
         self._ctrl.click(*CLICK_DESTROY_CONFIRM)
 
     def destroy_four_star_confirm(self) -> None:
         """解体标签 → 四星确认弹窗点击确认。"""
-        logger.info("[UI] 建造页面 (解体) → 四星确认")
+        _log.info("[UI] 建造页面 (解体) → 四星确认")
         self._ctrl.click(*CLICK_DESTROY_FOUR_STAR_CONFIRM)
 
     def destroy_open_type_filter(self) -> None:
         """解体标签 → 打开舰船类型过滤器。"""
-        logger.info("[UI] 建造页面 (解体) → 打开类型过滤")
+        _log.info("[UI] 建造页面 (解体) → 打开类型过滤")
         self._ctrl.click(*CLICK_DESTROY_TYPE_FILTER)
 
     def destroy_confirm_filter(self) -> None:
         """解体标签 → 确认舰船类型过滤。"""
-        logger.info("[UI] 建造页面 (解体) → 确认过滤")
+        _log.info("[UI] 建造页面 (解体) → 确认过滤")
         self._ctrl.click(*CLICK_DESTROY_CONFIRM_FILTER)
 
     # ── 组合动作 — 建造收取 ──
@@ -425,7 +426,7 @@ class BuildPage:
             self.dismiss_build_result()
             collected += 1
 
-        logger.info("[UI] 建造收取: {} 艘 ({})", collected, build_type)
+        _log.info("[UI] 建造收取: {} 艘 ({})", collected, build_type)
         return collected
 
     def start_new_build(self, build_type: str = "ship") -> None:
@@ -461,7 +462,7 @@ class BuildPage:
 
         self._ctrl.click(*CLICK_CONFIRM_BUILD)
         time.sleep(1.0)
-        logger.info("[UI] 建造已启动 ({})", build_type)
+        _log.info("[UI] 建造已启动 ({})", build_type)
 
     def destroy_ships(
         self,
@@ -490,7 +491,7 @@ class BuildPage:
             self.destroy_open_type_filter()
             time.sleep(_STEP_DELAY)
             for ship_type in ship_types:
-                logger.debug("[UI] 解体 → 点击舰种: {}", ship_type.value)
+                _log.debug("[UI] 解体 → 点击舰种: {}", ship_type.value)
                 self._ctrl.click(*ship_type.relative_position_in_destroy)
                 time.sleep(0.8)
             self.destroy_confirm_filter()
@@ -508,7 +509,7 @@ class BuildPage:
         self.destroy_four_star_confirm()
         time.sleep(_STEP_DELAY)
 
-        logger.info(
+        _log.info(
             "[UI] 解装完成 (舰种={}, 卸下装备={})",
             [t.value for t in ship_types] if ship_types else "全部",
             remove_equipment,

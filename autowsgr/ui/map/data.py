@@ -9,10 +9,11 @@ import enum
 import re
 from dataclasses import dataclass
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.vision import Color
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 数据类
@@ -239,7 +240,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         if db_name is not None:
             name = db_name
         elif cleaned_name != name:
-            logger.debug(
+            _log.debug(
                 "[UI] OCR 名称残留数字: '{}' → '{}'",
                 name,
                 cleaned_name,
@@ -269,7 +270,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
 
         if (raw_chapter, candidate) in MAP_DATABASE:
             db_name = MAP_DATABASE[(raw_chapter, candidate)]
-            logger.debug(
+            _log.debug(
                 "[UI] OCR 校正: '{}'→{}-{} '{}' (数据库: '{}')",
                 text,
                 raw_chapter,

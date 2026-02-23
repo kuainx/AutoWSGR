@@ -25,7 +25,7 @@ import enum
 import time
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
@@ -35,6 +35,7 @@ from autowsgr.vision import (
     PixelChecker,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -184,7 +185,7 @@ class SidebarPage:
             SidebarTarget.INTENSIFY: IntensifyPage.is_current_page,
             SidebarTarget.FRIEND: FriendPage.is_current_page,
         }
-        logger.info("[UI] 侧边栏 → {}", target.value)
+        _log.info("[UI] 侧边栏 → {}", target.value)
 
         if target in _SUBMENU_TARGETS:
             # 二级菜单: 点击侧边栏项 → 等弹出 → 点击子选项 → 验证
@@ -218,7 +219,7 @@ class SidebarPage:
 
         for attempt in range(1, config.max_retries + 1):
             if attempt > 1:
-                logger.warning(
+                _log.warning(
                     "[UI] 二级菜单重试 {}/{}: 侧边栏 → {} (等 {:.1f}s)",
                     attempt, config.max_retries, target.value, config.retry_delay,
                 )
@@ -244,7 +245,7 @@ class SidebarPage:
                 return
             except NavigationError as e:
                 last_err = e
-                logger.warning(
+                _log.warning(
                     "[UI] 二级菜单后超时 ({}/{}): 侧边栏 → {}",
                     attempt, config.max_retries, target.value,
                 )
@@ -279,7 +280,7 @@ class SidebarPage:
         """
         from autowsgr.ui.main_page import MainPage
 
-        logger.info("[UI] 侧边栏 → 关闭 (返回主页面)")
+        _log.info("[UI] 侧边栏 → 关闭 (返回主页面)")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_CLOSE,

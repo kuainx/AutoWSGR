@@ -19,7 +19,7 @@ from __future__ import annotations
 import enum
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
@@ -32,6 +32,7 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 枚举
@@ -196,7 +197,7 @@ class MainPage:
             MainPageTarget.SIDEBAR: SidebarPage.is_current_page,
             MainPageTarget.HOME: BackyardPage.is_current_page,
         }
-        logger.info("[UI] 主页面 → {}", target.value)
+        _log.info("[UI] 主页面 → {}", target.value)
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_NAV[target],

@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.ui.map.base import BaseMapPage
 from autowsgr.ui.map.data import (
@@ -35,6 +35,7 @@ from autowsgr.types import PageName
 from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.vision import PixelChecker
 
+_log = get_logger("ui")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 数据结构
@@ -67,7 +68,7 @@ class ExerciseRivalStatus:
         return None
 
     def __repr__(self) -> str:
-        tags = ["✓" if ok else "✗" for ok in self.rivals]
+        tags = ["Y" if ok else "N" for ok in self.rivals]
         return f"ExerciseRivalStatus([{', '.join(tags)}])"
 
 
@@ -159,9 +160,9 @@ class ExercisePanelMixin(BaseMapPage):
         for i in range(4):
             status.rivals[i] = self._check_challenge_at(screen, i)
 
-        logger.debug(
+        _log.debug(
             "[UI] 演习对手 1–4 状态: {}",
-            ["✓" if s else "✗" for s in status.rivals[:4]],
+            ["Y" if s else "N" for s in status.rivals[:4]],
         )
 
         # 3. 下滑到底部
@@ -171,7 +172,7 @@ class ExercisePanelMixin(BaseMapPage):
         # 4. 读取对手 5 (此时在第 4 个可见位置)
         status.rivals[4] = self._check_challenge_at(screen, 3)
 
-        logger.info("[UI] 演习对手状态: {}", status)
+        _log.info("[UI] 演习对手状态: {}", status)
         return status
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -200,7 +201,7 @@ class ExercisePanelMixin(BaseMapPage):
         if not 1 <= rival_index <= 5:
             raise ValueError(f"对手序号必须为 1–5，收到: {rival_index}")
 
-        logger.info("[UI] 演习 → 选择第 {} 个对手", rival_index)
+        _log.info("[UI] 演习 → 选择第 {} 个对手", rival_index)
 
         if rival_index <= 4:
             # 对手 1–4: 确保在顶部
@@ -238,7 +239,7 @@ class ExercisePanelMixin(BaseMapPage):
         """
         from autowsgr.ui.battle.preparation import BattlePreparationPage
 
-        logger.info("[UI] 演习 → 开始战斗 (对手信息页 → 出征准备)")
+        _log.info("[UI] 演习 → 开始战斗 (对手信息页 → 出征准备)")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=EXERCISE_CLICK_START_BATTLE,
@@ -256,7 +257,7 @@ class ExercisePanelMixin(BaseMapPage):
 
         参考 legacy: ``timer.click(665, 400, delay=0.75)``。
         """
-        logger.info("[UI] 演习 → 刷新对手阵容 (对手信息页)")
+        _log.info("[UI] 演习 → 刷新对手阵容 (对手信息页)")
         self._ctrl.click(*EXERCISE_CLICK_RIVAL_INFO)
         time.sleep(0.75)
 
@@ -278,7 +279,7 @@ class ExercisePanelMixin(BaseMapPage):
             识别失败返回 ``None``。
         """
         screen = self._ctrl.screenshot()
-        logger.debug("[UI] 演习 → 识别对手阵容 (预留接口, 尚未实现)")
+        _log.debug("[UI] 演习 → 识别对手阵容 (预留接口, 尚未实现)")
         # TODO: 实现 OCR 识别对手阵容
         # 参考 legacy get_enemy_condition() — 裁切 TYPE_SCAN_AREA[0] 区域进行文字识别
         _ = screen

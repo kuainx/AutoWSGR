@@ -43,12 +43,13 @@ from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ui.overlay import detect_overlay, dismiss_overlay  # noqa: F401
 from autowsgr.vision import ImageChecker
 
+_log = get_logger("ui")
 
 # ---------------------------------------------------------------------------
 # 异常
@@ -102,9 +103,9 @@ _PAGE_REGISTRY: dict[str, Callable[[np.ndarray], bool]] = {}
 def register_page(name: str, checker: Callable[[np.ndarray], bool]) -> None:
     """注册页面识别函数。"""
     if name in _PAGE_REGISTRY:
-        logger.warning("[UI] 页面 '{}' 已注册，将覆盖", name)
+        _log.warning("[UI] 页面 '{}' 已注册，将覆盖", name)
     _PAGE_REGISTRY[name] = checker
-    logger.debug("[UI] 注册页面: {}", name)
+    _log.debug("[UI] 注册页面: {}", name)
 
 
 def get_current_page(screen: np.ndarray) -> str | None:
@@ -113,18 +114,18 @@ def get_current_page(screen: np.ndarray) -> str | None:
     for name, checker in _PAGE_REGISTRY.items():
         try:
             if checker(screen):
-                logger.debug("[UI] 当前页面: {}", name)
+                _log.debug("[UI] 当前页面: {}", name)
                 return name
         except Exception:
-            logger.opt(exception=True).warning("[UI] 页面 '{}' 识别器异常", name)
+            _log.opt(exception=True).warning("[UI] 页面 '{}' 识别器异常", name)
             failed_checkers.append(name)
     if failed_checkers:
-        logger.warning(
+        _log.warning(
             "[UI] 无匹配页面，且以下识别器抛异常: {} (共 {} 个注册页面)",
             failed_checkers, len(_PAGE_REGISTRY),
         )
     else:
-        logger.debug("[UI] 当前页面: 无匹配 (共 {} 个注册页面)", len(_PAGE_REGISTRY))
+        _log.debug("[UI] 当前页面: 无匹配 (共 {} 个注册页面)", len(_PAGE_REGISTRY))
     return None
 
 
@@ -182,29 +183,29 @@ def wait_for_page(
     """
     deadline = time.monotonic() + timeout
     attempt = 0
-    logger.info("[UI] 等待到达: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
+    _log.info("[UI] 等待到达: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
 
     while True:
         attempt += 1
         screen = ctrl.screenshot()
 
         if handle_overlays and _handle_overlay_if_present(ctrl, screen):
-            logger.debug("[UI] 等待 #{}: 消除浮层，立即重截图", attempt)
+            _log.debug("[UI] 等待 #{}: 消除浮层，立即重截图", attempt)
             continue
 
         if checker(screen):
-            logger.info("[UI] 已到达: {} → {} (第 {} 次截图)", source or "?", target or "?", attempt)
+            _log.info("[UI] 已到达: {} → {} (第 {} 次截图)", source or "?", target or "?", attempt)
             return screen
 
         current = get_current_page(screen)
-        logger.debug("[UI] 等待 #{}: {} → {}, 当前={}", attempt, source or "?", target or "?", current or "未知")
+        _log.debug("[UI] 等待 #{}: {} → {}, 当前={}", attempt, source or "?", target or "?", current or "未知")
 
         if time.monotonic() >= deadline:
             msg = (
                 f"等待超时: {source or '?'} → {target or '?'}, "
                 f"{attempt} 次截图后仍未到达, 当前: {current or '未知'}"
             )
-            logger.error("[UI] {}", msg)
+            _log.error("[UI] {}", msg)
             raise NavigationError(msg)
 
         time.sleep(interval)
@@ -233,29 +234,29 @@ def wait_leave_page(
     """
     deadline = time.monotonic() + timeout
     attempt = 0
-    logger.info("[UI] 等待离开: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
+    _log.info("[UI] 等待离开: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
 
     while True:
         attempt += 1
         screen = ctrl.screenshot()
 
         if handle_overlays and _handle_overlay_if_present(ctrl, screen):
-            logger.debug("[UI] 等待离开 #{}: 消除浮层，立即重截图", attempt)
+            _log.debug("[UI] 等待离开 #{}: 消除浮层，立即重截图", attempt)
             continue
 
         if not checker(screen):
             current = get_current_page(screen)
-            logger.info("[UI] 已离开: {} → {} (第 {} 次截图, 到达={})", source or "?", target or "?", attempt, current or "未知")
+            _log.info("[UI] 已离开: {} → {} (第 {} 次截图, 到达={})", source or "?", target or "?", attempt, current or "未知")
             return screen
 
-        logger.debug("[UI] 等待离开 #{}: 仍在 {}", attempt, source or "?")
+        _log.debug("[UI] 等待离开 #{}: 仍在 {}", attempt, source or "?")
 
         if time.monotonic() >= deadline:
             msg = (
                 f"离开超时: {source or '?'} → {target or '?'}, "
                 f"{attempt} 次截图后仍在 {source or '?'}"
             )
-            logger.error("[UI] {}", msg)
+            _log.error("[UI] {}", msg)
             raise NavigationError(msg)
 
         time.sleep(interval)
@@ -356,7 +357,7 @@ def confirm_operation(
             if detail2 is not None:
                 detail = detail2
             ctrl.click(*detail.center)
-            logger.info(
+            _log.info(
                 "[UI] 确认操作: 点击 '{}' ({:.4f}, {:.4f})",
                 detail.template_name,
                 *detail.center,
@@ -398,7 +399,7 @@ def click_and_wait_leave_page(
 
     for attempt in range(1, config.max_retries + 1):
         if attempt > 1:
-            logger.warning(
+            _log.warning(
                 "[UI] 离开重试 {}/{}: {} → {} (等 {:.1f}s)",
                 attempt, config.max_retries, source or "?", target or "?", config.retry_delay,
             )
@@ -417,7 +418,7 @@ def click_and_wait_leave_page(
             )
         except NavigationError as e:
             last_err = e
-            logger.warning("[UI] 点击后离开超时 ({}/{}): {} → {}", attempt, config.max_retries, source or "?", target or "?")
+            _log.warning("[UI] 点击后离开超时 ({}/{}): {} → {}", attempt, config.max_retries, source or "?", target or "?")
 
     raise NavigationError(
         f"离开失败 (已重试 {config.max_retries} 次): {source or '?'} → {target or '?'}"
