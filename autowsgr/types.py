@@ -429,6 +429,30 @@ class MapEntrance(StrEnum):
     beta = "beta"
 
 
+class DecisiveEntryStatus(StrEnum):
+    """决战总览页入口状态。
+
+    进入决战总览页后，根据当前章节的进度状态匹配以下四种之一:
+
+    - ``CANT_FIGHT``: 无法出击 (条件不满足)
+    - ``CHALLENGING``: 挑战中 (当前章节正在进行)
+    - ``REFRESHED``: 已刷新 (有存档进度可继续)
+    - ``REFRESH``: 可重置 (显示"重置关卡"按钮)
+    """
+
+    CANT_FIGHT = "cant_fight"
+    """无法出击 — 条件不满足。"""
+
+    CHALLENGING = "challenging"
+    """挑战中 — 当前章节正在进行。"""
+
+    REFRESHED = "refreshed"
+    """已刷新 — 有存档进度，可使用上次舰队继续。"""
+
+    REFRESH = "refresh"
+    """可重置 — 显示"重置关卡"按钮，需使用磁盘重置。"""
+
+
 class DecisivePhase(enum.Enum):
     """决战过程的宏观阶段。
 

@@ -21,10 +21,11 @@ import numpy as np
 from loguru import logger
 
 from autowsgr.emulator import AndroidController
-from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.types import DecisiveEntryStatus, PageName
+from autowsgr.ui.page import click_and_wait_for_page, confirm_operation
 from autowsgr.vision import (
     Color,
+    ImageChecker,
     MatchStrategy,
     PixelChecker,
     PixelRule,
@@ -68,6 +69,9 @@ CLICK_ENTER_MAP: tuple[float, float] = (500 / 960, 500 / 540)
 
 旧代码: ``timer.click(500, 500)``。
 """
+
+CLICK_RESET_CHAPTER: tuple[float, float] = (0.5, 0.925)
+"""点击"重置关卡"按钮（总览页底部）。"""
 
 CHAPTER_NUM_AREA: tuple[float, float, float, float] = (0.818, 0.810, 0.875, 0.867)
 """章节编号 OCR 裁切区域 (x1, y1, x2, y2)。"""
@@ -325,3 +329,84 @@ class DecisiveBattlePage:
         self._ctrl.click(*CLICK_BUY_CONFIRM)
         time.sleep(1.0)
         logger.info("[UI] 决战磁盘购买完成")
+
+    # ── 入口状态检测 ─────────────────────────────────────────────────────
+
+    def detect_entry_status(
+        self,
+        *,
+        timeout: float = 10.0,
+        interval: float = 0.3,
+        confidence: float = 0.8,
+    ) -> DecisiveEntryStatus:
+        """检测当前决战总览页的入口状态。
+
+        通过图像模板匹配识别 4 种入口状态:
+        ``CANT_FIGHT`` / ``CHALLENGING`` / ``REFRESHED`` / ``REFRESH``。
+
+        对应 legacy ``detect('enter_map')`` — 使用
+        ``decisive_battle_image[3:7]`` 的 ``wait_images``。
+
+        Parameters
+        ----------
+        timeout:
+            最大等待时间 (秒)。
+        interval:
+            截图检测间隔 (秒)。
+        confidence:
+            模板匹配置信度阈值。
+
+        Returns
+        -------
+        DecisiveEntryStatus
+            检测到的入口状态枚举值。
+
+        Raises
+        ------
+        TimeoutError
+            超时仍未匹配到任何入口状态。
+        """
+        from autowsgr.image_resources import Templates
+
+        templates = Templates.Decisive.entry_status_templates()
+        statuses = list(DecisiveEntryStatus)
+
+        deadline = time.monotonic() + timeout
+        while True:
+            screen = self._ctrl.screenshot()
+            detail = ImageChecker.find_any(
+                screen, templates, confidence=confidence,
+            )
+            if detail is not None:
+                idx = next(
+                    i for i, t in enumerate(templates)
+                    if t.name == detail.template_name
+                )
+                status = statuses[idx]
+                logger.info("[UI] 决战入口状态: {}", status.value)
+                return status
+
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"检测决战入口状态超时 ({timeout}s): 未匹配到任何状态模板"
+                )
+            time.sleep(interval)
+
+    # ── 章节重置 ─────────────────────────────────────────────────────────
+
+    def reset_chapter(self) -> None:
+        """使用磁盘重置当前章节。
+
+        在决战总览页点击"重置关卡"按钮并确认操作。
+        完全对应 legacy ``DecisiveBattle.reset_chapter`` 中的 UI 操作。
+
+        .. note::
+
+            调用前需确保已在决战总览页且已导航到目标章节。
+            船坞已满处理由调用方负责。
+        """
+        logger.info("[UI] 决战页面 → 重置关卡")
+        self._ctrl.click(*CLICK_RESET_CHAPTER)
+        time.sleep(1.0)
+        confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
+        logger.info("[UI] 决战关卡重置完成")

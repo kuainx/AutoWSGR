@@ -96,8 +96,6 @@ class DecisiveController(DecisivePhaseHandlers, DecisiveChapterOps):
             if result in (DecisiveResult.LEAVE, DecisiveResult.ERROR):
                 logger.warning("[决战] 第 {} 轮终止: {}", i + 1, result.value)
                 break
-            if i < times - 1:
-                self._reset_chapter()
         return results
 
     # ── 主循环 ────────────────────────────────────────────────────────────

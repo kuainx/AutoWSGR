@@ -21,7 +21,7 @@ from loguru import logger
 from autowsgr.combat.engine import run_combat
 from autowsgr.combat.plan import CombatMode, CombatPlan, NodeDecision
 from autowsgr.ops.decisive.base import DecisiveBase
-from autowsgr.types import DecisivePhase, ShipDamageState
+from autowsgr.types import DecisiveEntryStatus, DecisivePhase, ShipDamageState
 from autowsgr.ui import RepairStrategy
 from autowsgr.ui.decisive import DecisiveBattlePreparationPage
 from autowsgr.infra import save_image
@@ -52,7 +52,31 @@ class DecisivePhaseHandlers(DecisiveBase):
     # ── 进入与等待 ────────────────────────────────────────────────────────
 
     def _handle_enter_map(self) -> None:
-        """点击进入地图 → 转到 WAITING_FOR_MAP。"""
+        """检测入口状态 → 按需重置 → 点击进入地图 → 转到 WAITING_FOR_MAP。
+
+        通过 :meth:`DecisiveBattlePage.detect_entry_status` 识别当前章节的
+        入口状态，根据 :class:`~autowsgr.types.DecisiveEntryStatus` 分别处理:
+
+        - ``REFRESH``: 使用磁盘重置关卡后重新检测
+        - ``REFRESHED``: 有存档进度，直接进入地图 (后续会弹出使用上次舰队)
+        - ``CHALLENGING``: 挑战中，直接进入地图
+        - ``CANT_FIGHT``: 无法出击，抛出异常
+        """
+        entry_status = self._battle_page.detect_entry_status()
+
+        if entry_status == DecisiveEntryStatus.REFRESH:
+            logger.info("[决战] 检测到「重置关卡」状态，执行章节重置")
+            self._battle_page.reset_chapter()
+            # 重置后重新检测入口状态
+            entry_status = self._battle_page.detect_entry_status()
+
+        if entry_status == DecisiveEntryStatus.CANT_FIGHT:
+            raise RuntimeError(
+                f"决战 Ex-{self._config.chapter}: 入口状态为「无法出击」，其他关卡正在进行中"
+            )
+
+        logger.info("[决战] 入口状态: {}", entry_status.value)
+
         self._state.stage = self._battle_page.recognize_stage(
             self._ctrl.screenshot(), self._config.chapter,
         )
@@ -152,8 +176,10 @@ class DecisivePhaseHandlers(DecisiveBase):
 
     def _handle_prepare_combat(self) -> None:
         """出征准备：编队 → 修理 → 出征。"""
+        screen = self._ctrl.screenshot()
+        save_image(screen, "prepare_combat_screen.png")
         if self._state.node == 'U':
-            self._state.node = self._map.recognize_node(self._ctrl.screenshot())
+            self._state.node = self._map.recognize_node(screen)
         logger.info(
             "[决战] 出征准备 (小关 {} 节点 {})",
             self._state.stage, self._state.node,

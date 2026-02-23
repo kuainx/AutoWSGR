@@ -12,30 +12,16 @@ from loguru import logger
 
 from autowsgr.infra import DockFullError
 from autowsgr.ops.decisive.base import DecisiveBase
-from autowsgr.types import PageName
-from autowsgr.ui.page import confirm_operation
+from autowsgr.types import DecisiveEntryStatus, PageName
 
 
 class DecisiveChapterOps(DecisiveBase):
     """章节管理操作子类。
 
     提供章节生命周期管理:
-    - :meth:`_reset_chapter` — 重置章节 (下一轮准备)
     - :meth:`_prepare_entry_state` — 推断入口状态并导航到正确位置
     - :meth:`_do_dock_full_destroy` — 船坞满处理
     """
-
-    def _reset_chapter(self) -> None:
-        """重置章节，为下一轮做准备。
-        TODO: 处理船坞已满
-        """
-        logger.info("[决战] 重置章节 (Ex-{})", self._config.chapter)
-        self._battle_page.navigate_to_chapter(self._config.chapter)
-        self._state.reset()
-        self._ctrl.click(0.5, 0.925)
-        confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
-        logger.info("[决战] 章节重置完成")
-
     def _prepare_entry_state(self) -> None:
         """进入决战总览并推断入口状态。"""
         from autowsgr.ops.navigate import goto_page
