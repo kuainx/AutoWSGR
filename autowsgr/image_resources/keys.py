@@ -47,11 +47,6 @@ class TemplateKey(Enum):
     GET_ITEM = "get_item"
     GET_SHIP_OR_ITEM = "get_ship_or_item"
 
-    # ── 地图追踪 ──
-    SHIP_ICON = "ship_icon"
-    SHIP_ICON_1 = "ship_icon_1"
-    SHIP_ICON_2 = "ship_icon_2"
-
     # ── 战斗终止态 ──
     END_MAP_PAGE = "end_map_page"
     END_BATTLE_PAGE = "end_battle_page"
@@ -101,10 +96,6 @@ def _build_map() -> dict[TemplateKey, list[ImageTemplate]]:
         TemplateKey.GET_SHIP: [T.GET_SHIP],
         TemplateKey.GET_ITEM: [T.GET_ITEM],
         TemplateKey.GET_SHIP_OR_ITEM: [T.GET_SHIP, T.GET_ITEM],
-        # 地图追踪
-        TemplateKey.SHIP_ICON: [T.SHIP_ICON_1, T.SHIP_ICON_2],
-        TemplateKey.SHIP_ICON_1: [T.SHIP_ICON_1],
-        TemplateKey.SHIP_ICON_2: [T.SHIP_ICON_2],
         # 战斗终止态
         TemplateKey.END_MAP_PAGE: [T.END_MAP_PAGE],
         TemplateKey.END_BATTLE_PAGE: [T.END_BATTLE_PAGE],

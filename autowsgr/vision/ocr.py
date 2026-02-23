@@ -19,9 +19,12 @@ import easyocr
 import numpy as np
 from loguru import logger
 
+from autowsgr.constants import SHIPNAMES
+
 
 # ── 结果数据类 ──
 
+REPLACE_RULE: dict[str, str] = {"鲍鱼": "鲃鱼"}
 
 @dataclass(frozen=True, slots=True)
 class OCRResult:
@@ -145,7 +148,7 @@ class OCREngine(ABC):
         extra_chars: str = "",
     ) -> int | None:
         """识别数字，支持 K/M 后缀。
-
+        不依赖位置信息
         Parameters
         ----------
         image:
@@ -184,17 +187,17 @@ class OCREngine(ABC):
     def recognize_ship_name(
         self,
         image: np.ndarray,
-        candidates: list[str],
+        candidates: list[str] | None = None,
         threshold: int = 3,
     ) -> str | None:
         """识别舰船名称，模糊匹配到候选列表。
-
+        不依赖位置信息
         Parameters
         ----------
         image:
             舰船名称区域图像。
         candidates:
-            候选舰船名列表。
+            候选舰船名列表。为 ``None`` 时使用全局 :data:`SHIPNAMES`。
         threshold:
             编辑距离阈值，超过则不匹配。
 
@@ -203,11 +206,20 @@ class OCREngine(ABC):
         str | None
             匹配到的舰船名，或 None。
         """
+        if candidates is None:
+            candidates = SHIPNAMES
         result = self.recognize_single(image)
         _log = logger.debug if self.verbose else logger.trace
         if not result.text:
             _log("[OCR] recognize_ship_name: 无文本")
             return None
+        if result.text in REPLACE_RULE:
+            matched = REPLACE_RULE[result.text]
+            _log(
+                "[OCR] recognize_ship_name: '{}' → '{}' (替换规则)",
+                result.text, matched,
+            )
+            return matched
         matched = _fuzzy_match(result.text, candidates, threshold)
         _log(
             "[OCR] recognize_ship_name: '{}' → '{}'",
@@ -218,12 +230,12 @@ class OCREngine(ABC):
     def recognize_ship_names(
         self,
         image: np.ndarray,
-        candidates: list[str],
+        candidates: list[str] | None = None,
         threshold: int = 3,
         max_threshold: int | None = None,
     ) -> list[str]:
         """识别图像中的多个舰船名，对每个文本区域做模糊匹配与自动校正。
-
+        不依赖位置信息
         与 :meth:`recognize_ship_name` 的区别：本方法调用 :meth:`recognize` 获取
         图像中所有文本区域，再逐一与候选列表做模糊匹配，适合一张图中包
         含多个舰船名的场景。
@@ -233,7 +245,7 @@ class OCREngine(ABC):
         image:
             包含舰船名的图像。
         candidates:
-            候选舰船名列表。
+            候选舰船名列表。为 ``None`` 时使用全局 :data:`SHIPNAMES`。
         threshold:
             编辑距离软阈值：distance ≤ threshold 时接受自动校正后的名称。
         max_threshold:
@@ -251,6 +263,8 @@ class OCREngine(ABC):
         ShipNameMismatchError
             当某段识别文本与所有候选的编辑距离均超过 max_threshold 时。
         """
+        if candidates is None:
+            candidates = SHIPNAMES
         results = self.recognize(image)
         _log = logger.debug if self.verbose else logger.trace
         seen: set[str] = set()
@@ -330,7 +344,7 @@ class EasyOCREngine(OCREngine):
         raw = self._reader.readtext(image, **kwargs)
         return [
             OCRResult(
-                text=text,
+                text=text if text not in REPLACE_RULE else REPLACE_RULE[text],
                 confidence=float(conf),
                 bbox=(
                     int(box[0][0]),

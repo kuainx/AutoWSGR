@@ -404,7 +404,7 @@ class ADBController(AndroidController):
         dev = self._require_device()
         w, h = self._resolution
         px, py = int(x * w), int(y * h)
-        logger.debug("[Emulator] click({:.3f}, {:.3f}) → pixel({}, {})  res={}x{}  caller={}", x, y, px, py, w, h, _caller_info())
+        logger.debug("[Emulator] click({:.3f}, {:.3f}) → pixel({}, {})  res={}x{}  {}", x, y, px, py, w, h, _caller_info())
         dev.shell(f"input tap {px} {py}")
 
     def swipe(
@@ -421,7 +421,7 @@ class ADBController(AndroidController):
         ms = int(duration * 1000)
         dev = self._require_device()
         logger.debug(
-            "[Emulator] swipe({:.3f},{:.3f}→{:.3f},{:.3f}) → pixel({},{}→{},{}) {}ms  caller={}",
+            "[Emulator] swipe({:.3f},{:.3f}→{:.3f},{:.3f}) → pixel({},{}→{},{}) {}ms  {}",
             x1, y1, x2, y2, px1, py1, px2, py2, ms, _caller_info(),
         )
         dev.shell(f"input swipe {px1} {py1} {px2} {py2} {ms}")
@@ -433,25 +433,25 @@ class ADBController(AndroidController):
 
     def key_event(self, key_code: int) -> None:
         dev = self._require_device()
-        logger.debug("[Emulator] key_event({})  caller={}", key_code, _caller_info())
+        logger.debug("[Emulator] key_event({})  {}", key_code, _caller_info())
         # airtest keyevent 内部调用 str.upper()，必须传字符串
         dev.keyevent(str(key_code))
 
     def text(self, content: str) -> None:
         dev = self._require_device()
-        logger.debug("[Emulator] text('{}')  caller={}", content, _caller_info())
+        logger.debug("[Emulator] text('{}')  {}", content, _caller_info())
         dev.text(content)
 
     # ── 应用管理 ──
 
     def start_app(self, package: str) -> None:
         dev = self._require_device()
-        logger.info("[Emulator] 启动应用: {}  caller={}", package, _caller_info())
+        logger.info("[Emulator] 启动应用: {}  {}", package, _caller_info())
         dev.start_app(package)
 
     def stop_app(self, package: str) -> None:
         dev = self._require_device()
-        logger.info("[Emulator] 停止应用: {}  caller={}", package, _caller_info())
+        logger.info("[Emulator] 停止应用: {}  {}", package, _caller_info())
         dev.stop_app(package)
 
     def is_app_running(self, package: str) -> bool:
@@ -459,7 +459,7 @@ class ADBController(AndroidController):
             dev = self._require_device()
             ps_output = dev.shell("ps")
         except (AdbError, DeviceConnectionError, EmulatorConnectionError) as exc:
-            logger.debug("[Emulator] is_app_running('{}') → False (设备异常: {})  caller={}", package, exc, _caller_info())
+            logger.debug("[Emulator] is_app_running('{}') → False (设备异常: {})  {}", package, exc, _caller_info())
             return False
         if not isinstance(ps_output, str):
             logger.warning(
@@ -468,7 +468,7 @@ class ADBController(AndroidController):
             )
             return False
         running = package in ps_output
-        logger.debug("[Emulator] is_app_running('{}') → {}  caller={}", package, running, _caller_info())
+        logger.debug("[Emulator] is_app_running('{}') → {}  {}", package, running, _caller_info())
         return running
 
     # ── Shell ──

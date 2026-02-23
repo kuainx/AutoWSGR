@@ -51,8 +51,6 @@ class CombatTemplates:
     | END_MAP_PAGE              | combat/end_map_page.png     |
     | END_BATTLE_PAGE           | combat/end_battle_page.png  |
     | END_EXERCISE_PAGE         | combat/end_exercise_page.png|
-    | SHIP_ICON_1               | combat/ship_icon_1.png      |
-    | SHIP_ICON_2               | combat/ship_icon_2.png      |
     +---------------------------+-----------------------------+
     """
 
@@ -79,10 +77,6 @@ class CombatTemplates:
 
     # ── 船坞已满 ──
     DOCK_FULL = LazyTemplate("build/ship_full_depot.png", "dock_full")
-
-    # ── 地图追踪 ──
-    SHIP_ICON_1 = LazyTemplate("combat/ship_icon_1.png", "ship_icon_1", source_resolution=(1280, 720))
-    SHIP_ICON_2 = LazyTemplate("combat/ship_icon_2.png", "ship_icon_2", source_resolution=(1280, 720))
 
     # ── 战果评级 ──
     Result = _ResultGrade
