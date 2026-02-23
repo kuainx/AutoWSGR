@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from .actions import (
     click_speed_up,
@@ -30,6 +30,8 @@ from autowsgr.types import ConditionFlag, Formation, ShipDamageState
 from autowsgr.emulator import AndroidController
 from autowsgr.vision import ImageChecker, OCREngine
 
+_log = get_logger("combat")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 辅助
@@ -51,7 +53,7 @@ def _dismiss_resource_confirm(device: AndroidController) -> None:
     )
     if detail is not None:
         device.click(*detail.center)
-        logger.info(
+        _log.info(
             "[Combat] 点掉资源确认弹窗: '{}' ({:.4f}, {:.4f})",
             detail.template_name, *detail.center,
         )
@@ -139,14 +141,14 @@ class CombatEngine(PhaseHandlersMixin):
             map_data = MapNodeData.load(plan.chapter, plan.map_id)
             if map_data is not None:
                 self._tracker = NodeTracker(map_data)
-                logger.info(
-                    "节点追踪器已加载: {}-{} ({} 个节点)",
+                _log.info(
+                    "[Combat] 节点追踪器已加载: {}-{} ({} 个节点)",
                     plan.chapter, plan.map_id, len(map_data),
                 )
             else:
                 self._tracker = None
-                logger.warning(
-                    "无法加载地图数据 {}-{}，节点追踪将不可用",
+                _log.warning(
+                    "[Combat] 无法加载地图数据 {}-{}，节点追踪将不可用",
                     plan.chapter, plan.map_id,
                 )
         else:
@@ -161,7 +163,7 @@ class CombatEngine(PhaseHandlersMixin):
             try:
                 decision = self._step()
             except CombatRecognitionTimeout as e:
-                logger.warning("状态识别超时: {}", e)
+                _log.warning("[Combat] 状态识别超时: {}", e)
                 if self._try_recovery():
                     continue
                 result.flag = ConditionFlag.SL
@@ -170,7 +172,7 @@ class CombatEngine(PhaseHandlersMixin):
             if decision == ConditionFlag.FIGHT_CONTINUE:
                 continue
             elif decision == ConditionFlag.DOCK_FULL:
-                logger.warning("战斗进入失败：船坞已满")
+                _log.warning("[Combat] 战斗进入失败：船坞已满")
                 result.flag = ConditionFlag.DOCK_FULL
                 break
             elif decision == ConditionFlag.SL:
@@ -180,14 +182,14 @@ class CombatEngine(PhaseHandlersMixin):
                 restart_game(self._device)
                 break
             elif decision == ConditionFlag.FIGHT_END:
-                logger.debug("战斗已结束，日志: {}", self._history)
+                _log.debug("[Combat] 战斗已结束，日志: {}", self._history)
                 result.flag = ConditionFlag.OPERATION_SUCCESS
                 break
 
         result.ship_stats = self._ship_stats[:]
         result.node_count = self._node_count
-        logger.info(
-            "战斗结束: {} (节点数={})",
+        _log.info(
+            "[Combat] 战斗结束: {} (节点数={})",
             result.flag.value,
             result.node_count,
         )
@@ -234,8 +236,8 @@ class CombatEngine(PhaseHandlersMixin):
             self._last_action,
         )
 
-        logger.debug(
-            "当前: {} (action={}) → 候选: {}",
+        _log.debug(
+            "[Combat] 当前: {} (action={}) → 候选: {}",
             last_phase.name,
             self._last_action,
             [(c.name, t) for c, t in candidates],
@@ -310,7 +312,7 @@ class CombatEngine(PhaseHandlersMixin):
         if phase == CombatPhase.SPOT_ENEMY_SUCCESS:
             self._enemies = get_enemy_info(self._device, mode="exercise" if self._plan.mode == CombatMode.EXERCISE else "fight")
             self._enemy_formation = get_enemy_formation(self._device, self._ocr)
-            logger.info("敌方编成: {} 阵型: {}", self._enemies, self._enemy_formation)
+            _log.info("[Combat] 敌方编成: {} 阵型: {}", self._enemies, self._enemy_formation)
 
         elif phase == CombatPhase.RESULT:
             grade = detect_result_grade(self._device)
@@ -321,7 +323,7 @@ class CombatEngine(PhaseHandlersMixin):
                 node=self._node,
                 result=str(fight_result),
             ))
-            logger.info("战果: {} 节点: {}", fight_result, self._node)
+            _log.info("[Combat] 战果: {} 节点: {}", fight_result, self._node)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 辅助方法
@@ -333,7 +335,7 @@ class CombatEngine(PhaseHandlersMixin):
 
     def _try_recovery(self) -> bool:
         """尝试从错误中恢复。"""
-        logger.warning("尝试错误恢复...")
+        _log.warning("[Combat] 尝试错误恢复...")
         time.sleep(3.0)
 
         screen = self._device.screenshot()

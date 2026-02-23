@@ -13,10 +13,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 from PIL import Image
 
 from autowsgr.vision import ApiDll, get_api_dll, ROI
+
+_log = get_logger("combat.recognition")
 
 if TYPE_CHECKING:
     from autowsgr.emulator.controller import AndroidController
@@ -143,7 +145,7 @@ def recognize_enemy_ships(
     # DLL 识别
     result_str = dll.recognize_enemy(crops)
     types = result_str.split()
-    logger.debug("[识别] DLL 返回: {}", result_str)
+    _log.debug("[识别] DLL 返回: {}", result_str)
 
     # 统计
     counts: dict[str, int] = {}
@@ -155,7 +157,7 @@ def recognize_enemy_ships(
         total += 1
     counts["ALL"] = total
 
-    logger.info("[识别] 敌方编成: {}", counts)
+    _log.info("[识别] 敌方编成: {}", counts)
     return counts
 
 
@@ -190,17 +192,17 @@ def recognize_enemy_formation(
     text = result.text.strip()
 
     if not text:
-        logger.debug("[识别] 阵型 OCR 无结果")
+        _log.debug("[识别] 阵型 OCR 无结果")
         return ""
 
     # 尝试精确匹配
     for key, name in _FORMATION_NAMES.items():
         if key in text:
-            logger.info("[识别] 敌方阵型: {}", name)
+            _log.info("[识别] 敌方阵型: {}", name)
             return name
 
     # 模糊返回原文
-    logger.info("[识别] 敌方阵型 (原文): {}", text)
+    _log.info("[识别] 敌方阵型 (原文): {}", text)
     return text
 
 

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat.rules import RuleEngine
 from autowsgr.combat.state import (
@@ -28,6 +28,8 @@ from autowsgr.combat.state import (
 from autowsgr.infra.config import FightConfig, NodeConfig
 from autowsgr.infra.file_utils import load_yaml
 from autowsgr.types import FightCondition, Formation, RepairMode
+
+_log = get_logger("combat")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -333,8 +335,8 @@ class CombatPlan:
             default_node=default_node,
         )
 
-        logger.info(
-            "加载作战计划: {} ({}), 章节 {}-{}, 节点: {}",
+        _log.info(
+            "[Combat] 加载作战计划: {} ({}), 章节 {}-{}, 节点: {}",
             plan.name,
             plan.mode,
             plan.chapter,

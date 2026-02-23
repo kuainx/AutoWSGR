@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat.actions import (
     check_blood,
@@ -33,6 +33,8 @@ from .state import CombatPhase
 from autowsgr.image_resources import TemplateKey
 from autowsgr.types import ConditionFlag, Formation, ShipDamageState
 from autowsgr.emulator import AndroidController
+
+_log = get_logger("combat")
 
 
 class PhaseHandlersMixin:
@@ -136,7 +138,7 @@ class PhaseHandlersMixin:
             # START_FIGHT 是纯过渡态，不需要操作——已在 _update_state 中转移到后继
             return ConditionFlag.FIGHT_CONTINUE
 
-        logger.error("未知状态: {}", phase.name)
+        _log.error("[Combat] 未知状态: {}", phase.name)
         return ConditionFlag.SL
 
     # ── 各状态处理器 ─────────────────────────────────────────────────────────
@@ -210,7 +212,7 @@ class PhaseHandlersMixin:
 
             if rule_action.result == RuleResult.DETOUR:
                 if not can_detour:
-                    logger.error("规则指定迂回, 但该点无法迂回")
+                    _log.error("[Combat] 规则指定迂回, 但该点无法迂回")
                     raise ValueError("该点无法迂回, 但在规则中指定了迂回")
                 want_detour = True
 
@@ -221,9 +223,9 @@ class PhaseHandlersMixin:
         if want_detour:
             clicked = click_image(self._device, TemplateKey.BYPASS, 2.5)
             if clicked:
-                logger.info("执行迂回")
+                _log.info("[Combat] 执行迂回")
             else:
-                logger.warning("未找到迂回按钮")
+                _log.warning("[Combat] 未找到迂回按钮")
             self._last_action = "detour"
             self._history.add(CombatEvent(
                 event_type=EventType.SPOT_ENEMY,
@@ -237,9 +239,9 @@ class PhaseHandlersMixin:
         if decision.long_missile_support:
             clicked = click_image(self._device, TemplateKey.MISSILE_SUPPORT, 2.5)
             if clicked:
-                logger.info("开启远程导弹支援")
+                _log.info("[Combat] 开启远程导弹支援")
             else:
-                logger.warning("未找到远程支援按钮")
+                _log.warning("[Combat] 未找到远程支援按钮")
 
         # 进入战斗
         click_enter_fight(self._device)
@@ -288,7 +290,7 @@ class PhaseHandlersMixin:
         if is_from_spot_enemy and self._formation_by_rule is not None:
             formation = self._formation_by_rule
             self._formation_by_rule = None
-            logger.debug("使用规则阵型: {}", formation.name)
+            _log.debug("[Combat] 使用规则阵型: {}", formation.name)
         elif not is_from_spot_enemy:
             # 索敌失败
             if decision.SL_when_spot_enemy_fails:
@@ -303,6 +305,7 @@ class PhaseHandlersMixin:
                 formation = decision.formation_when_spot_enemy_fails
 
         # 选择阵型
+        _log.info("[Combat] 阵型选择: {}", formation.name)
         click_formation(self._device, formation)
 
         self._last_action = str(formation.value)
@@ -316,7 +319,7 @@ class PhaseHandlersMixin:
 
     def _handle_missile_animation(self) -> ConditionFlag:
         """跳过导弹支援动画。"""
-        logger.info("跳过导弹支援动画")
+        _log.info("[Combat] 跳过导弹支援动画")
         click_skip_missile_animation(self._device)
         self._last_action = "skip_animation"
         return ConditionFlag.FIGHT_CONTINUE
@@ -338,6 +341,7 @@ class PhaseHandlersMixin:
         decision = self._get_current_decision()
         pursue = decision.night
 
+        _log.info("[Combat] 夜战选择: {}", "追击" if pursue else "撤退")
         click_night_battle(self._device, pursue=pursue)
         self._last_action = "yes" if pursue else "no"
 
@@ -362,7 +366,7 @@ class PhaseHandlersMixin:
         """处理获取舰船。"""
         ship_name = get_ship_drop(self._device)
         if ship_name:
-            logger.info("获得舰船: {}", ship_name)
+            _log.info("[Combat] 获得舰船: {}", ship_name)
 
         self._history.add(CombatEvent(
             event_type=EventType.GET_SHIP,
@@ -386,6 +390,7 @@ class PhaseHandlersMixin:
             self._ship_stats, decision.proceed_stop
         )
 
+        _log.info("[Combat] 继续前进决策: {}", "前进" if should_proceed else "回港")
         click_proceed(self._device, go_forward=should_proceed)
         self._last_action = "yes" if should_proceed else "no"
 
@@ -402,6 +407,7 @@ class PhaseHandlersMixin:
 
     def _handle_flagship_severe_damage(self) -> ConditionFlag:
         """处理旗舰大破。"""
+        _log.info("[Combat] 旗舰大破, 强制回港")
         click_image(self._device, TemplateKey.FLAGSHIP_DAMAGE, 2.0)
         time.sleep(0.25)
 
@@ -418,7 +424,7 @@ class PhaseHandlersMixin:
         此方法不执行任何点击操作（弹窗应由 ops 层决定如何处理），
         仅记录事件并向引擎返回 DOCK_FULL 信号使其退出主循环。
         """
-        logger.warning("[Combat] 检测到船坞已满，战斗无法开始")
+        _log.warning("[Combat] 检测到船坞已满，战斗无法开始")
         self._history.add(CombatEvent(
             event_type=EventType.AUTO_RETURN,
             node=self._node,

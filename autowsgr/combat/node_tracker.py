@@ -24,7 +24,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.vision import (
     MatchStrategy, PixelChecker, PixelRule, PixelSignature,
@@ -40,6 +40,8 @@ _SOURCE_HEIGHT = 540
 
 # 地图数据根目录
 _MAP_DATA_ROOT = Path(__file__).resolve().parent.parent / "data" / "map" / "normal"
+
+_log = get_logger("combat.tracker")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -121,7 +123,7 @@ class MapNodeData:
         """
         path = _MAP_DATA_ROOT / f"{chapter}-{map_id}.yaml"
         if not path.exists():
-            logger.warning("[NodeTracker] 地图文件不存在: {}", path)
+            _log.warning("[NodeTracker] 地图文件不存在: {}", path)
             return None
 
         from autowsgr.infra.file_utils import load_yaml
@@ -153,11 +155,11 @@ class MapNodeData:
                 rel_y = value[1] / _SOURCE_HEIGHT
                 nodes[name] = NodePosition(name=name, x=rel_x, y=rel_y)
             else:
-                logger.warning(
+                _log.warning(
                     "[NodeTracker] 忽略无法解析的节点 '{}': {}", name, value,
                 )
 
-        logger.debug(
+        _log.debug(
             "[NodeTracker] 加载 {} 个节点: {}",
             len(nodes), list(nodes.keys()),
         )
@@ -316,13 +318,13 @@ class NodeTracker:
 
         if self._recheck_pixel(center, screen):
             self._ship_position = center
-            logger.debug(
+            _log.debug(
                 "[NodeTracker] 小船位置更新: ({:.3f}, {:.3f}) [黄色簇检测+像素验证]",
                 center[0], center[1],
             )
             return center
 
-        logger.debug(
+        _log.debug(
             "[NodeTracker] 黄色簇检测到但像素验证失败: ({:.3f}, {:.3f})",
             center[0], center[1],
         )
@@ -357,7 +359,7 @@ class NodeTracker:
         # 确定候选节点列表
         if current_data is not None and current_data.next_nodes:
             # 新格式：仅在 next_nodes 中搜索
-            logger.debug(
+            _log.debug(
                 "[NodeTracker] 当前节点 '{}', 下一节点候选列表: {}",
                 self._current_node, current_data.next_nodes,
             )
@@ -379,7 +381,7 @@ class NodeTracker:
                 best_node = name
 
         if best_node != self._current_node:
-            logger.info(
+            _log.info(
                 "[NodeTracker] 节点更新: {} → {} (距离 {:.4f}), 位置: ({:.3f}, {:.3f})",
                 self._current_node, best_node, best_distance, sx, sy
             )

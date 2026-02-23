@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator.controller import AndroidController
 from autowsgr.image_resources import TemplateKey
 from autowsgr.types import FightCondition, Formation, RepairMode, ShipDamageState
 
+_log = get_logger("combat")
 
 
 class Coords:
@@ -98,6 +99,7 @@ def click_formation(device: AndroidController, formation: Formation) -> None:
     formation:
         目标阵型。
     """
+    _log.debug("[Action] 选择阵型: {} ({})", formation.name, formation.value)
     x, y = formation.relative_position
     device.click(x, y)
     time.sleep(2.0)
@@ -126,6 +128,7 @@ def click_night_battle(device: AndroidController, pursue: bool) -> None:
     pursue:
         ``True`` = 追击（进入夜战），``False`` = 撤退。
     """
+    _log.debug("[Action] 夜战选择: {}", "追击" if pursue else "撤退")
     if pursue:
         device.click(*Coords.NIGHT_YES)
     else:
@@ -142,6 +145,7 @@ def click_proceed(device: AndroidController, go_forward: bool) -> None:
     go_forward:
         ``True`` = 前进，``False`` = 回港。
     """
+    _log.debug("[Action] 继续前进: {}", "前进" if go_forward else "回港")
     if go_forward:
         device.click(*Coords.PROCEED_YES)
     else:
@@ -417,5 +421,5 @@ def detect_ship_stats(
         pixel = PixelChecker.get_pixel(screen, x, y)
         result[slot] = classify_blood(pixel)
 
-    logger.info("结算页血量检测: {}", [s.name for s in result])
+    _log.info("[Combat] 结算页血量检测: {}", [s.name for s in result])
     return result

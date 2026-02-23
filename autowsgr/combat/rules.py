@@ -32,11 +32,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.types import Formation, SearchEnemyAction
 
 # 允许在规则中出现的舰种标识符
+_log = get_logger("combat.recognition")
+
 _SHIP_TYPE_PATTERN = re.compile(
     r"\b(CV|CVL|AV|BB|BBV|BC|CA|CAV|CLT|CL|BM|DD|SSG|SS|SC|NAP|"
     r"ASDG|AADG|KP|CG|CBG|BG)\b"
@@ -193,8 +195,8 @@ class RuleEngine:
         """
         for rule in self.rules:
             if rule.evaluate(context):
-                logger.debug(
-                    "规则命中: {} → {}",
+                _log.debug(
+                    "[Combat] 规则命中: {} → {}",
                     [(c.field, c.op, c.value) for c in rule.conditions],
                     rule.action.result.name,
                 )

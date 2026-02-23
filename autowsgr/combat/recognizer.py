@@ -19,12 +19,14 @@ from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat.state import CombatPhase
 from autowsgr.emulator.controller import AndroidController
 from autowsgr.image_resources import TemplateKey
 from autowsgr.vision import ImageChecker
+
+_log = get_logger("combat.recognition")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -249,8 +251,8 @@ class CombatRecognizer:
         deadline = time.time() + max_timeout
         poll_interval = 0.3
 
-        logger.debug(
-            "等待状态: {} (超时 {:.1f}s)",
+        _log.debug(
+            "[Combat] 等待状态: {} (超时 {:.1f}s)",
             [p.name for p, _, _ in phase_sigs],
             max_timeout,
         )
@@ -268,7 +270,7 @@ class CombatRecognizer:
                     # 匹配后延时
                     if sig.after_match_delay > 0:
                         time.sleep(sig.after_match_delay)
-                    logger.info("匹配到状态: {}", phase.name)
+                    _log.info("[Combat] 匹配到状态: {}", phase.name)
                     return phase
 
             time.sleep(poll_interval)

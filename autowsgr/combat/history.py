@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
+from autowsgr.infra.logger import get_logger
 from autowsgr.types import ShipDamageState
+
+_log = get_logger("combat")
 
 
 class EventType(Enum):
@@ -164,6 +167,7 @@ class FightResult:
         try:
             return self._GRADE_ORDER.index(self.grade)
         except ValueError:
+            _log.debug("[History] 未知战果等级: '{}'", self.grade)
             return -1
 
 
@@ -176,10 +180,13 @@ class CombatHistory:
     def add(self, event: CombatEvent) -> None:
         """添加一个事件。"""
         self.events.append(event)
+        _log.debug("[History] 记录事件: {}", event)
 
     def reset(self) -> None:
         """清空历史。"""
+        count = len(self.events)
         self.events = []
+        _log.debug("[History] 历史已清空 (原 {} 条记录)", count)
 
     @property
     def last_node(self) -> str:
@@ -210,7 +217,9 @@ class CombatHistory:
             else:
                 results_list.append(fr)
 
-        return results_list if results_list else results_dict
+        results = results_list if results_list else results_dict
+        _log.debug("[History] 提取战果: {} 条结算记录", len(results))
+        return results
 
     def __str__(self) -> str:
         return "\n".join(str(e) for e in self.events)
