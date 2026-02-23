@@ -309,6 +309,7 @@ class DecisivePhaseHandlers(DecisiveBase):
         """小关通关：确认弹窗 → 收集掉落 → 下一小关或大关。"""
         logger.info("[决战] 小关 {} 通关!", self._state.stage)
         collected = self._map.confirm_stage_clear()
+        self._state.node = 'A'
         if collected:
             logger.info("[决战] 获得 {} 个掉落: {}", len(collected), collected)
 
