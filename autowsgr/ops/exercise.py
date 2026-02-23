@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat import CombatResult, run_combat, CombatMode, CombatPlan, NodeDecision
 from autowsgr.infra import ExerciseConfig
@@ -19,6 +19,7 @@ from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode
 from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage, MapPanel
 from autowsgr.emulator import AndroidController
 
+_log = get_logger("ops")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 配置
@@ -48,15 +49,17 @@ class ExerciseRunner:
             每次演习的战斗结果列表。
         """
         self._results = []
+        _log.info("[OPS] 开始演习流程")
 
         # 1. 导航到演习面板
         self._enter_exercise_page()
         rivals_status = MapPage(self._ctrl).get_exercise_rival_status()
-        logger.info("[OPS] 当前可挑战对手: {}", rivals_status)
+        _log.info("[OPS] 当前可挑战对手: {}", rivals_status)
         for index, rival in enumerate(rivals_status.rivals, start=1):
             if rival:
-                logger.info("[OPS] 正在挑战对手 {}", index)
+                _log.info("[OPS] 正在挑战对手 {}", index)
                 self._results.append(self._challenge_rival(index))
+        _log.info("[OPS] 演习流程结束, 共完成 {} 场", len(self._results))
         return self._results
 
 
@@ -76,7 +79,7 @@ class ExerciseRunner:
         self._enter_exercise_page()
         if rival < 1 or rival > 5:
             raise ValueError(f"无效的对手索引: {rival} (应在 1–5 之间)")
-        logger.info("[OPS] 选择对手 {}", rival)
+        _log.info("[OPS] 选择对手 {}", rival)
         map_page = MapPage(self._ctrl)
         map_page.select_exercise_rival(rival)
         map_page.enter_exercise_battle()
@@ -102,6 +105,7 @@ class ExerciseRunner:
 
     def _do_combat(self) -> CombatResult:
         """构建 CombatPlan 并执行战斗。"""
+        _log.debug("[OPS] 演习战斗开始")
         plan = CombatPlan(
             name="演习",
             mode=CombatMode.EXERCISE,
@@ -111,10 +115,12 @@ class ExerciseRunner:
             ),
         )
 
-        return run_combat(
+        result = run_combat(
             self._ctrl,
             plan,
         )
+        _log.debug("[OPS] 演习战斗结束")
+        return result
 
 
 def run_exercise(

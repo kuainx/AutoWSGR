@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.infra import DockFullError
 from autowsgr.ops.decisive.base import DecisiveBase
 from autowsgr.types import DecisiveEntryStatus, PageName
+
+_log = get_logger("ops.decisive")
 
 
 class DecisiveChapterOps(DecisiveBase):
@@ -34,7 +36,7 @@ class DecisiveChapterOps(DecisiveBase):
         if self._config.full_destroy:
             from autowsgr.ops.destroy import destroy_ships
 
-            logger.warning("[决战] 船坞已满，执行自动解装")
+            _log.warning("[决战] 船坞已满，执行自动解装")
             self._ctrl.click(0.38, 0.565)
             destroy_ships(
                 self._ctrl,

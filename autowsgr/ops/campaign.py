@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat.callbacks import CombatResult
 from autowsgr.combat.plan import CombatMode, CombatPlan, NodeDecision
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from autowsgr.combat.engine import CombatEngine
     from autowsgr.emulator import AndroidController
 
+_log = get_logger("ops")
 
 CAMPAIGN_NAMES: dict[int, str] = {
     1: "驱逐",
@@ -131,7 +132,7 @@ class CampaignRunner:
         -------
         list[CombatResult]
         """
-        logger.info(
+        _log.info(
             "[OPS] 战役: {} 阵型={} 夜战={} 共 {} 次",
             self._campaign_name,
             self._formation.name,
@@ -141,7 +142,7 @@ class CampaignRunner:
         results: list[CombatResult] = []
 
         for i in range(self._times):
-            logger.info("[OPS] 战役第 {}/{} 次", i + 1, self._times)
+            _log.info("[OPS] 战役第 {}/{} 次", i + 1, self._times)
 
             # 1. 进入战役
             self._enter_battle()
@@ -154,14 +155,14 @@ class CampaignRunner:
             results.append(result)
 
             if result.flag == ConditionFlag.BATTLE_TIMES_EXCEED:
-                logger.info("[OPS] 战役次数已用完")
+                _log.info("[OPS] 战役次数已用完")
                 break
 
             if result.flag == ConditionFlag.DOCK_FULL:
-                logger.warning("[OPS] 船坞已满, 停止战役")
+                _log.warning("[OPS] 船坞已满, 停止战役")
                 break
 
-        logger.info(
+        _log.info(
             "[OPS] 战役完成: {} 次 (成功 {} 次)",
             len(results),
             sum(1 for r in results if r.flag == ConditionFlag.OPERATION_SUCCESS),

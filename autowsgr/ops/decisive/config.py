@@ -6,6 +6,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from autowsgr.infra.file_utils import load_yaml
+from autowsgr.infra.logger import get_logger
+
+_log = get_logger("decisive")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -126,6 +129,7 @@ class MapData:
             if isinstance(node_data, list):
                 return [str(x) for x in node_data if x]
         except Exception:
+            _log.debug("[决战] 敌方规格数据查询失败: chapter={}, stage={}, node={}", chapter, stage, node, exc_info=True)
             return []
         return []
 

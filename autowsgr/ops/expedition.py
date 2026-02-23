@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
@@ -13,6 +13,8 @@ from autowsgr.types import PageName
 from autowsgr.ui.main_page import MainPage
 from autowsgr.ui.map.page import MapPage
 from autowsgr.ui.map.data import MapPanel
+
+_log = get_logger("ops")
 
 
 def collect_expedition(ctrl: AndroidController) -> bool:
@@ -25,9 +27,11 @@ def collect_expedition(ctrl: AndroidController) -> bool:
     bool
         是否执行了收取操作。
     """
+    _log.info("[OPS] 开始检查远征收取")
     goto_page(ctrl, PageName.MAIN)
     screen = ctrl.screenshot()
     if not MainPage.has_expedition_ready(screen):
+        _log.debug("[OPS] 无远征可收取")
         return False
 
     goto_page(ctrl, PageName.MAP)
@@ -43,4 +47,5 @@ def collect_expedition(ctrl: AndroidController) -> bool:
     collected = page.collect_expedition()
 
     goto_page(ctrl, PageName.MAIN)
+    _log.info("[OPS] 远征收取完成")
     return collected > 0

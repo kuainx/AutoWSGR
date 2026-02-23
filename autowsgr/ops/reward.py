@@ -5,11 +5,15 @@
 
 from __future__ import annotations
 
+from autowsgr.infra.logger import get_logger
+
 from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName
 from autowsgr.ui.main_page import MainPage
 from autowsgr.ui.mission_page import MissionPage
+
+_log = get_logger("ops")
 
 
 def collect_rewards(ctrl: AndroidController) -> bool:
@@ -17,6 +21,7 @@ def collect_rewards(ctrl: AndroidController) -> bool:
     
     已完成，测试通过
     """
+    _log.info("[OPS] 检查任务奖励")
     goto_page(ctrl, PageName.MAIN)
 
     screen = ctrl.screenshot()
@@ -27,4 +32,5 @@ def collect_rewards(ctrl: AndroidController) -> bool:
     page = MissionPage(ctrl)
     result = page.collect_rewards()
     goto_page(ctrl, PageName.MAIN)
+    _log.info("[OPS] 任务奖励收取完成")
     return result

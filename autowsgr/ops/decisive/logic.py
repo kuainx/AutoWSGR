@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.infra import DecisiveConfig
 from .config import MapData
 from .state import DecisiveState
 from autowsgr.types import FleetSelection, Formation
 
+_log = get_logger("ops.decisive")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 辅助数据类
@@ -205,7 +206,7 @@ class DecisiveLogic:
         while len(best) < 7:
             best.append("")
 
-        logger.debug("[决战] 最优编队: {}", best)
+        _log.debug("[决战] 最优编队: {}", best)
         return best
 
     # ── 路径选择 ───────────────────────────────────────────────────────

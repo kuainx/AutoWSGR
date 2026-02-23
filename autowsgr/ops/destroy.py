@@ -8,9 +8,13 @@
 
 from __future__ import annotations
 
+from autowsgr.infra.logger import get_logger
+
 from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName, ShipType
+
+_log = get_logger("ops")
 
 
 def destroy_ships(
@@ -32,6 +36,7 @@ def destroy_ships(
     """
     from autowsgr.ui.build_page import BuildPage, BuildTab
 
+    _log.info("[OPS] 开始解装")
     goto_page(ctrl, PageName.BUILD)
 
     page = BuildPage(ctrl)
@@ -39,3 +44,4 @@ def destroy_ships(
     page.destroy_ships(ship_types, remove_equipment=remove_equipment)
 
     goto_page(ctrl, PageName.MAIN)
+    _log.info("[OPS] 解装完成")

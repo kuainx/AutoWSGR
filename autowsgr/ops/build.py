@@ -7,11 +7,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName
+
+_log = get_logger("ops")
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +35,7 @@ def collect_built_ships(
     """收取已建造完成的舰船或装备。"""
     from autowsgr.ui.build_page import BuildPage, BuildTab
 
+    _log.info("[OPS] 开始收取已建造完成的{}", "装备" if build_type == "equipment" else "舰船")
     goto_page(ctrl, PageName.BUILD)
     page = BuildPage(ctrl)
 
@@ -44,7 +47,9 @@ def collect_built_ships(
         if tab != BuildTab.BUILD:
             page.switch_tab(BuildTab.BUILD)
 
-    return page.collect_all(build_type, allow_fast_build=allow_fast_build)
+    count = page.collect_all(build_type, allow_fast_build=allow_fast_build)
+    _log.info("[OPS] 收取完成, 共收取 {} 个", count)
+    return count
 
 
 def build_ship(
@@ -57,9 +62,10 @@ def build_ship(
     """建造舰船或装备。"""
     from autowsgr.ui.build_page import BuildPage
 
+    _log.info("[OPS] 开始建造{}", "装备" if build_type == "equipment" else "舰船")
     collect_built_ships(ctrl, build_type=build_type, allow_fast_build=allow_fast_build)
 
     page = BuildPage(ctrl)
     if recipe is not None:
-        logger.warning("[OPS] 资源滑块操作暂未实现, 使用默认配方")
+        _log.warning("[OPS] 资源滑块操作暂未实现, 使用默认配方")
     page.start_new_build(build_type)

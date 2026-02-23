@@ -10,13 +10,14 @@
 
 from __future__ import annotations
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName
 from autowsgr.ui.bath_page import BathPage
 
+_log = get_logger("ops")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 公开函数
@@ -38,7 +39,7 @@ def repair_in_bath(ctrl: AndroidController) -> None:
     page.click_first_repair_ship()
 
     # 点击舰船后 overlay 自动关闭，已回到浴室页面
-    logger.info("[OPS] 浴室修理操作完成")
+    _log.info("[OPS] 浴室修理操作完成")
 
 
 def repair_ship_by_name(ctrl: AndroidController, ship_name: str) -> None:
@@ -65,4 +66,4 @@ def repair_ship_by_name(ctrl: AndroidController, ship_name: str) -> None:
     page.go_to_choose_repair()
     page.repair_ship(ship_name)
 
-    logger.info("[OPS] 浴室修理操作完成: {}", ship_name)
+    _log.info("[OPS] 浴室修理操作完成: {}", ship_name)

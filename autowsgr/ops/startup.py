@@ -27,7 +27,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import GameAPP, PageName
@@ -38,6 +38,7 @@ from autowsgr.ui.start_screen_page import StartScreenPage
 if TYPE_CHECKING:
     from autowsgr.emulator import AndroidController
 
+_log = get_logger("ops.startup")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 常量
@@ -80,7 +81,7 @@ def is_game_running(ctrl: AndroidController, package: str = _GAME_PACKAGE_OFFICI
         ``True`` 表示游戏进程存在（但不保证处于可操作的页面状态）。
     """
     running = ctrl.is_app_running(package)
-    logger.debug("[Startup] 游戏运行状态: {}", "运行中" if running else "未运行")
+    _log.debug("[Startup] 游戏运行状态: {}", "运行中" if running else "未运行")
     return running
 
 
@@ -99,7 +100,7 @@ def is_on_main_page(ctrl: AndroidController) -> bool:
     """
     screen = ctrl.screenshot()
     result = MainPage.is_current_page(screen)
-    logger.debug("[Startup] 主页面检测: {}", "是" if result else "否")
+    _log.debug("[Startup] 主页面检测: {}", "是" if result else "否")
     return result
 
 
@@ -127,7 +128,7 @@ def dismiss_login_overlays(
     delay:
         消除浮层后的稳定等待时间 (秒)。
     """
-    logger.info("[Startup] 检测并消除登录浮层")
+    _log.info("[Startup] 检测并消除登录浮层")
     deadline = time.monotonic() + timeout
 
     while time.monotonic() < deadline:
@@ -135,14 +136,14 @@ def dismiss_login_overlays(
         overlay = detect_overlay(screen)
 
         if overlay is None:
-            logger.debug("[Startup] 无浮层，跳过")
+            _log.debug("[Startup] 无浮层，跳过")
             return
 
-        logger.info("[Startup] 检测到浮层: {}，正在消除", overlay.value)
+        _log.info("[Startup] 检测到浮层: {}，正在消除", overlay.value)
         dismiss_overlay(ctrl, overlay)
         time.sleep(delay)
 
-    logger.warning("[Startup] 浮层消除超时 ({:.0f}s)，继续执行", timeout)
+    _log.warning("[Startup] 浮层消除超时 ({:.0f}s)，继续执行", timeout)
 
 
 def wait_for_game_ui(
@@ -171,7 +172,7 @@ def wait_for_game_ui(
     """
     from autowsgr.ui.page import get_current_page
 
-    logger.info("[Startup] 等待游戏 UI 就绪 (超时 {:.0f}s)…", timeout)
+    _log.info("[Startup] 等待游戏 UI 就绪 (超时 {:.0f}s)…", timeout)
     deadline = time.monotonic() + timeout
 
     while time.monotonic() < deadline:
@@ -179,18 +180,18 @@ def wait_for_game_ui(
 
         # 出现「点击进入」画面
         if StartScreenPage.is_current_page(screen):
-            logger.info("[Startup] 检测到启动画面")
+            _log.info("[Startup] 检测到启动画面")
             return True
 
         # 出现登录后浮层（依然算 UI 就绪）
         if detect_overlay(screen) is not None:
-            logger.info("[Startup] 检测到登录浮层，游戏已加载")
+            _log.info("[Startup] 检测到登录浮层，游戏已加载")
             return True
 
-        logger.debug("[Startup] 游戏尚未就绪，等待 {:.1f}s…", interval)
+        _log.debug("[Startup] 游戏尚未就绪，等待 {:.1f}s…", interval)
         time.sleep(interval)
 
-    logger.warning("[Startup] 等待游戏 UI 超时 ({:.0f}s)", timeout)
+    _log.warning("[Startup] 等待游戏 UI 超时 ({:.0f}s)", timeout)
     return False
 
 
@@ -226,7 +227,7 @@ def start_game(
     TimeoutError
         超时后游戏未进入可识别状态。
     """
-    logger.info("[Startup] 启动游戏 (package={})", package)
+    _log.info("[Startup] 启动游戏 (package={})", package)
     ctrl.start_app(package)
 
     # 等待游戏 UI 就绪
@@ -239,7 +240,7 @@ def start_game(
         if not wait_for_game_ui(ctrl, timeout=30.0):
             raise TimeoutError("点击启动画面后超时，未进入游戏")
 
-    logger.info("[Startup] 游戏加载完成")
+    _log.info("[Startup] 游戏加载完成")
 
 
 def restart_game(
@@ -259,7 +260,7 @@ def restart_game(
     startup_timeout:
         冷启动等待超时 (秒)。
     """
-    logger.info("[Startup] 强制重启游戏")
+    _log.info("[Startup] 强制重启游戏")
     ctrl.stop_app(package)
     time.sleep(2.0)
     start_game(ctrl, package, startup_timeout=startup_timeout)
@@ -281,7 +282,7 @@ def go_main_page(ctrl: AndroidController, *, dismiss_overlays: bool = True) -> N
     if dismiss_overlays:
         dismiss_login_overlays(ctrl)
 
-    logger.info("[Startup] 导航到主页面")
+    _log.info("[Startup] 导航到主页面")
     goto_page(ctrl, PageName.MAIN)
 
 
@@ -326,13 +327,13 @@ def ensure_game_ready(
         # 现在游戏已在主页面，可以开始操作
     """
     package = app.package_name if isinstance(app, GameAPP) else app
-    logger.info("[Startup] 确保游戏就绪 (package={})", package)
+    _log.info("[Startup] 确保游戏就绪 (package={})", package)
 
     if not is_game_running(ctrl, package):
-        logger.info("[Startup] 游戏未运行，正在启动…")
+        _log.info("[Startup] 游戏未运行，正在启动…")
         start_game(ctrl, package, startup_timeout=startup_timeout)
     else:
-        logger.info("[Startup] 游戏已在运行")
+        _log.info("[Startup] 游戏已在运行")
 
     go_main_page(ctrl, dismiss_overlays=dismiss_overlays)
-    logger.info("[Startup] 游戏就绪，当前位于主页面")
+    _log.info("[Startup] 游戏就绪，当前位于主页面")

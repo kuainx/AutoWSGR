@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import time
 
-from loguru import logger
+from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
 from autowsgr.ui.navigation import find_path
 from autowsgr.ui.page import NavigationError, get_current_page
 
+_log = get_logger("ops")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 常量
@@ -46,7 +47,7 @@ def identify_current_page(ctrl: AndroidController) -> str | None:
         page = get_current_page(screen)
         if page is not None:
             return page
-        logger.debug(
+        _log.debug(
             "[OPS] 页面识别失败 (第 {} 次尝试), 等待重试",
             attempt + 1,
         )
@@ -78,7 +79,7 @@ def _goto_page(ctrl: AndroidController, target: str) -> None:
         )
 
     if current == target:
-        logger.info("[OPS] 已在目标页面: {}", target)
+        _log.info("[OPS] 已在目标页面: {}", target)
         return
 
     path = find_path(current, target)
@@ -87,16 +88,16 @@ def _goto_page(ctrl: AndroidController, target: str) -> None:
             f"无法找到从 '{current}' 到 '{target}' 的路径"
         )
 
-    logger.info("[OPS] 导航: {} → {} (共 {} 步)", current, target, len(path))
+    _log.info("[OPS] 导航: {} → {} (共 {} 步)", current, target, len(path))
 
     for i, edge in enumerate(path):
-        logger.info(
+        _log.info(
             "[OPS]   步骤 {}/{}: {} → {} ({})",
             i + 1, len(path), edge.source, edge.target, edge.description,
         )
         edge.action(ctrl)
 
-    logger.info("[OPS] 已到达: {}", target)
+    _log.info("[OPS] 已到达: {}", target)
 
 
 def goto_page(ctrl: AndroidController, target: str) -> None:
@@ -104,7 +105,7 @@ def goto_page(ctrl: AndroidController, target: str) -> None:
     try:
         _goto_page(ctrl, target)
     except NavigationError as e:
-        logger.error("[OPS] 导航失败: {}", e)
+        _log.error("[OPS] 导航失败: {}", e)
         current_page = identify_current_page(ctrl)
-        logger.info("[OPS] 当前页面: {}, 执行一次重试", current_page)
+        _log.info("[OPS] 当前页面: {}, 执行一次重试", current_page)
         _goto_page(ctrl, target)
