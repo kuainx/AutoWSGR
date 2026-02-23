@@ -51,6 +51,7 @@ def recognize_fleet_options(
     score_img = res_roi.crop(screen)
     score_val = ocr.recognize_number(score_img)
     score = score_val if score_val is not None else 0
+    # TODO: 分数 OCR 需要改进
     if score_val is not None:
         logger.debug("[舰队OCR] 可用分数: {}", score_val)
     else:

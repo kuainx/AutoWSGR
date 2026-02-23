@@ -122,14 +122,13 @@ class DecisivePhaseHandlers(DecisiveBase):
     # ── 舰队与地图 ────────────────────────────────────────────────────────
 
     def _handle_choose_fleet(self) -> None:
-        """战备舰队获取：OCR 识别选项 → 购买决策 → 关闭弹窗。"""
-        must_buy_flag = False
-        if self._has_chosen_fleet is False:            
-            self._has_chosen_fleet = True
-            must_buy_flag = True
+        """战备舰队获取：OCR 识别选项 → 购买决策 → 关闭弹窗。"""      
+        self._has_chosen_fleet = True
         
         logger.info("[决战] 战备舰队获取")
+        time.sleep(0.25)  # 等待动画稳定
         screen = self._map.screenshot()
+        save_image(screen, "choose_fleet_screen.png")
         score, selections = self._map.recognize_fleet_options(screen)
         self._state.score = score or self._state.score
 
@@ -152,8 +151,8 @@ class DecisivePhaseHandlers(DecisiveBase):
                     selections, first_node=first_node,
                 )
 
-            if not to_buy and must_buy_flag:
-                logger.info("[决战] 本轮第一次选择舰队, 必须购买一项 → 选择第一项")
+            if not to_buy and len(self._state.ships) == 0:
+                logger.info("[决战] 未选择舰船, 必须购买一项 → 选择第一项")
                 self._map.buy_fleet_option(list(selections.values())[0].click_position)
                 self._map.close_fleet_overlay()
                 self._state.phase = DecisivePhase.RETREAT
