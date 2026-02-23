@@ -53,7 +53,6 @@ SIG_FLEET_ACQUISITION = PixelSignature(
     name="决战-战备舰队获取",
     strategy=MatchStrategy.ALL,
     rules=[
-        PixelRule.of(0.4953, 0.1083, (253, 251, 255), tolerance=30.0),
         PixelRule.of(0.5305, 0.1014, (254, 254, 254), tolerance=30.0),
         PixelRule.of(0.4031, 0.1028, (255, 252, 255), tolerance=30.0),
         PixelRule.of(0.4492, 0.1181, (254, 254, 254), tolerance=30.0),
@@ -191,7 +190,7 @@ CLICK_ADVANCE_CONFIRM: tuple[float, float] = (0.5, 0.856)
 """「确认」按钮 — 确认前进点选择。"""
 
 ADVANCE_CARD_POSITIONS: list[tuple[float, float]] = [
-    (0.35, 0.5),  # 左侧选项 (如 A1)
+    (0.3, 0.5),  # 左侧选项 (如 A1)
     (0.65, 0.5),  # 右侧选项 (如 A2)
     (0.50, 0.5),  # 中央选项 (若有第三个)
 ]

@@ -34,7 +34,7 @@ from autowsgr.ui.battle.constants import (
     SUPPORT_EXHAUSTED,
     SUPPORT_PROBE,
 )
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.ui.page import click_and_wait_leave_page
 from autowsgr.types import PageName, ShipDamageState
 from autowsgr.vision import PixelChecker, PixelSignature, PixelRule, MatchStrategy, OCREngine
 
@@ -156,7 +156,7 @@ class BattlePreparationPage:
         from autowsgr.ui.map.page import MapPage
 
         logger.info("[UI] 出征准备 → 回退")
-        click_and_wait_for_page(
+        click_and_wait_leave_page(
             self._ctrl,
             click_coord=CLICK_BACK,
             checker=MapPage.is_current_page,
@@ -321,7 +321,7 @@ class BattlePreparationPage:
         self,
         fleet_id: int | None,
         ship_names: Sequence[str | None],
-    ) -> None:
+    ) -> bool:
         """更换编队全部舰船。
         TODO: 需测试
         Parameters
@@ -330,6 +330,11 @@ class BattlePreparationPage:
             舰队编号 (2–4)。1 队不支持更换。None 代表不指定舰队，仅更换舰船。
         ship_names:
             舰船名列表 (按槽位 0–5)。``None`` 或 ``""`` 表示该位留空。
+
+        Returns
+        -------
+        bool
+            始终返回 ``True``（子类可覆盖以返回失败状态）。
         """
 
         if fleet_id == 1:
@@ -362,6 +367,7 @@ class BattlePreparationPage:
             time.sleep(0.3)
 
         logger.info("[UI] {} 队编成更换完成", fleet_id)
+        return True
 
     def _change_single_ship(
         self,

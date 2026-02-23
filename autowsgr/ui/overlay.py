@@ -201,6 +201,7 @@ def dismiss_sign(ctrl: AndroidController) -> None:
     ctrl:
         Android 控制器。
     """
+    # TODO: 7 日签到可能会爆舰船出来，需要额外处理
     from .page import confirm_operation
     
     logger.info("[UI] 每日签到: 关闭")

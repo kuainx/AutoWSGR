@@ -43,19 +43,16 @@ CLICK_FIRST_RESULT: tuple[float, float] = (183 / 960, 167 / 540)
 """搜索结果列表中的第一个结果。"""
 
 PAGE_SIGNATURE = PixelSignature(
-    name="舰船选择页面",
+    name="skill_used",
     strategy=MatchStrategy.ALL,
     rules=[
-        PixelRule.of(0.8602, 0.9069, (27, 121, 211), tolerance=30.0),
-        PixelRule.of(0.9656, 0.9083, (26, 120, 210), tolerance=30.0),
-        PixelRule.of(0.8578, 0.5556, (54, 54, 54), tolerance=30.0),
-        PixelRule.of(0.8594, 0.6750, (54, 54, 54), tolerance=30.0),
-        PixelRule.of(0.9656, 0.5583, (54, 54, 54), tolerance=30.0),
-        PixelRule.of(0.9688, 0.6833, (54, 54, 54), tolerance=30.0),
-        PixelRule.of(0.6406, 0.0569, (23, 37, 64), tolerance=30.0),
+        PixelRule.of(0.8594, 0.1514, (31, 46, 69), tolerance=30.0),
+        PixelRule.of(0.8602, 0.3167, (31, 139, 238), tolerance=30.0),
+        PixelRule.of(0.8578, 0.5306, (57, 57, 57), tolerance=30.0),
+        PixelRule.of(0.8594, 0.6736, (54, 54, 54), tolerance=30.0),
+        PixelRule.of(0.8656, 0.8014, (35, 57, 81), tolerance=30.0),
     ],
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 页面控制器

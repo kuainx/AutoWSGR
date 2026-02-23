@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import time
 
+import cv2
 import numpy as np
 from loguru import logger
-
+from autowsgr.infra import save_image
 import autowsgr.ui.decisive.fleet_ocr as _fleet_ocr
 from autowsgr.ui.decisive.overlay import (
     ADVANCE_CARD_POSITIONS,
@@ -38,9 +39,8 @@ from ..page import click_and_wait_for_page
 from autowsgr.ui.battle.preparation import BattlePreparationPage, RepairStrategy
 from autowsgr.ui.decisive.preparation import DecisiveBattlePreparationPage
 from autowsgr.vision import PixelChecker, ROI, get_api_dll, OCREngine, ImageChecker, PixelSignature, PixelRule, MatchStrategy
-from autowsgr.types import FleetSelection, DecisivePhase
+from autowsgr.types import FleetSelection, DecisivePhase, ShipDamageState
 from autowsgr.infra import DecisiveConfig
-from collections.abc import Callable
 from autowsgr.emulator import AndroidController
 
 SKILL_USED = PixelSignature(
@@ -73,12 +73,10 @@ class DecisiveMapController:
         config: DecisiveConfig,
         *,
         ocr: OCREngine,
-        image_matcher: Callable[[np.ndarray], str | None] | None = None,
     ) -> None:
         self._ctrl = ctrl
         self._config = config
         self._ocr = ocr
-        self._image_matcher = image_matcher
 
     # ══════════════════════════════════════════════════════════════════════
     # 页面状态检测
@@ -150,36 +148,102 @@ class DecisiveMapController:
 
         return None
 
+    # ── 舰船图标颜色检测参数 (HSV, BGR 输入) ──────────────────────
+    # 决战地图上的舰船指示器呈橙黄色高亮，是该色段面积最大的连通区域
+    _SHIP_HSV_LO = np.array([18, 100, 200], dtype=np.uint8)
+    _SHIP_HSV_HI = np.array([32, 180, 255], dtype=np.uint8)
+    _SHIP_MIN_AREA = 500  # 真实舰标面积远大于地图杂色 (通常 >2000)
+
+    @staticmethod
+    def _locate_ship_icon(bgr: np.ndarray) -> float | None:
+        """通过 HSV 颜色分割定位舰船指示器的 **相对** X 中心。
+
+        不依赖任何图像模板，仅利用舰船指示器在决战地图上独特的
+        橙黄色高亮面积远大于其它同色碎片这一视觉特征。
+
+        Returns
+        -------
+        float | None
+            舰标中心 X 占图像宽度比例 (0‒1)；检测失败返回 ``None``。
+        """
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, DecisiveMapController._SHIP_HSV_LO,
+                           DecisiveMapController._SHIP_HSV_HI)
+        # 闭运算连接临近像素
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        n_labels, _labels, stats, centroids = cv2.connectedComponentsWithStats(mask)
+        if n_labels < 2:
+            return None
+
+        # 跳过背景 (label 0)，取面积最大的连通区域
+        areas = stats[1:, cv2.CC_STAT_AREA]
+        best = int(areas.argmax()) + 1
+        if stats[best, cv2.CC_STAT_AREA] < DecisiveMapController._SHIP_MIN_AREA:
+            return None
+        return float(centroids[best][0]) / bgr.shape[1]
+
     def recognize_node(
         self, screen: np.ndarray | None = None, fallback: str = "A",
     ) -> str:
-        """DLL 识别当前决战节点字母 (如 'A', 'B')。"""
-        if screen is None:
-            screen = self._ctrl.screenshot()
+        """DLL 识别当前决战节点字母 (如 ``'A'``, ``'B'``)。
 
+        算法 (无模板依赖):
+
+        1. 轮询截图，通过 **HSV 颜色分割** 定位舰船指示器 X 坐标
+           (地图上最大的橙黄色连通区域)。
+        2. 以舰标 X 为参考裁剪全高竖列，送 DLL ``recognize_map`` 识别。
+        3. DLL 返回 ``'0'`` 时重试 (最多 3 次)，全部失败抛出异常。
+        """
+        _MAX_RETRY = 3
+        _ICON_TIMEOUT = 10.0
+        _ICON_GAP = 0.15
         dll = get_api_dll()
 
-        if self._image_matcher is not None:
-            match_result = self._image_matcher(screen)
-            if match_result is not None:
-                logger.debug("[地图控制器] 图标匹配结果: {}", match_result)
+        for retry in range(_MAX_RETRY + 1):
+            # 1. 轮询等待舰船指示器出现
+            deadline = time.monotonic() + _ICON_TIMEOUT
+            icon_rel_x: float | None = None
+            while time.monotonic() < deadline:
+                detect_screen = self._ctrl.screenshot()
+                # _locate_ship_icon 需要 BGR；screenshot() 返回 RGB
+                bgr = cv2.cvtColor(detect_screen, cv2.COLOR_RGB2BGR)
+                icon_rel_x = self._locate_ship_icon(bgr)
+                if icon_rel_x is not None:
+                    break
+                time.sleep(_ICON_GAP)
 
-        h, w = screen.shape[:2]
-        x_center, col_width = 0.47, 0.042
-        x1 = max(0, int((x_center - col_width / 2) * w))
-        x2 = min(w, int((x_center + col_width / 2) * w))
-        col_crop = screen[0:h, x1:x2]
+            if icon_rel_x is None:
+                raise RuntimeError("决战节点识别失败: 舰船指示器超时未出现")
 
-        try:
-            result = dll.recognize_map(col_crop)
-            if result != "0":
-                logger.info("[地图控制器] DLL 节点识别: {}", result)
-                return result
-        except Exception:
-            logger.warning("[地图控制器] DLL 节点识别异常", exc_info=True)
+            logger.debug("[地图控制器] 舰船指示器位置: X={:.3f}", icon_rel_x)
 
-        logger.debug("[地图控制器] 节点识别失败, 回退: {}", fallback)
-        return fallback
+            # 2. 取新截图，按舰标 X 裁剪竖列
+            fresh_screen = self._ctrl.screenshot()
+            h, w = fresh_screen.shape[:2]
+            x1 = max(0, int((icon_rel_x - 0.03) * w))
+            x2 = min(w, int((icon_rel_x - 0.03 + 0.042) * w))
+            col_crop = fresh_screen[0:h, x1:x2]
+            save_image(fresh_screen, f"node_screen_retry{retry}.png")
+            save_image(col_crop, f"node_crop_retry{retry}.png")
+
+            # 3. DLL 识别
+            try:
+                result = dll.recognize_map(col_crop)
+                if result != "0":
+                    logger.info("[地图控制器] 识别决战节点: {}", result[0])
+                    return result[0]
+            except Exception:
+                logger.warning("[地图控制器] DLL 节点识别异常", exc_info=True)
+
+            if retry >= _MAX_RETRY:
+                break
+            logger.warning(
+                "[地图控制器] 节点识别失败, 正在重试第 {} 次", retry + 1,
+            )
+
+        raise RuntimeError("决战节点识别失败: 重试 {} 次后仍无法识别".format(_MAX_RETRY + 1))
 
     # ══════════════════════════════════════════════════════════════════════
     # 战备舰队获取 overlay
@@ -250,9 +314,68 @@ class DecisiveMapController:
         """在地图页使用一次副官技能并返回识别到的舰船。"""
         return _fleet_ocr.use_skill(self._ctrl, self._ocr, self._config)
 
-    def scan_available_ships(self) -> set[str]:
-        """在出征准备页通过选船列表扫描可用舰船。"""
-        return _fleet_ocr.scan_available_ships(self._ctrl, self._ocr, self._config)
+    def check_fleet(
+        self,
+    ) -> tuple[list[str | None], dict[int, ShipDamageState], set[str]]:
+        """恢复进度时在编队页面扫描当前编队及所有可用舰船。
+
+        完整 UI 流程:
+
+        1. 进入编队页 (preparation page)
+        2. OCR 识别当前编队成员 + 像素检测血量
+        3. 进入选船列表扫描所有可用舰船
+        4. 返回地图页
+
+        对齐 legacy ``_check_fleet``: 同时收集编队成员与列表中的舰船。
+
+        Returns
+        -------
+        tuple[list[str | None], dict[int, ShipDamageState], set[str]]
+            ``(fleet, damage, all_ships)``:
+
+            - *fleet*: 当前 6 槽位舰船名 (``None`` 为空)
+            - *damage*: 各槽位血量状态
+            - *all_ships*: 所有可用舰船名 (含编队成员)
+        """
+        from autowsgr.ui.choose_ship_page import ChooseShipPage
+
+        logger.info("[地图控制器] 扫描当前编队与可用舰船")
+
+        self.enter_formation()
+        page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
+
+        screen = self._ctrl.screenshot()
+        fleet = page.detect_fleet(screen)
+        damage = page.detect_ship_damage(screen)
+
+        # 进入选船列表
+        page.click_ship_slot(0)
+        time.sleep(1.0)
+
+        # DLL locate + 逐行 OCR 扫描
+        screen = self._ctrl.screenshot()
+        save_image(screen, "fleet_check_list.png")
+        available = _fleet_ocr.recognize_ships_in_list(self._ocr, screen)
+
+        # 编队中的舰船也计入可用集合
+        all_ships = set(available)
+        for name in fleet:
+            if name is not None:
+                all_ships.add(name)
+
+        # 返回准备页
+        self._ctrl.click(0.05, 0.05)
+        time.sleep(1.0)
+
+        # 返回地图页
+        page.go_back()
+        time.sleep(1.0)
+
+        logger.info(
+            "[地图控制器] 编队={}, 可用舰船={}",
+            fleet, sorted(all_ships),
+        )
+        return fleet, damage, all_ships
 
     # ══════════════════════════════════════════════════════════════════════
     # 选择前进点 overlay
