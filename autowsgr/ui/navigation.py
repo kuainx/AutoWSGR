@@ -60,23 +60,23 @@ class NavEdge:
 
 
 def _main_to_map(ctrl: AndroidController) -> None:
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
-    MainPage(ctrl).navigate_to(MainPageTarget.SORTIE)
+    from autowsgr.ui.main_page import MainPage
+    MainPage(ctrl).navigate_to(MainPage.Target.SORTIE)
 
 
 def _main_to_mission(ctrl: AndroidController) -> None:
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
-    MainPage(ctrl).navigate_to(MainPageTarget.TASK)
+    from autowsgr.ui.main_page import MainPage
+    MainPage(ctrl).navigate_to(MainPage.Target.TASK)
 
 
 def _main_to_backyard(ctrl: AndroidController) -> None:
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
-    MainPage(ctrl).navigate_to(MainPageTarget.HOME)
+    from autowsgr.ui.main_page import MainPage
+    MainPage(ctrl).navigate_to(MainPage.Target.HOME)
 
 
 def _main_to_sidebar(ctrl: AndroidController) -> None:
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
-    MainPage(ctrl).navigate_to(MainPageTarget.SIDEBAR)
+    from autowsgr.ui.main_page import MainPage
+    MainPage(ctrl).navigate_to(MainPage.Target.SIDEBAR)
 
 
 def _map_to_main(ctrl: AndroidController) -> None:
@@ -164,6 +164,16 @@ def _decisive_to_main(ctrl: AndroidController) -> None:
     DecisiveBattlePage(ctrl).go_back()
 
 
+def _main_to_event(ctrl: AndroidController) -> None:
+    from autowsgr.ui.main_page import MainPage
+    MainPage(ctrl).navigate_to(MainPage.Target.EVENT)
+
+
+def _event_to_main(ctrl: AndroidController) -> None:
+    from autowsgr.ui.event.event_page import BaseEventPage
+    BaseEventPage(ctrl).go_back()
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 导航图
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -196,6 +206,9 @@ NAV_GRAPH: list[NavEdge] = [
     NavEdge(PageName.FRIEND, PageName.SIDEBAR, _friend_to_sidebar, "好友 → 侧边栏"),
     # ── 决战 → 主页面 (跨级) ──
     NavEdge(PageName.DECISIVE_BATTLE, PageName.MAIN, _decisive_to_main, "决战 → 主页面"),
+    # ── 活动 ↔ 主页面 ──
+    NavEdge(PageName.MAIN, PageName.EVENT_MAP, _main_to_event, "主页面 → 活动"),
+    NavEdge(PageName.EVENT_MAP, PageName.MAIN, _event_to_main, "活动 → 主页面"),
 ]
 
 

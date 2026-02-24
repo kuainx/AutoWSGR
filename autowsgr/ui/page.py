@@ -46,7 +46,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
-from autowsgr.ui.overlay import detect_overlay, dismiss_overlay  # noqa: F401
+from autowsgr.ui.main_page.overlays import detect_overlay, dismiss_overlay  # noqa: F401
 from autowsgr.vision import ImageChecker
 
 _log = get_logger("ui")

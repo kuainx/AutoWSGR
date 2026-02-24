@@ -76,12 +76,12 @@ from .build_page import BuildPage, BuildTab
 from .canteen_page import CanteenPage
 from .choose_ship_page import ChooseShipPage
 from .decisive import DecisiveBattlePage, DecisiveMapController
+from .event.event_page import BaseEventPage
 from .friend_page import FriendPage
 from .intensify_page import IntensifyPage, IntensifyTab
-from .main_page import MainPage, MainPageTarget
-from .map.data import MAP_DATABASE, MapIdentity
+from .main_page import MainPage
+from .map.data import MAP_DATABASE, MapIdentity, MapPanel
 from .map.page import MapPage
-from .map.data import MapPanel
 from .mission_page import MissionPage
 from .sidebar_page import SidebarPage, SidebarTarget
 
@@ -90,15 +90,12 @@ from autowsgr.ui.tabbed_page import (
     TabbedPageType,
 )
 
-# ── 浮层处理 ───────────────────────────────────────────────────────────
-from autowsgr.ui.overlay import (
-    NetworkError,
-    OverlayType,
-    detect_overlay,
-    dismiss_news,
-    dismiss_overlay,
-    dismiss_sign,
-)
+from autowsgr.ui.main_page.constants import OverlayKind
+from autowsgr.ui.overlay import NetworkError
+
+# ── 兼容别名 ─────────────────────────────────────────────────────
+MainPageTarget = MainPage.Target
+OverlayType = OverlayKind
 
 # ── 导航基础设施 ───────────────────────────────────────────────────────
 from autowsgr.ui.page import (
@@ -127,6 +124,7 @@ register_page(PageName.BUILD, BuildPage.is_current_page)
 register_page(PageName.INTENSIFY, IntensifyPage.is_current_page)
 register_page(PageName.FRIEND, FriendPage.is_current_page)
 register_page(PageName.DECISIVE_BATTLE, DecisiveBattlePage.is_current_page)
+register_page(PageName.EVENT_MAP, BaseEventPage.is_current_page)
 
 __all__ = [
     # ── 控制器 ──
@@ -141,6 +139,7 @@ __all__ = [
     "DecisiveBattlePage",
     "DecisiveMapController",
 
+    "BaseEventPage",
     "FriendPage",
     "IntensifyPage",
     "IntensifyTab",
@@ -158,11 +157,8 @@ __all__ = [
     "TabbedPageType",
     # ── 浮层 ──
     "NetworkError",
+    "OverlayKind",
     "OverlayType",
-    "detect_overlay",
-    "dismiss_news",
-    "dismiss_overlay",
-    "dismiss_sign",
     # ── 导航基础设施 ──
     "NavConfig",
     "NavigationError",
