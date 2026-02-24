@@ -79,6 +79,15 @@ from autowsgr.ops.normal_fight import (
     run_normal_fight_from_yaml,
 )
 
+# ── 活动战斗 ──
+from autowsgr.ops.event_fight import (
+    EventConfig,
+    EventFightRunner,
+    run_event_fight,
+    run_event_fight_from_yaml,
+    EVENT_20260212,
+)
+
 # ── 战役 ──
 from autowsgr.ops.campaign import CampaignRunner
 
@@ -119,6 +128,12 @@ __all__ = [
     "NormalFightRunner",
     "run_normal_fight",
     "run_normal_fight_from_yaml",
+    # 活动战斗
+    "EventConfig",
+    "EventFightRunner",
+    "run_event_fight",
+    "run_event_fight_from_yaml",
+    "EVENT_20260212",
     # 战役
     "CampaignRunner",
 ]
