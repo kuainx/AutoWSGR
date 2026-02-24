@@ -14,20 +14,14 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 
-from autowsgr.combat.callbacks import CombatResult
-from autowsgr.combat.plan import CombatMode, CombatPlan, NodeDecision
-from autowsgr.ops.navigate import goto_page
+from autowsgr.combat import CombatResult, CombatMode, CombatPlan, NodeDecision, CombatEngine
+from autowsgr.ops import goto_page
 from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode, ShipDamageState
-from autowsgr.ui import BattlePreparationPage, RepairStrategy
-from autowsgr.ui import MapPage
-
-if TYPE_CHECKING:
-    from autowsgr.combat.engine import CombatEngine
-    from autowsgr.emulator import AndroidController
+from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage
+from autowsgr.emulator import AndroidController
 
 _log = get_logger("ops")
 

@@ -450,7 +450,13 @@ class DecisiveMapController:
             Templates.Symbol.GET_ITEM,
         ]
         collected: list[str] = []
-
+        for _ in range(10):
+            # 等待掉落弹窗出现
+            if ImageChecker.template_exists(
+                self._ctrl.screenshot(), ship_templates, confidence=0.8,
+            ):
+                break
+            time.sleep(0.25)
         while True:
             screen = self._ctrl.screenshot()
             detail = ImageChecker.find_any(
