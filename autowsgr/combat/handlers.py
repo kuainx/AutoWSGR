@@ -23,18 +23,40 @@ from autowsgr.combat.actions import (
     click_result,
     click_retreat,
     click_skip_missile_animation,
+    detect_result_grade,
+    detect_ship_stats,
+    get_enemy_formation,
+    get_enemy_info,
     get_ship_drop,
     image_exist,
 )
-from .history import CombatEvent, EventType, CombatHistory
-from .plan import  NodeDecision, CombatPlan
+from .history import CombatEvent, EventType, CombatHistory, FightResult
+from .plan import CombatMode, NodeDecision, CombatPlan
 from .rules import RuleResult
 from .state import CombatPhase
 from autowsgr.image_resources import TemplateKey
 from autowsgr.types import ConditionFlag, Formation, ShipDamageState
 from autowsgr.emulator import AndroidController
+from autowsgr.vision import OCREngine
 
 _log = get_logger("combat")
+
+
+# ── 状态 → 处理器方法名映射  ────────────────────────────────────────────────
+
+_PHASE_HANDLERS: dict[CombatPhase, str] = {
+    CombatPhase.FIGHT_CONDITION: "_handle_fight_condition",
+    CombatPhase.SPOT_ENEMY_SUCCESS: "_handle_spot_enemy",
+    CombatPhase.FORMATION: "_handle_formation",
+    CombatPhase.MISSILE_ANIMATION: "_handle_missile_animation",
+    CombatPhase.FIGHT_PERIOD: "_handle_fight_period",
+    CombatPhase.NIGHT_PROMPT: "_handle_night_prompt",
+    CombatPhase.RESULT: "_handle_result",
+    CombatPhase.GET_SHIP: "_handle_get_ship",
+    CombatPhase.PROCEED: "_handle_proceed",
+    CombatPhase.FLAGSHIP_SEVERE_DAMAGE: "_handle_flagship_severe_damage",
+    CombatPhase.DOCK_FULL: "_handle_dock_full",
+}
 
 
 class PhaseHandlersMixin:
@@ -46,11 +68,10 @@ class PhaseHandlersMixin:
 
         _device: AndroidController
         _plan: CombatPlan
+        _ocr: OCREngine | None
         _node: str
         _last_action: str
         _ship_stats: list[ShipDamageState]
-        _enemies: dict[str, int]
-        _enemy_formation: str
         _history: CombatHistory
         _node_count: int
         _formation_by_rule: Formation | None
@@ -59,17 +80,19 @@ class PhaseHandlersMixin:
     # 类型提示 (供 IDE/mypy 在 Mixin 上下文使用)
     _device: AndroidController
     _plan: CombatPlan
+    _ocr: OCREngine | None
     _node: str
     _last_action: str
     _ship_stats: list[ShipDamageState]
-    _enemies: dict[str, int]
-    _enemy_formation: str
     _history: CombatHistory
     _node_count: int
     _formation_by_rule: Formation | None
 
     def _make_decision(self, phase: CombatPhase) -> ConditionFlag:
         """根据当前状态做出决策并执行操作。
+
+        每个状态通过 ``_PHASE_HANDLERS`` 映射到对应的处理器方法；
+        处理器执行完毕后，若当前状态是终止阶段则返回 ``FIGHT_END``。
 
         Parameters
         ----------
@@ -80,18 +103,15 @@ class PhaseHandlersMixin:
         -------
         ConditionFlag
         """
-        # ── 终止状态 ──
-        end_phase = self._plan.end_phase
-        if phase == end_phase:
-            # 终止阶段可能本身也需要交互操作 (如 DECISIVE 模式下
-            # RESULT 是终止阶段，但仍需点击关闭结算界面)。
-            # 先执行对应 handler，再返回 FIGHT_END。
-            _TERMINAL_HANDLERS = {
-                CombatPhase.RESULT: self._handle_result,
-            }
-            handler = _TERMINAL_HANDLERS.get(phase)
-            if handler is not None:
-                handler()
+        # ── 派发处理器 ──
+        handler_name = _PHASE_HANDLERS.get(phase)
+        if handler_name is not None:
+            result = getattr(self, handler_name)()
+        else:
+            result = ConditionFlag.FIGHT_CONTINUE
+
+        # ── 终止态检查 ──
+        if phase == self._plan.end_phase:
             self._history.add(CombatEvent(
                 event_type=EventType.AUTO_RETURN,
                 node=self._node,
@@ -99,47 +119,7 @@ class PhaseHandlersMixin:
             ))
             return ConditionFlag.FIGHT_END
 
-        # ── 各状态决策 ──
-
-        if phase == CombatPhase.FIGHT_CONDITION:
-            return self._handle_fight_condition()
-
-        if phase == CombatPhase.SPOT_ENEMY_SUCCESS:
-            return self._handle_spot_enemy()
-
-        if phase == CombatPhase.FORMATION:
-            return self._handle_formation()
-
-        if phase == CombatPhase.MISSILE_ANIMATION:
-            return self._handle_missile_animation()
-
-        if phase == CombatPhase.FIGHT_PERIOD:
-            return self._handle_fight_period()
-
-        if phase == CombatPhase.NIGHT_PROMPT:
-            return self._handle_night_prompt()
-
-        if phase == CombatPhase.RESULT:
-            return self._handle_result()
-
-        if phase == CombatPhase.GET_SHIP:
-            return self._handle_get_ship()
-
-        if phase == CombatPhase.PROCEED:
-            return self._handle_proceed()
-
-        if phase == CombatPhase.FLAGSHIP_SEVERE_DAMAGE:
-            return self._handle_flagship_severe_damage()
-
-        if phase == CombatPhase.DOCK_FULL:
-            return self._handle_dock_full()
-
-        if phase == CombatPhase.START_FIGHT:
-            # START_FIGHT 是纯过渡态，不需要操作——已在 _update_state 中转移到后继
-            return ConditionFlag.FIGHT_CONTINUE
-
-        _log.error("[Combat] 未知状态: {}", phase.name)
-        return ConditionFlag.SL
+        return result
 
     # ── 各状态处理器 ─────────────────────────────────────────────────────────
 
@@ -162,11 +142,18 @@ class PhaseHandlersMixin:
         """处理索敌成功 — 核心决策节点。
 
         决策顺序:
-        1. 检查节点是否在白名单中
-        2. 检查阵型规则 (formation_rules)
-        3. 检查敌舰规则 (enemy_rules)
-        4. 根据结果执行: 撤退 / 迂回 / 设置阵型 / 进入战斗
+        1. 采集敌方编成和阵型
+        2. 检查节点是否在白名单中
+        3. 检查阵型规则 (formation_rules)
+        4. 检查敌舰规则 (enemy_rules)
+        5. 根据结果执行: 撤退 / 迂回 / 设置阵型 / 进入战斗
         """
+        # ── 信息采集 ──
+        mode = "exercise" if self._plan.mode == CombatMode.EXERCISE else "fight"
+        enemies = get_enemy_info(self._device, mode=mode)
+        enemy_formation = get_enemy_formation(self._device, self._ocr)
+        _log.info("[Combat] 敌方编成: {} 阵型: {}", enemies, enemy_formation)
+
         decision = self._get_current_decision()
 
         # 白名单检查
@@ -187,15 +174,15 @@ class PhaseHandlersMixin:
 
         # 阵型规则优先
         rule_action = None
-        if decision.formation_rules and self._enemy_formation:
+        if decision.formation_rules and enemy_formation:
             rule_action = decision.formation_rules.evaluate_formation(
-                self._enemy_formation
+                enemy_formation
             )
 
         # 敌舰规则
         if rule_action is None or rule_action.result == RuleResult.NO_ACTION:
             if decision.enemy_rules:
-                rule_action = decision.enemy_rules.evaluate(self._enemies)
+                rule_action = decision.enemy_rules.evaluate(enemies)
 
         # 应用规则结果
         if rule_action is not None:
@@ -206,7 +193,7 @@ class PhaseHandlersMixin:
                     event_type=EventType.SPOT_ENEMY,
                     node=self._node,
                     action="撤退",
-                    enemies=self._enemies.copy(),
+                    enemies=enemies.copy(),
                 ))
                 return ConditionFlag.FIGHT_END
 
@@ -231,7 +218,7 @@ class PhaseHandlersMixin:
                 event_type=EventType.SPOT_ENEMY,
                 node=self._node,
                 action="迂回",
-                enemies=self._enemies.copy(),
+                enemies=enemies.copy(),
             ))
             return ConditionFlag.FIGHT_CONTINUE
 
@@ -250,7 +237,7 @@ class PhaseHandlersMixin:
             event_type=EventType.SPOT_ENEMY,
             node=self._node,
             action="战斗",
-            enemies=self._enemies.copy(),
+            enemies=enemies.copy(),
         ))
         return ConditionFlag.FIGHT_CONTINUE
 
@@ -313,7 +300,6 @@ class PhaseHandlersMixin:
             event_type=EventType.FORMATION,
             node=self._node,
             action=f"阵型{formation.value} ({formation.name})",
-            enemies=self._enemies.copy() if self._enemies else None,
         ))
         return ConditionFlag.FIGHT_CONTINUE
 
@@ -353,13 +339,23 @@ class PhaseHandlersMixin:
         return ConditionFlag.FIGHT_CONTINUE
 
     def _handle_result(self) -> ConditionFlag:
-        """处理战果结算。
-        TODO: 增强可靠性
-        """
-        time.sleep(1)  # 等待结算界面完全加载
+        """处理战果结算 — 识别评级、更新血量、关闭界面。"""
+        # ── 信息采集 ──
+        grade = detect_result_grade(self._device)
+        self._ship_stats = detect_ship_stats(self._device, self._ship_stats)
+        fight_result = FightResult(grade=grade, ship_stats=self._ship_stats[:])
+        self._history.add(CombatEvent(
+            event_type=EventType.RESULT,
+            node=self._node,
+            result=str(fight_result),
+        ))
+        _log.info("[Combat] 战果: {} 节点: {}", fight_result, self._node)
+
+        # ── 关闭结算界面 ──
+        time.sleep(1)
         click_result(self._device)
         time.sleep(0.25)
-        click_result(self._device)  # 二次点击以关闭结算界面
+        click_result(self._device)
         return ConditionFlag.FIGHT_CONTINUE
 
     def _handle_get_ship(self) -> ConditionFlag:

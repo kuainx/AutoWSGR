@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 from autowsgr.combat.state import (
-    BATTLE_TRANSITIONS,
-    EXERCISE_TRANSITIONS,
-    NORMAL_FIGHT_TRANSITIONS,
     CombatPhase,
+    ModeCategory,
+    build_transitions,
     resolve_successors,
 )
+from autowsgr.combat.plan import MODE_TRANSITIONS, _MODE_SPECS
 from autowsgr.combat.rules import (
     Condition,
     Rule,
@@ -50,7 +50,6 @@ class TestCombatPhase:
         assert CombatPhase.GET_SHIP is not None
         assert CombatPhase.FLAGSHIP_SEVERE_DAMAGE is not None
         assert CombatPhase.MAP_PAGE is not None
-        assert CombatPhase.BATTLE_PAGE is not None
         assert CombatPhase.EXERCISE_PAGE is not None
 
 
@@ -58,67 +57,72 @@ class TestResolveSuccessors:
     """状态转移解析测试。"""
 
     def test_normal_proceed_yes(self):
-        result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.PROCEED, "yes"
-        )
-        phases = [r[0] for r in result]
-        assert CombatPhase.FIGHT_CONDITION in phases
-        assert CombatPhase.MAP_PAGE in phases
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
+        result = resolve_successors(normal, CombatPhase.PROCEED, "yes")
+        assert CombatPhase.FIGHT_CONDITION in result
+        assert CombatPhase.MAP_PAGE in result
 
     def test_normal_proceed_no(self):
-        result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.PROCEED, "no"
-        )
-        phases = [r[0] for r in result]
-        assert phases == [CombatPhase.MAP_PAGE]
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
+        result = resolve_successors(normal, CombatPhase.PROCEED, "no")
+        assert result == [CombatPhase.MAP_PAGE]
 
-    def test_normal_night_no_with_timeout(self):
-        result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.NIGHT_PROMPT, "no"
-        )
-        assert result == [(CombatPhase.RESULT, 10.0)]
+    def test_normal_night_no(self):
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
+        result = resolve_successors(normal, CombatPhase.NIGHT_PROMPT, "no")
+        assert result == [CombatPhase.RESULT]
 
     def test_normal_formation_no_branch(self):
-        result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.FORMATION, ""
-        )
-        phases = [r[0] for r in result]
-        assert CombatPhase.FIGHT_PERIOD in phases
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
+        result = resolve_successors(normal, CombatPhase.FORMATION, "")
+        assert CombatPhase.FIGHT_PERIOD in result
 
     def test_battle_transitions(self):
-        result = resolve_successors(
-            BATTLE_TRANSITIONS, CombatPhase.PROCEED, ""
-        )
-        phases = [r[0] for r in result]
-        assert CombatPhase.SPOT_ENEMY_SUCCESS in phases
+        battle = MODE_TRANSITIONS[CombatMode.BATTLE]
+        # SINGLE 模式无 PROCEED，直接从 START_FIGHT 开始
+        result = resolve_successors(battle, CombatPhase.START_FIGHT, "")
+        assert CombatPhase.SPOT_ENEMY_SUCCESS in result
+        assert CombatPhase.FORMATION in result
 
     def test_exercise_transitions(self):
-        result = resolve_successors(
-            EXERCISE_TRANSITIONS, CombatPhase.RESULT, ""
-        )
-        phases = [r[0] for r in result]
-        assert CombatPhase.EXERCISE_PAGE in phases
+        exercise = MODE_TRANSITIONS[CombatMode.EXERCISE]
+        result = resolve_successors(exercise, CombatPhase.RESULT, "")
+        assert CombatPhase.EXERCISE_PAGE in result
 
     def test_unknown_phase_raises(self):
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
         with pytest.raises(KeyError):
-            resolve_successors(
-                NORMAL_FIGHT_TRANSITIONS, CombatPhase.EXERCISE_PAGE, ""
-            )
+            resolve_successors(normal, CombatPhase.EXERCISE_PAGE, "")
 
     def test_spot_enemy_retreat_branch(self):
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
         result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.SPOT_ENEMY_SUCCESS, "retreat"
+            normal, CombatPhase.SPOT_ENEMY_SUCCESS, "retreat"
         )
-        phases = [r[0] for r in result]
-        assert phases == [CombatPhase.MAP_PAGE]
+        assert result == [CombatPhase.MAP_PAGE]
 
     def test_spot_enemy_fight_branch(self):
+        normal = MODE_TRANSITIONS[CombatMode.NORMAL]
         result = resolve_successors(
-            NORMAL_FIGHT_TRANSITIONS, CombatPhase.SPOT_ENEMY_SUCCESS, "fight"
+            normal, CombatPhase.SPOT_ENEMY_SUCCESS, "fight"
         )
-        phases = [r[0] for r in result]
-        assert CombatPhase.FORMATION in phases
-        assert CombatPhase.MISSILE_ANIMATION in phases
+        assert CombatPhase.FORMATION in result
+        assert CombatPhase.MISSILE_ANIMATION in result
+
+    def test_build_transitions_categories(self):
+        """ModeCategory + build_transitions 一致性检查。"""
+        for mode, (cat, ep) in _MODE_SPECS.items():
+            t = build_transitions(cat, ep)
+            # 核心循环必须存在
+            assert CombatPhase.FIGHT_PERIOD in t
+            assert CombatPhase.NIGHT_PROMPT in t
+            # MAP 模式有导弹支援和战況选择
+            if cat == ModeCategory.MAP:
+                assert CombatPhase.MISSILE_ANIMATION in t
+                assert CombatPhase.FIGHT_CONDITION in t
+            else:
+                assert CombatPhase.MISSILE_ANIMATION not in t
+                assert CombatPhase.FIGHT_CONDITION not in t
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -369,7 +373,7 @@ class TestCombatPlan:
         assert plan.end_phase == CombatPhase.MAP_PAGE
 
         plan = CombatPlan(mode=CombatMode.BATTLE)
-        assert plan.end_phase == CombatPhase.BATTLE_PAGE
+        assert plan.end_phase == CombatPhase.RESULT
 
     def test_with_enemy_rules(self):
         plan = CombatPlan.from_dict({

@@ -24,7 +24,7 @@ from autowsgr.infra.logger import get_logger
 from autowsgr.combat.state import CombatPhase
 from autowsgr.emulator.controller import AndroidController
 from autowsgr.image_resources import TemplateKey
-from autowsgr.vision import ImageChecker
+from autowsgr.vision import ImageChecker, PixelChecker, PixelSignature
 
 _log = get_logger("combat.recognition")
 
@@ -49,12 +49,21 @@ class PhaseSignature:
         模板匹配的最低置信度。
     after_match_delay:
         匹配到此状态后的额外等待时间（秒），用于等待 UI 动画完成。
+    pixel_signature:
+        像素特征签名，当 ``template_key`` 为 ``None`` 时使用像素匹配。
     """
 
     template_key: TemplateKey | None
     default_timeout: float = 15.0
     confidence: float = 0.8
     after_match_delay: float = 0.0
+    pixel_signature: PixelSignature | None = None
+
+
+def _get_event_map_signature() -> PixelSignature:
+    """延迟导入活动地图页面的像素签名。"""
+    from autowsgr.ui.event.event_page import BASE_PAGE_SIGNATURE
+    return BASE_PAGE_SIGNATURE
 
 
 PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
@@ -113,22 +122,15 @@ PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
         template_key=TemplateKey.END_MAP_PAGE,
         default_timeout=7.5,
     ),
-    CombatPhase.BATTLE_PAGE: PhaseSignature(
-        template_key=TemplateKey.END_BATTLE_PAGE,
-        default_timeout=7.5,
-    ),
     CombatPhase.EXERCISE_PAGE: PhaseSignature(
         template_key=TemplateKey.END_EXERCISE_PAGE,
         default_timeout=7.5,
     ),
-}
-
-# 战役模式下某些状态的超时覆盖
-BATTLE_MODE_OVERRIDES: dict[CombatPhase, dict[str, float]] = {
-    CombatPhase.SPOT_ENEMY_SUCCESS: {"default_timeout": 15.0},
-    CombatPhase.FORMATION: {"default_timeout": 15.0, "confidence": 0.8},
-    CombatPhase.FIGHT_PERIOD: {"default_timeout": 7.5},
-    CombatPhase.RESULT: {"default_timeout": 75.0},
+    CombatPhase.EVENT_MAP_PAGE: PhaseSignature(
+        template_key=None,
+        default_timeout=7.5,
+        pixel_signature=_get_event_map_signature(),
+    ),
 }
 
 
@@ -167,17 +169,10 @@ class CombatRecognizer:
     ----------
     device:
         设备控制器（用于截图）。
-    mode_overrides:
-        模式特定的签名覆盖（如战役模式下的超时调整）。
     """
 
-    def __init__(
-        self,
-        device: AndroidController,
-        mode_overrides: dict[CombatPhase, dict[str, float]] | None = None,
-    ) -> None:
+    def __init__(self, device: AndroidController) -> None:
         self._device = device
-        self._overrides = mode_overrides or {}
 
     @staticmethod
     def _match_template(
@@ -188,27 +183,36 @@ class CombatRecognizer:
             screen, key.templates, confidence=confidence,
         ) is not None
 
-    def get_signature(self, phase: CombatPhase) -> PhaseSignature:
-        """获取状态的视觉签名（含模式覆盖）。"""
-        base = PHASE_SIGNATURES.get(phase)
-        if base is None:
+    @staticmethod
+    def _match_pixel(
+        screen: np.ndarray, sig: PixelSignature,
+    ) -> bool:
+        """检查截图是否匹配像素特征签名。"""
+        return PixelChecker.check_signature(screen, sig).matched
+
+    def _match_phase(
+        self,
+        screen: np.ndarray,
+        sig: PhaseSignature,
+    ) -> bool:
+        """检查截图是否匹配指定状态的视觉签名（模板或像素）。"""
+        if sig.template_key is not None:
+            return self._match_template(screen, sig.template_key, sig.confidence)
+        if sig.pixel_signature is not None:
+            return self._match_pixel(screen, sig.pixel_signature)
+        return False
+
+    @staticmethod
+    def get_signature(phase: CombatPhase) -> PhaseSignature:
+        """获取状态的视觉签名。"""
+        sig = PHASE_SIGNATURES.get(phase)
+        if sig is None:
             return PhaseSignature(template_key=None, default_timeout=10.0)
-
-        overrides = self._overrides.get(phase)
-        if overrides is None:
-            return base
-
-        # 应用覆盖
-        return PhaseSignature(
-            template_key=base.template_key,
-            default_timeout=overrides.get("default_timeout", base.default_timeout),
-            confidence=overrides.get("confidence", base.confidence),
-            after_match_delay=overrides.get("after_match_delay", base.after_match_delay),
-        )
+        return sig
 
     def wait_for_phase(
         self,
-        candidates: list[tuple[CombatPhase, float | None]],
+        candidates: list[CombatPhase],
         *,
         poll_action: Callable[[], None] | None = None,
     ) -> CombatPhase:
@@ -219,7 +223,7 @@ class CombatRecognizer:
         Parameters
         ----------
         candidates:
-            ``(状态, 超时覆盖)`` 列表。超时为 ``None`` 使用签名默认值。
+            候选状态列表。
         poll_action:
             每轮匹配前执行的动作（如点击加速、节点追踪等）。
 
@@ -233,27 +237,20 @@ class CombatRecognizer:
         CombatRecognitionTimeout
             所有候选状态均未在超时内匹配到。
         """
-        # 计算总超时
+        # 构建签名列表并计算总超时
         max_timeout = 0.0
-        phase_sigs: list[tuple[CombatPhase, PhaseSignature, float]] = []
-        for phase, timeout_override in candidates:
+        phase_sigs: list[tuple[CombatPhase, PhaseSignature]] = []
+        for phase in candidates:
             sig = self.get_signature(phase)
-            timeout = timeout_override if timeout_override is not None else sig.default_timeout
-            max_timeout = max(max_timeout, timeout)
-            phase_sigs.append((phase, sig, timeout))
-
-        # 全局置信度取所有候选的最小值
-        min_confidence = min(
-            (sig.confidence for _, sig, _ in phase_sigs),
-            default=0.8,
-        )
+            max_timeout = max(max_timeout, sig.default_timeout)
+            phase_sigs.append((phase, sig))
 
         deadline = time.time() + max_timeout
         poll_interval = 0.3
 
         _log.debug(
             "[Combat] 等待状态: {} (超时 {:.1f}s)",
-            [p.name for p, _, _ in phase_sigs],
+            [p.name for p, _ in phase_sigs],
             max_timeout,
         )
 
@@ -263,11 +260,10 @@ class CombatRecognizer:
 
             screen = self._device.screenshot()
 
-            for phase, sig, _ in phase_sigs:
-                if sig.template_key is None:
+            for phase, sig in phase_sigs:
+                if sig.template_key is None and sig.pixel_signature is None:
                     continue
-                if self._match_template(screen, sig.template_key, min_confidence):
-                    # 匹配后延时
+                if self._match_phase(screen, sig):
                     if sig.after_match_delay > 0:
                         time.sleep(sig.after_match_delay)
                     _log.info("[Combat] 匹配到状态: {}", phase.name)
@@ -276,7 +272,7 @@ class CombatRecognizer:
             time.sleep(poll_interval)
 
         # 超时
-        phase_names = [p.name for p, _, _ in phase_sigs]
+        phase_names = [p.name for p, _ in phase_sigs]
         raise CombatRecognitionTimeout(
             f"等待状态超时 ({max_timeout:.1f}s): {phase_names}"
         )
@@ -302,9 +298,9 @@ class CombatRecognizer:
         """
         for phase in candidates:
             sig = self.get_signature(phase)
-            if sig.template_key is None:
+            if sig.template_key is None and sig.pixel_signature is None:
                 continue
-            if self._match_template(screen, sig.template_key, sig.confidence):
+            if self._match_phase(screen, sig):
                 return phase
         return None
 

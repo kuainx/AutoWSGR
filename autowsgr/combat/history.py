@@ -22,7 +22,7 @@ from enum import Enum, auto
 from typing import Any
 
 from autowsgr.infra.logger import get_logger
-from autowsgr.types import ShipDamageState
+from autowsgr.types import ShipDamageState, ConditionFlag
 
 _log = get_logger("combat")
 
@@ -110,7 +110,6 @@ class CombatEvent:
         if self.ship_stats is not None:
             parts.append(f"血量={self.ship_stats}")
         return " | ".join(parts)
-
 
 @dataclass
 class FightResult:
@@ -229,3 +228,26 @@ class CombatHistory:
 
     def __len__(self) -> int:
         return len(self.events)
+
+@dataclass
+class CombatResult:
+    """一次完整战斗的结果。
+
+    Attributes
+    ----------
+    flag:
+        流程状态标记。
+    history:
+        完整战斗事件历史。
+    ship_stats:
+        战后血量状态。
+    node_count:
+        推进节点数。
+    """
+
+    flag: ConditionFlag = ConditionFlag.FIGHT_END
+    history: CombatHistory = field(default_factory=CombatHistory)
+    ship_stats: list[ShipDamageState] = field(
+        default_factory=lambda: [ShipDamageState.NORMAL] * 6,
+    )
+    node_count: int = 0

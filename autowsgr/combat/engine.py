@@ -7,57 +7,23 @@ import time
 
 from autowsgr.infra.logger import get_logger
 
-from .actions import (
-    click_speed_up,
-    detect_result_grade,
-    detect_ship_stats,
-    get_enemy_formation,
-    get_enemy_info,
-)
-from .callbacks import CombatResult
+from .actions import click_speed_up, dismiss_resource_confirm
 from .handlers import PhaseHandlersMixin
-from .history import CombatEvent, CombatHistory, EventType, FightResult
+from .history import CombatHistory, CombatResult
 from .node_tracker import MapNodeData, NodeTracker
-from .plan import CombatMode, CombatPlan, NodeDecision
+from .plan import CombatMode, CombatPlan, MODE_CATEGORIES, NodeDecision
 from .recognizer import (
     CombatRecognitionTimeout,
     CombatRecognizer,
 )
-from .state import CombatPhase, resolve_successors
+from .state import CombatPhase, ModeCategory, resolve_successors
 from autowsgr.types import ConditionFlag, Formation, ShipDamageState
 
 
 from autowsgr.emulator import AndroidController
-from autowsgr.vision import ImageChecker, OCREngine
+from autowsgr.vision import OCREngine
 
 _log = get_logger("combat")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 辅助
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def _dismiss_resource_confirm(device: AndroidController) -> None:
-    """检测并关闭地图移动中弹出的资源获取/失去确认弹窗。
-
-    Legacy ``_before_match`` 在每轮轮询中用 ``confirm_image[3]`` 快速探测，
-    命中后调用 ``confirm_operation()`` 点掉。此处等价实现：仅对当前帧做
-    一次快速检测（不阻塞等待），找到任意确认按钮模板就点击。
-    """
-    from autowsgr.image_resources import Templates
-
-    screen = device.screenshot()
-    detail = ImageChecker.find_any(
-        screen, Templates.Confirm.all(), confidence=0.8,
-    )
-    if detail is not None:
-        device.click(*detail.center)
-        _log.info(
-            "[Combat] 点掉资源确认弹窗: '{}' ({:.4f}, {:.4f})",
-            detail.template_name, *detail.center,
-        )
-        time.sleep(0.25)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -94,8 +60,6 @@ class CombatEngine(PhaseHandlersMixin):
         self._last_action = "yes"
         self._node = "0"
         self._ship_stats: list[ShipDamageState] = [ShipDamageState.NORMAL] * 6
-        self._enemies: dict[str, int] = {}
-        self._enemy_formation = ""
         self._history = CombatHistory()
         self._node_count = 0
 
@@ -204,22 +168,14 @@ class CombatEngine(PhaseHandlersMixin):
         self._history.reset()
         self._node = "0"
         self._node_count = 0
-        self._enemies = {}
-        self._enemy_formation = ""
         self._formation_by_rule = None
 
         # 重置节点追踪器
         if self._tracker is not None:
             self._tracker.reset()
 
-        if self._plan.mode == CombatMode.NORMAL:
-            self._phase = CombatPhase.START_FIGHT
-            self._last_action = "yes"
-        elif self._plan.mode in [
-            CombatMode.BATTLE, CombatMode.DECISIVE, CombatMode.EXERCISE,
-        ]:
-            self._phase = CombatPhase.START_FIGHT
-            self._last_action = ""
+        self._phase = CombatPhase.START_FIGHT
+        self._last_action = ""
 
     def _step(self) -> ConditionFlag:
         """执行一步: 状态更新 + 决策。"""
@@ -240,7 +196,7 @@ class CombatEngine(PhaseHandlersMixin):
             "[Combat] 当前: {} (action={}) → 候选: {}",
             last_phase.name,
             self._last_action,
-            [(c.name, t) for c, t in candidates],
+            [c.name for c in candidates],
         )
 
         # 构建轮询间动作（加速点击 + 节点追踪）
@@ -252,78 +208,46 @@ class CombatEngine(PhaseHandlersMixin):
         )
 
         self._phase = new_phase
-        self._after_match(new_phase)
         return new_phase
 
     def _get_poll_action(self, last_phase: CombatPhase):
-        """根据当前状态和模式，返回每轮匹配前执行的动作。
+        """根据当前状态和模式大类，返回每轮匹配前执行的动作。
 
-        NORMAL 模式下，在地图移动期间（``PROCEED`` / ``FIGHT_CONDITION`` /
-        迂回后）除了加速点击和节点追踪外，还会检测因获取/失去资源而
-        弹出的确认弹窗并点掉，与 Legacy ``_before_match`` 行为一致。
+        MAP 模式下，地图移动期间执行加速点击、节点追踪、资源弹窗点掉；
+        SINGLE 模式下仅加速点击。
         """
-        if self._plan.mode == CombatMode.NORMAL:
+        category = MODE_CATEGORIES.get(self._plan.mode)
+
+        if category == ModeCategory.MAP:
             if last_phase in (
                 CombatPhase.PROCEED,
                 CombatPhase.FIGHT_CONDITION,
+                CombatPhase.START_FIGHT
             ) or self._last_action == "detour":
                 tracker = self._tracker
                 device = self._device
 
-                def _speed_up() -> None:
+                def _poll_map() -> None:
                     click_speed_up(device, battle_mode=False)
-                    # 在地图移动期间追踪船位并更新节点
                     if tracker is not None:
                         screen = device.screenshot()
                         tracker.update_ship_position(screen)
                         new_node = tracker.update_node()
                         if new_node != self._node:
                             self._node = new_node
+                    dismiss_resource_confirm(device)
 
-                    # 检测地图移动中弹出的资源确认弹窗并点掉
-                    _dismiss_resource_confirm(device)
+                return _poll_map
 
-                return _speed_up
+        elif category == ModeCategory.SINGLE:
+            if last_phase == CombatPhase.START_FIGHT:
 
-        elif self._plan.mode in (CombatMode.BATTLE, CombatMode.DECISIVE):
-            if last_phase == CombatPhase.PROCEED:
-
-                def _speed_up_battle() -> None:
+                def _poll_single() -> None:
                     click_speed_up(self._device, battle_mode=True)
 
-                return _speed_up_battle
+                return _poll_single
 
         return None
-
-    def _after_match(self, phase: CombatPhase) -> None:
-        """匹配到状态后的信息收集。"""
-        # 当匹配到索敌/前进时，舰船已停在某个节点上，做最终节点校准
-        if phase in (
-            CombatPhase.SPOT_ENEMY_SUCCESS,
-            CombatPhase.FORMATION,
-            CombatPhase.FIGHT_CONDITION,
-        ) and self._tracker is not None:
-            screen = self._device.screenshot()
-            self._tracker.update_ship_position(screen)
-            new_node = self._tracker.update_node()
-            if new_node != self._node:
-                self._node = new_node
-
-        if phase == CombatPhase.SPOT_ENEMY_SUCCESS:
-            self._enemies = get_enemy_info(self._device, mode="exercise" if self._plan.mode == CombatMode.EXERCISE else "fight")
-            self._enemy_formation = get_enemy_formation(self._device, self._ocr)
-            _log.info("[Combat] 敌方编成: {} 阵型: {}", self._enemies, self._enemy_formation)
-
-        elif phase == CombatPhase.RESULT:
-            grade = detect_result_grade(self._device)
-            self._ship_stats = detect_ship_stats(self._device, self._ship_stats)
-            fight_result = FightResult(grade=grade, ship_stats=self._ship_stats[:])
-            self._history.add(CombatEvent(
-                event_type=EventType.RESULT,
-                node=self._node,
-                result=str(fight_result),
-            ))
-            _log.info("[Combat] 战果: {} 节点: {}", fight_result, self._node)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # 辅助方法

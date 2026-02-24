@@ -1,10 +1,10 @@
 """战斗状态枚举与状态转移图。
 
 战斗过程独立于正常 UI 页面框架，使用自有的状态机驱动。
-状态转移图 ``PHASE_TRANSITIONS`` 定义了每个状态的合法后继，
-并可根据上一步的 *动作* 进一步分支 (action-dependent transitions)。
+:class:`ModeCategory` 将所有战斗模式归为两大类（MAP / SINGLE），
+:func:`build_transitions` 据此自动构建状态转移图。
 
-一次完整的常规战斗流程::
+一次完整的 MAP 类战斗流程::
 
     PROCEED → FIGHT_CONDITION → SPOT_ENEMY_SUCCESS → FORMATION
         → FIGHT_PERIOD → NIGHT_PROMPT → RESULT → GET_SHIP → PROCEED → ...
@@ -73,199 +73,183 @@ class CombatPhase(Enum):
     MAP_PAGE = auto()
     """回到地图页面（常规战结束）。"""
 
-    BATTLE_PAGE = auto()
-    """回到战役页面（战役结束）。"""
-
     EXERCISE_PAGE = auto()
     """回到演习页面（演习结束）。"""
 
+    EVENT_MAP_PAGE = auto()
+    """回到活动地图页面（活动战斗结束）。"""
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 状态转移图
+# 模式分类与状态转移图
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# 转移值类型说明:
-#   list[CombatPhase]  — 无条件后继
-#   dict[str, list]    — 依赖上一步动作 (action) 的分支后继
-#   元素为 tuple(CombatPhase, float) 时，float 为该状态的超时覆盖值
-
-PhaseTarget = CombatPhase | tuple[CombatPhase, float]
-"""后继目标：可以是纯状态，或 (状态, 超时覆盖) 二元组。"""
-
-PhaseBranch = list[PhaseTarget] | dict[str, list[PhaseTarget]]
+PhaseBranch = list[CombatPhase] | dict[str, list[CombatPhase]]
 """分支定义：无条件列表，或按动作名索引的字典。"""
 
 
-# ── 常规战 ──
+class ModeCategory(Enum):
+    """战斗模式大类。
 
-NORMAL_FIGHT_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
-    CombatPhase.START_FIGHT: [
+    所有具体 ``CombatMode`` 归入这两类之一，转移图由大类 + ``end_page`` 唯一确定。
+
+    MAP
+        多节点地图模式。有战况选择、迂回、导弹支援、舰船掉落、旗舰大破、
+        继续前进 / 回港 等完整流程。（常规战、活动战）
+    SINGLE
+        单点战斗模式。无多节点特性，只有核心战斗循环。
+        ``end_page=None`` 时以 RESULT 为终止态。（战役、决战、演习）
+    """
+
+    MAP = auto()
+    SINGLE = auto()
+
+
+def build_transitions(
+    category: ModeCategory,
+    end_page: CombatPhase | None,
+) -> dict[CombatPhase, PhaseBranch]:
+    """根据模式大类和结束页面自动构建状态转移图。
+
+    Parameters
+    ----------
+    category:
+        ``MAP`` 或 ``SINGLE``。
+    end_page:
+        战斗结束游戏回到的页面状态。``None`` 表示以 ``RESULT`` 作为终止态。
+
+    Returns
+    -------
+    dict[CombatPhase, PhaseBranch]
+    """
+    if category == ModeCategory.MAP:
+        return _build_map_transitions(end_page)
+    return _build_single_transitions(end_page)
+
+
+def _build_map_transitions(
+    end_page: CombatPhase | None,
+) -> dict[CombatPhase, PhaseBranch]:
+    """MAP 类：多节点地图战斗的完整转移图。"""
+    ep = end_page  # 简写
+    t: dict[CombatPhase, PhaseBranch] = {}
+
+    # 地图移动后的着陆节点
+    core_nav = [
         CombatPhase.FIGHT_CONDITION,
         CombatPhase.SPOT_ENEMY_SUCCESS,
         CombatPhase.FORMATION,
         CombatPhase.FIGHT_PERIOD,
-        CombatPhase.MAP_PAGE,
-        CombatPhase.DOCK_FULL,
-    ],
-    CombatPhase.DOCK_FULL: [],
-    CombatPhase.PROCEED: {
-        "yes": [
-            CombatPhase.FIGHT_CONDITION,
-            CombatPhase.SPOT_ENEMY_SUCCESS,
-            CombatPhase.FORMATION,
-            CombatPhase.FIGHT_PERIOD,
-            CombatPhase.MAP_PAGE,
-        ],
-        "no": [CombatPhase.MAP_PAGE],
-    },
-    CombatPhase.FIGHT_CONDITION: [
-        CombatPhase.SPOT_ENEMY_SUCCESS,
+    ]
+
+    fight_targets = [
         CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-    ],
-    CombatPhase.SPOT_ENEMY_SUCCESS: {
-        "detour": [
-            CombatPhase.FIGHT_CONDITION,
-            CombatPhase.SPOT_ENEMY_SUCCESS,
-            CombatPhase.FORMATION,
-            CombatPhase.FIGHT_PERIOD,
-        ],
-        "retreat": [CombatPhase.MAP_PAGE],
-        "fight": [
-            CombatPhase.FORMATION,
-            CombatPhase.FIGHT_PERIOD,
-            CombatPhase.MISSILE_ANIMATION,
-        ],
-    },
-    CombatPhase.FORMATION: [
         CombatPhase.FIGHT_PERIOD,
         CombatPhase.MISSILE_ANIMATION,
-    ],
-    CombatPhase.MISSILE_ANIMATION: [
+    ]
+
+    # RESULT 之后
+    after_result = [CombatPhase.PROCEED]
+    if ep is not None:
+        after_result.append(ep)
+    after_result += [CombatPhase.GET_SHIP, CombatPhase.FLAGSHIP_SEVERE_DAMAGE]
+
+    # ── 各节点 ──
+    start = list(core_nav)
+    if ep is not None:
+        start.append(ep)
+    start.append(CombatPhase.DOCK_FULL)
+    t[CombatPhase.START_FIGHT] = start
+
+    t[CombatPhase.DOCK_FULL] = []
+
+    proceed_yes = list(core_nav)
+    if ep is not None:
+        proceed_yes.append(ep)
+    t[CombatPhase.PROCEED] = {
+        "yes": proceed_yes,
+        "no": [ep] if ep is not None else [],
+    }
+
+    t[CombatPhase.FIGHT_CONDITION] = [
+        CombatPhase.SPOT_ENEMY_SUCCESS,
+        CombatPhase.FORMATION,
+        CombatPhase.FIGHT_PERIOD,
+    ]
+
+    t[CombatPhase.SPOT_ENEMY_SUCCESS] = {
+        "fight": list(fight_targets),
+        "detour": list(core_nav),
+        "retreat": [ep] if ep is not None else [],
+    }
+
+    t[CombatPhase.FORMATION] = [
+        CombatPhase.FIGHT_PERIOD,
+        CombatPhase.MISSILE_ANIMATION,
+    ]
+
+    t[CombatPhase.MISSILE_ANIMATION] = [
         CombatPhase.FIGHT_PERIOD,
         CombatPhase.RESULT,
-    ],
-    CombatPhase.FIGHT_PERIOD: [
-        CombatPhase.NIGHT_PROMPT,
-        CombatPhase.RESULT,
-    ],
-    CombatPhase.NIGHT_PROMPT: {
+    ]
+
+    t[CombatPhase.FIGHT_PERIOD] = [CombatPhase.NIGHT_PROMPT, CombatPhase.RESULT]
+    t[CombatPhase.NIGHT_PROMPT] = {
         "yes": [CombatPhase.RESULT],
-        "no": [(CombatPhase.RESULT, 10.0)],
-    },
-    CombatPhase.RESULT: [
-        CombatPhase.PROCEED,
-        CombatPhase.MAP_PAGE,
-        CombatPhase.GET_SHIP,
-        CombatPhase.FLAGSHIP_SEVERE_DAMAGE,
-    ],
-    CombatPhase.GET_SHIP: [
-        CombatPhase.PROCEED,
-        CombatPhase.MAP_PAGE,
-        CombatPhase.FLAGSHIP_SEVERE_DAMAGE,
-    ],
-    CombatPhase.FLAGSHIP_SEVERE_DAMAGE: [CombatPhase.MAP_PAGE],
-}
+        "no": [CombatPhase.RESULT],
+    }
+
+    t[CombatPhase.RESULT] = list(after_result)
+
+    # GET_SHIP 后继 = RESULT 后继 去掉 GET_SHIP 自身
+    t[CombatPhase.GET_SHIP] = [p for p in after_result if p != CombatPhase.GET_SHIP]
+
+    if ep is not None:
+        t[CombatPhase.FLAGSHIP_SEVERE_DAMAGE] = [ep]
+
+    return t
 
 
-# ── 战役 ──
+def _build_single_transitions(
+    end_page: CombatPhase | None,
+) -> dict[CombatPhase, PhaseBranch]:
+    """SINGLE 类：单点战斗的精简转移图。"""
+    ep = end_page
+    t: dict[CombatPhase, PhaseBranch] = {}
 
-BATTLE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
-    CombatPhase.START_FIGHT: [
+    core = [
         CombatPhase.SPOT_ENEMY_SUCCESS,
         CombatPhase.FORMATION,
         CombatPhase.FIGHT_PERIOD,
-        CombatPhase.DOCK_FULL,
-    ],
-    CombatPhase.DOCK_FULL: [],
-    CombatPhase.PROCEED: [
-        CombatPhase.SPOT_ENEMY_SUCCESS,
-        CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-    ],
-    CombatPhase.SPOT_ENEMY_SUCCESS: {
-        "retreat": [CombatPhase.BATTLE_PAGE],
+    ]
+
+    t[CombatPhase.START_FIGHT] = list(core) + [CombatPhase.DOCK_FULL]
+    t[CombatPhase.DOCK_FULL] = []
+
+    t[CombatPhase.SPOT_ENEMY_SUCCESS] = {
         "fight": [CombatPhase.FORMATION, CombatPhase.FIGHT_PERIOD],
-    },
-    CombatPhase.FORMATION: [CombatPhase.FIGHT_PERIOD],
-    CombatPhase.FIGHT_PERIOD: [
-        CombatPhase.NIGHT_PROMPT,
-        CombatPhase.RESULT,
-    ],
-    CombatPhase.NIGHT_PROMPT: {
+        "retreat": [ep] if ep is not None else [],
+    }
+
+    t[CombatPhase.FORMATION] = [CombatPhase.FIGHT_PERIOD]
+    t[CombatPhase.FIGHT_PERIOD] = [CombatPhase.NIGHT_PROMPT, CombatPhase.RESULT]
+    t[CombatPhase.NIGHT_PROMPT] = {
         "yes": [CombatPhase.RESULT],
-        "no": [(CombatPhase.RESULT, 7.0)],
-    },
-    CombatPhase.RESULT: [CombatPhase.BATTLE_PAGE],
-}
+        "no": [CombatPhase.RESULT],
+    }
 
+    if ep is not None:
+        t[CombatPhase.RESULT] = [ep]
+    # ep is None → RESULT 为终止态，无后继
 
-# ── 决战 (单点) ──
-#
-# 与 BATTLE 几乎一致，但 RESULT 是终止阶段 —— 决战单点战斗结束后
-# 游戏直接回到决战地图 (可能出现 ADVANCE_CHOICE / CHOOSE_FLEET / STAGE_CLEAR),
-# 不会出现普通战役的 BATTLE_PAGE。引擎在 RESULT 阶段执行完点击后退出。
-
-DECISIVE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
-    CombatPhase.START_FIGHT: [
-        CombatPhase.SPOT_ENEMY_SUCCESS,
-        CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-        CombatPhase.DOCK_FULL,
-    ],
-    CombatPhase.DOCK_FULL: [],
-    CombatPhase.SPOT_ENEMY_SUCCESS: {
-        "retreat": [],          # 决战没有独立的 "战役页" 可回
-        "fight": [CombatPhase.FORMATION, CombatPhase.FIGHT_PERIOD],
-    },
-    CombatPhase.FORMATION: [CombatPhase.FIGHT_PERIOD],
-    CombatPhase.FIGHT_PERIOD: [
-        CombatPhase.NIGHT_PROMPT,
-        CombatPhase.RESULT,
-    ],
-    CombatPhase.NIGHT_PROMPT: {
-        "yes": [CombatPhase.RESULT],
-        "no": [(CombatPhase.RESULT, 7.0)],
-    },
-    # RESULT 是终止阶段，无后继 —— _make_decision 直接返回 FIGHT_END
-}
-
-
-# ── 演习 ──
-
-EXERCISE_TRANSITIONS: dict[CombatPhase, PhaseBranch] = {
-    CombatPhase.START_FIGHT: [
-        CombatPhase.SPOT_ENEMY_SUCCESS,
-        CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-    ],
-    CombatPhase.PROCEED: [
-        CombatPhase.SPOT_ENEMY_SUCCESS,
-        CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-    ],
-    CombatPhase.SPOT_ENEMY_SUCCESS: [
-        CombatPhase.FORMATION,
-        CombatPhase.FIGHT_PERIOD,
-    ],
-    CombatPhase.FORMATION: [CombatPhase.FIGHT_PERIOD],
-    CombatPhase.FIGHT_PERIOD: [
-        CombatPhase.NIGHT_PROMPT,
-        CombatPhase.RESULT,
-    ],
-    CombatPhase.NIGHT_PROMPT: {
-        "yes": [CombatPhase.RESULT],
-        "no": [(CombatPhase.RESULT, 7.0)],
-    },
-    CombatPhase.RESULT: [CombatPhase.EXERCISE_PAGE],
-}
+    return t
 
 
 def resolve_successors(
     transitions: dict[CombatPhase, PhaseBranch],
     phase: CombatPhase,
     last_action: str,
-) -> list[tuple[CombatPhase, float | None]]:
+) -> list[CombatPhase]:
     """根据当前状态和上一步动作，解析出候选后继状态列表。
 
     Parameters
@@ -279,8 +263,7 @@ def resolve_successors(
 
     Returns
     -------
-    list[tuple[CombatPhase, float | None]]
-        ``(后继状态, 超时覆盖)`` 列表。超时为 ``None`` 表示使用默认值。
+    list[CombatPhase]
 
     Raises
     ------
@@ -292,15 +275,9 @@ def resolve_successors(
     if isinstance(branch, dict):
         targets = branch.get(last_action)
         if targets is None:
-            # 回退到第一个分支
             targets = next(iter(branch.values()))
     else:
         targets = branch
 
-    result: list[tuple[CombatPhase, float | None]] = []
-    for t in targets:
-        if isinstance(t, tuple):
-            result.append((t[0], t[1]))
-        else:
-            result.append((t, None))
-    return result
+    return list(targets)
+

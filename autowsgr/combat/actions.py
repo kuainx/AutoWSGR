@@ -423,3 +423,26 @@ def detect_ship_stats(
 
     _log.info("[Combat] 结算页血量检测: {}", [s.name for s in result])
     return result
+
+
+def dismiss_resource_confirm(device: AndroidController) -> None:
+    """检测并关闭地图移动中弹出的资源获取/失去确认弹窗。
+
+    仅对当前帧做一次快速检测（不阻塞等待），找到任意确认按钮模板就点击。
+    """
+    import time
+
+    from autowsgr.image_resources import Templates
+    from autowsgr.vision import ImageChecker
+
+    screen = device.screenshot()
+    detail = ImageChecker.find_any(
+        screen, Templates.Confirm.all(), confidence=0.8,
+    )
+    if detail is not None:
+        device.click(*detail.center)
+        _log.info(
+            "[Combat] 点掉资源确认弹窗: '{}' ({:.4f}, {:.4f})",
+            detail.template_name, *detail.center,
+        )
+        time.sleep(0.25)

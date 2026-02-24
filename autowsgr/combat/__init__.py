@@ -22,10 +22,9 @@
 """
 
 from .plan import CombatMode, CombatPlan, NodeDecision
-from .callbacks import CombatResult
 from .state import CombatPhase
 from .rules import RuleEngine, RuleResult
-from .history import CombatHistory, CombatEvent
+from .history import CombatHistory, CombatEvent, CombatResult
 from .node_tracker import MapNodeData, NodeTracker
 from .engine import CombatEngine, run_combat
 

@@ -16,17 +16,14 @@ from typing import Any
 
 from autowsgr.infra.logger import get_logger
 
-from autowsgr.combat.rules import RuleEngine
-from autowsgr.combat.state import (
-    BATTLE_TRANSITIONS,
-    DECISIVE_TRANSITIONS,
-    EXERCISE_TRANSITIONS,
-    NORMAL_FIGHT_TRANSITIONS,
+from .rules import RuleEngine
+from .state import (
     CombatPhase,
+    ModeCategory,
     PhaseBranch,
+    build_transitions,
 )
-from autowsgr.infra.config import FightConfig, NodeConfig
-from autowsgr.infra.file_utils import load_yaml
+from autowsgr.infra import NodeConfig, load_yaml
 from autowsgr.types import FightCondition, Formation, RepairMode
 
 _log = get_logger("combat")
@@ -164,19 +161,37 @@ class CombatMode:
     DECISIVE = "decisive"
     """决战 (单点战斗，RESULT 即终止)。"""
 
+    EVENT = "event"
+    """活动战斗 (与常规战类似，但终止态为活动地图页面)。"""
+
+
+# ── 模式配置 ── 每种战斗模式只需指定大类和结束页 ──────────────
+
+_ModeSpec = tuple[ModeCategory, CombatPhase | None]
+"""模式规格: (大类, 结束页面)。``None`` 的 end_page 表示 RESULT 即终止。"""
+
+_MODE_SPECS: dict[str, _ModeSpec] = {
+    CombatMode.NORMAL: (ModeCategory.MAP, CombatPhase.MAP_PAGE),
+    CombatMode.EVENT: (ModeCategory.MAP, CombatPhase.EVENT_MAP_PAGE),
+    CombatMode.BATTLE: (ModeCategory.SINGLE, None),
+    CombatMode.DECISIVE: (ModeCategory.SINGLE, None),
+    CombatMode.EXERCISE: (ModeCategory.SINGLE, CombatPhase.EXERCISE_PAGE),
+}
+
+# ── 由规格自动派生的映射表 ──
 
 MODE_TRANSITIONS: dict[str, dict[CombatPhase, PhaseBranch]] = {
-    CombatMode.NORMAL: NORMAL_FIGHT_TRANSITIONS,
-    CombatMode.BATTLE: BATTLE_TRANSITIONS,
-    CombatMode.DECISIVE: DECISIVE_TRANSITIONS,
-    CombatMode.EXERCISE: EXERCISE_TRANSITIONS,
+    mode: build_transitions(cat, ep)
+    for mode, (cat, ep) in _MODE_SPECS.items()
 }
 
 MODE_END_PHASES: dict[str, CombatPhase] = {
-    CombatMode.NORMAL: CombatPhase.MAP_PAGE,
-    CombatMode.BATTLE: CombatPhase.BATTLE_PAGE,
-    CombatMode.DECISIVE: CombatPhase.RESULT,
-    CombatMode.EXERCISE: CombatPhase.EXERCISE_PAGE,
+    mode: (ep if ep is not None else CombatPhase.RESULT)
+    for mode, (_cat, ep) in _MODE_SPECS.items()
+}
+
+MODE_CATEGORIES: dict[str, ModeCategory] = {
+    mode: cat for mode, (cat, _ep) in _MODE_SPECS.items()
 }
 
 
