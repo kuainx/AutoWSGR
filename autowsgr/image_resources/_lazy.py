@@ -46,10 +46,10 @@ class LazyTemplate:
 
         class MyTemplates:
             # 默认 960×540 分辨率模板
-            BTN = LazyTemplate("ui/btn.png", "button")
+            BTN = LazyTemplate("ui/btn_540p.png", "button")
 
             # 指定模板采集自 1920×1080 分辨率
-            HD_BTN = LazyTemplate("ui/btn_hd.png", "button_hd",
+            HD_BTN = LazyTemplate("ui/btn_hd_1080p.png", "button_hd",
                                   source_resolution=(1920, 1080))
     """
 
