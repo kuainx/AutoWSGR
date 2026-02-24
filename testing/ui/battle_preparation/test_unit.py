@@ -190,7 +190,7 @@ class TestActions:
                 screen[y, x] = list(TAB_DARK)
         ctrl.screenshot.return_value = screen
         with patch(
-            "autowsgr.ui.map.page.identify_page_type",
+            "autowsgr.ui.map.base.identify_page_type",
             return_value=TabbedPageType.MAP,
         ):
             pg.go_back()

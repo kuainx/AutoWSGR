@@ -9,13 +9,12 @@ import numpy as np
 import pytest
 
 from autowsgr.emulator import AndroidController
-from autowsgr.ui.main_page import (
-    CLICK_NAV,
-    PAGE_SIGNATURE,
-    MainPage,
-    MainPageTarget,
-)
+from autowsgr.ui.main_page import MainPage
+from autowsgr.ui.main_page.constants import NavCoord, Sig
 from autowsgr.ui.tabbed_page import TabbedPageType
+
+Target = MainPage.Target
+_PAGE_SIG = Sig.PAGE.ps
 
 
 # ─────────────────────────────────────────────
@@ -25,12 +24,12 @@ from autowsgr.ui.tabbed_page import TabbedPageType
 _W, _H = 960, 540
 
 # 需要 mock identify_page_type 的导航目标
-_NAVIGATE_PATCHES: dict[MainPageTarget, tuple[str, TabbedPageType]] = {
-    MainPageTarget.SORTIE: (
-        "autowsgr.ui.map.page.identify_page_type",
+_NAVIGATE_PATCHES: dict[Target, tuple[str, TabbedPageType]] = {
+    Target.SORTIE: (
+        "autowsgr.ui.map.base.identify_page_type",
         TabbedPageType.MAP,
     ),
-    MainPageTarget.TASK: (
+    Target.TASK: (
         "autowsgr.ui.mission_page.identify_page_type",
         TabbedPageType.MISSION,
     ),
@@ -49,7 +48,7 @@ def _set_pixel(
 def _make_main_screen() -> np.ndarray:
     """生成主页面合成截图 (特征点全部正确)。"""
     screen = np.zeros((_H, _W, 3), dtype=np.uint8)
-    for rule in PAGE_SIGNATURE.rules:
+    for rule in _PAGE_SIG.rules:
         _set_pixel(screen, rule.x, rule.y, rule.color.as_rgb_tuple())
     return screen
 
@@ -58,21 +57,21 @@ def _make_non_main_screen() -> np.ndarray:
     return np.zeros((_H, _W, 3), dtype=np.uint8)
 
 
-def _make_target_screen(target: MainPageTarget) -> np.ndarray:
+def _make_target_screen(target: Target) -> np.ndarray:
     """生成匹配导航目标页面签名的合成截图。"""
     screen = np.zeros((_H, _W, 3), dtype=np.uint8)
-    if target in (MainPageTarget.SORTIE, MainPageTarget.TASK):
+    if target in (Target.SORTIE, Target.TASK):
         from autowsgr.ui.tabbed_page import TAB_BLUE, TAB_DARK, TAB_PROBES
         for i, (x, y) in enumerate(TAB_PROBES):
             if i == 0:
                 _set_pixel(screen, x, y, TAB_BLUE.as_rgb_tuple())
             else:
                 _set_pixel(screen, x, y, TAB_DARK)
-    elif target == MainPageTarget.SIDEBAR:
+    elif target == Target.SIDEBAR:
         from autowsgr.ui.sidebar_page import MENU_PROBES, _MENU_GRAY
         for mx, my in MENU_PROBES:
             _set_pixel(screen, mx, my, _MENU_GRAY.as_rgb_tuple())
-    elif target == MainPageTarget.HOME:
+    elif target == Target.HOME:
         from autowsgr.ui.backyard_page import PAGE_SIGNATURE as BACKYARD_SIG
         for rule in BACKYARD_SIG.rules:
             _set_pixel(screen, rule.x, rule.y, rule.color.as_rgb_tuple())
@@ -100,14 +99,14 @@ class TestIsCurrentPage:
     def test_one_pixel_wrong_not_detected(self):
         """ALL 策略下，任一像素不匹配即失败。"""
         screen = _make_main_screen()
-        first_rule = PAGE_SIGNATURE.rules[0]
+        first_rule = _PAGE_SIG.rules[0]
         _set_pixel(screen, first_rule.x, first_rule.y, (0, 0, 0))
         assert MainPage.is_current_page(screen) is False
 
     def test_slight_color_deviation_accepted(self):
         """容差范围内的颜色偏差仍可匹配。"""
         screen = _make_main_screen()
-        first_rule = PAGE_SIGNATURE.rules[0]
+        first_rule = _PAGE_SIG.rules[0]
         r, g, b = first_rule.color.as_rgb_tuple()
         _set_pixel(
             screen,
@@ -129,44 +128,54 @@ class TestNavigateTo:
         ctrl = MagicMock(spec=AndroidController)
         return MainPage(ctrl), ctrl
 
-    @pytest.mark.parametrize("target", list(MainPageTarget))
-    def test_navigate_calls_click(self, page, target: MainPageTarget):
+    @pytest.mark.parametrize("target", list(Target))
+    def test_navigate_calls_click(self, page, target: Target):
         pg, ctrl = page
+        if target is Target.EVENT:
+            # EVENT 走专用流程; 在此只验证 navigate_to 的分发逻辑
+            main_screen = _make_main_screen()
+            ctrl.screenshot.return_value = main_screen
+            with patch(
+                "autowsgr.ui.main_page.event_nav.navigate_to_event",
+            ) as mock_nav:
+                pg.navigate_to(target)
+            mock_nav.assert_called_once()
+            return
         ctrl.screenshot.return_value = _make_target_screen(target)
         with ExitStack() as stack:
             if target in _NAVIGATE_PATCHES:
                 mod, rv = _NAVIGATE_PATCHES[target]
                 stack.enter_context(patch(mod, return_value=rv))
             pg.navigate_to(target)
-        ctrl.click.assert_called_with(*CLICK_NAV[target])
+        ctrl.click.assert_called_with(*NavCoord[target.name].xy)
 
     def test_go_to_sortie(self, page):
         pg, ctrl = page
-        ctrl.screenshot.return_value = _make_target_screen(MainPageTarget.SORTIE)
-        with patch("autowsgr.ui.map.page.identify_page_type",
+        ctrl.screenshot.return_value = _make_target_screen(Target.SORTIE)
+        with patch("autowsgr.ui.map.base.identify_page_type",
                    return_value=TabbedPageType.MAP):
             pg.go_to_sortie()
-        ctrl.click.assert_called_with(*CLICK_NAV[MainPageTarget.SORTIE])
+        ctrl.click.assert_called_with(*NavCoord.SORTIE.xy)
 
     def test_go_to_task(self, page):
         pg, ctrl = page
-        ctrl.screenshot.return_value = _make_target_screen(MainPageTarget.TASK)
+        ctrl.screenshot.return_value = _make_target_screen(Target.TASK)
         with patch("autowsgr.ui.mission_page.identify_page_type",
                    return_value=TabbedPageType.MISSION):
             pg.go_to_task()
-        ctrl.click.assert_called_with(*CLICK_NAV[MainPageTarget.TASK])
+        ctrl.click.assert_called_with(*NavCoord.TASK.xy)
 
     def test_open_sidebar(self, page):
         pg, ctrl = page
-        ctrl.screenshot.return_value = _make_target_screen(MainPageTarget.SIDEBAR)
+        ctrl.screenshot.return_value = _make_target_screen(Target.SIDEBAR)
         pg.open_sidebar()
-        ctrl.click.assert_called_with(*CLICK_NAV[MainPageTarget.SIDEBAR])
+        ctrl.click.assert_called_with(*NavCoord.SIDEBAR.xy)
 
     def test_go_home(self, page):
         pg, ctrl = page
-        ctrl.screenshot.return_value = _make_target_screen(MainPageTarget.HOME)
+        ctrl.screenshot.return_value = _make_target_screen(Target.HOME)
         pg.go_home()
-        ctrl.click.assert_called_with(*CLICK_NAV[MainPageTarget.HOME])
+        ctrl.click.assert_called_with(*NavCoord.HOME.xy)
 
 
 # ─────────────────────────────────────────────
@@ -182,13 +191,14 @@ class TestNavigateTo:
 class TestConstants:
     def test_all_targets_have_nav(self):
         """每个目标都有导航坐标。"""
-        for target in MainPageTarget:
-            assert target in CLICK_NAV
+        for target in Target:
+            assert NavCoord[target.name] is not None
 
     def test_nav_coords_in_range(self):
         """导航坐标在 [0, 1] 范围内。"""
-        for target, (x, y) in CLICK_NAV.items():
-            assert 0.0 <= x <= 1.0, f"{target}: x={x}"
-            assert 0.0 <= y <= 1.0, f"{target}: y={y}"
+        for coord in NavCoord:
+            x, y = coord.xy
+            assert 0.0 <= x <= 1.0, f"{coord}: x={x}"
+            assert 0.0 <= y <= 1.0, f"{coord}: y={y}"
 
 
