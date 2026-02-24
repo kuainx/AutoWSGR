@@ -109,7 +109,7 @@ def _navigate_to(ctrl, pause: float, *, chapter: int = 1, map_node: int = 1) -> 
     """
     import time
 
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
+    from autowsgr.ui.main_page import MainPage
     from autowsgr.ui.map.data import TOTAL_CHAPTERS
     from autowsgr.ui.map.page import MapPage
     from autowsgr.ui.map.data import MapPanel, MAP_NODE_POSITIONS
@@ -121,7 +121,7 @@ def _navigate_to(ctrl, pause: float, *, chapter: int = 1, map_node: int = 1) -> 
     screen = ctrl.screenshot()
     if not MainPage.is_current_page(screen):
         return
-    MainPage(ctrl).navigate_to(MainPageTarget.SORTIE)
+    MainPage(ctrl).navigate_to(MainPage.Target.SORTIE)
     time.sleep(pause)
 
     # 确认在地图并切换到出征面板

@@ -65,7 +65,7 @@ def _navigate_to(ctrl, pause: float) -> None:
     import time
 
     from autowsgr.ui.decisive.battle_page import DecisiveBattlePage
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
+    from autowsgr.ui.main_page import MainPage
     from autowsgr.ui.map.page import MapPage
     from autowsgr.ui.map.data import MapPanel
 
@@ -73,7 +73,7 @@ def _navigate_to(ctrl, pause: float) -> None:
         return
     screen = ctrl.screenshot()
     if MainPage.is_current_page(screen):
-        MainPage(ctrl).navigate_to(MainPageTarget.SORTIE)
+        MainPage(ctrl).navigate_to(MainPage.Target.SORTIE)
         time.sleep(pause)
         screen = ctrl.screenshot()
     if MapPage.is_current_page(screen):

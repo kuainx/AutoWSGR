@@ -138,13 +138,13 @@ def _navigate_to(ctrl, pause: float) -> None:
     """从任意已知页面导航到侧边栏。"""
     import time
 
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
+    from autowsgr.ui.main_page import MainPage
 
     if not reset_to_main_page(ctrl, pause):
         return
     screen = ctrl.screenshot()
     if MainPage.is_current_page(screen):
-        MainPage(ctrl).navigate_to(MainPageTarget.SIDEBAR)
+        MainPage(ctrl).navigate_to(MainPage.Target.SIDEBAR)
         time.sleep(pause)
 
 

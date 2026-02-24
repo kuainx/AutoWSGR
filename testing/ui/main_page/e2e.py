@@ -37,7 +37,7 @@ from testing.ui._framework import UIControllerTestRunner, connect_device, ensure
 def run_test(runner: UIControllerTestRunner) -> None:
     """执行主页面控制器完整测试序列。"""
     from autowsgr.ui.backyard_page import BackyardPage
-    from autowsgr.ui.main_page import MainPage, MainPageTarget
+    from autowsgr.ui.main_page import MainPage
     from autowsgr.ui.map.page import MapPage
     from autowsgr.ui.mission_page import MissionPage
     from autowsgr.ui.sidebar_page import SidebarPage
