@@ -273,7 +273,7 @@ class DecisivePhaseHandlers(DecisiveBase):
             ),
         )
         result = run_combat(
-            self._ctrl, plan, ship_stats=self._state.ship_stats[:],
+            self._ctx, plan, ship_stats=self._state.ship_stats[:],
         )
         self._state.ship_stats = result.ship_stats[:]
         _log.info(
