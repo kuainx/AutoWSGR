@@ -169,7 +169,9 @@ def main() -> None:
         ctrl.disconnect()
         sys.exit(1)
 
-    # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────    ctx = GameContext(ctrl=ctrl, config=UserConfig(), ocr=ocr)    config = DecisiveConfig(
+    # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────
+    ctx = GameContext(ctrl=ctrl, config=UserConfig(), ocr=ocr)
+    config = DecisiveConfig(
         chapter=args.chapter,
         level1=args.level1,
         level2=args.level2,
