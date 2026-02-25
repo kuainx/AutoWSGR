@@ -64,10 +64,13 @@ from autowsgr.types import ConditionFlag, FightCondition, Formation, RepairMode
 
 
 # ── 默认值 ──────────────────────────────────────────────────────────────────
-_DEFAULT_MAP_CODE = "H3"
-_DEFAULT_TIMES = 1
+_DEFAULT_MAP_CODE = "H5"
+_DEFAULT_TIMES = 3
 _DEFAULT_FLEET_ID = 1
-_DEFAULT_FORMATION = "double_column"
+_DEFAULT_FORMATION = "single_column"
+_DEFAULT_PLAN_YAML = str(
+    Path(__file__).parent.parent.parent / "examples" / "plans" / "event" / "20260212" / "Ex5A夜战.yaml"
+)
 
 
 def _build_default_plan(
@@ -231,9 +234,10 @@ def main() -> None:
     ctx = GameContext(ctrl=ctrl, config=UserConfig())
 
     # ── 加载/构建计划 ──
-    if args.plan:
-        plan = CombatPlan.from_yaml(args.plan)
-        logger.info("使用自定义计划: {}", args.plan)
+    plan_path = args.plan or _DEFAULT_PLAN_YAML
+    if Path(plan_path).exists():
+        plan = CombatPlan.from_yaml(plan_path)
+        logger.info("使用 YAML 计划: {}", plan_path)
     else:
         plan = _build_default_plan(
             map_code=map_code,
