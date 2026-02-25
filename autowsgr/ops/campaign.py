@@ -165,7 +165,7 @@ class CampaignRunner:
 
     def _enter_battle(self) -> None:
         """导航到战役面板并选择战役。"""
-        goto_page(self._ctrl, PageName.MAP)
+        goto_page(self._ctx, PageName.MAP)
         map_page = MapPage(self._ctx)
         map_page.enter_campaign(
             map_index=self._map_index,

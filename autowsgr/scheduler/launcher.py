@@ -150,7 +150,7 @@ class Launcher:
 
         app = ctx.config.account.game_app
         _log.info("[Launcher] 确保游戏就绪 (app={})", app.value)
-        ensure_game_ready(ctx.ctrl, app)
+        ensure_game_ready(ctx, app)
 
     # ── 一步到位 ──
 

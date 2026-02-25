@@ -69,7 +69,7 @@ class ExerciseRunner:
 
     def _enter_exercise_page(self) -> None:
         """导航到地图页面的演习面板。"""
-        goto_page(self._ctrl, PageName.MAP)
+        goto_page(self._ctx, PageName.MAP)
         map_page = MapPage(self._ctx)
         map_page.switch_panel(MapPanel.EXERCISE)
         time.sleep(1.0)

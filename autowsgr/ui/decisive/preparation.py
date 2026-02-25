@@ -411,7 +411,7 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
             time.sleep(0.05)
             screen = self._ctrl.screenshot()
 
-        choose_page = ChooseShipPage(self._ctrl)
+        choose_page = ChooseShipPage(self._ctx)
 
         if name is None:
             # ── 移除 ──────────────────────────────────────────────────────

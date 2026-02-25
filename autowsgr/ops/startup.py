@@ -36,6 +36,7 @@ from autowsgr.ui.start_screen_page import StartScreenPage
 
 if TYPE_CHECKING:
     from autowsgr.emulator import AndroidController
+    from autowsgr.context import GameContext
 
 _log = get_logger("ops.startup")
 
@@ -217,7 +218,7 @@ def restart_game(
     start_game(ctrl, package, startup_timeout=startup_timeout)
 
 
-def go_main_page(ctrl: AndroidController, *, dismiss_overlays: bool = True) -> None:
+def go_main_page(ctx: GameContext, *, dismiss_overlays: bool = True) -> None:
     """确保当前处于游戏主页面。
 
     1. 若设置了 ``dismiss_overlays``，先消除登录浮层
@@ -225,17 +226,17 @@ def go_main_page(ctrl: AndroidController, *, dismiss_overlays: bool = True) -> N
 
     Parameters
     ----------
-    ctrl:
-        Android 设备控制器。
+    ctx:
+        游戏上下文。
     dismiss_overlays:
         是否先消除登录浮层，默认 ``True``。
     """
     _log.info("[Startup] 导航到主页面")
-    goto_page(ctrl, PageName.MAIN)
+    goto_page(ctx, PageName.MAIN)
 
 
 def ensure_game_ready(
-    ctrl: AndroidController,
+    ctx: GameContext,
     app: GameAPP | str = GameAPP.official,
     *,
     startup_timeout: float = _STARTUP_TIMEOUT,
@@ -250,8 +251,8 @@ def ensure_game_ready(
 
     Parameters
     ----------
-    ctrl:
-        Android 设备控制器。
+    ctx:
+        游戏上下文。
     app:
         游戏渠道服 (``GameAPP`` 枚举) 或 Android 包名字符串。
         默认官服。
@@ -264,16 +265,12 @@ def ensure_game_ready(
     --------
     ::
 
-        from autowsgr.emulator import ADBController
-        from autowsgr.ops.startup import ensure_game_ready
-        from autowsgr.types import GameAPP
+        from autowsgr.scheduler import launch
 
-        ctrl = ADBController()
-        ctrl.connect()
-
-        ensure_game_ready(ctrl, GameAPP.official)
-        # 现在游戏已在主页面，可以开始操作
+        ctx = launch("user_settings.yaml")
+        # 游戏已在主页面
     """
+    ctrl = ctx.ctrl
     package = app.package_name if isinstance(app, GameAPP) else app
     _log.info("[Startup] 确保游戏就绪 (package={})", package)
 
@@ -283,5 +280,5 @@ def ensure_game_ready(
     else:
         _log.info("[Startup] 游戏已在运行")
 
-    go_main_page(ctrl, dismiss_overlays=dismiss_overlays)
+    go_main_page(ctx, dismiss_overlays=dismiss_overlays)
     _log.info("[Startup] 游戏就绪，当前位于主页面")

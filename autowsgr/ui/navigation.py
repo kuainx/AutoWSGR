@@ -1,6 +1,6 @@
 """UI 导航图 — 基于页面控制器函数的声明式路径查找。
 
-每条边存储一个 **动作函数** ``action(ctrl)``，内部调用对应页面控制器的
+每条边存储一个 **动作函数** ``action(ctx)``，内部调用对应页面控制器的
 ``navigate_to`` / ``go_back`` 等方法完成导航。
 坐标、重试、截图验证均由页面控制器自行处理，本模块仅描述拓扑。
 
@@ -10,7 +10,7 @@ Usage::
 
     path = find_path(PageName.MAIN, PageName.BUILD)
     for edge in path:
-        edge.action(ctrl)
+        edge.action(ctx)
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from autowsgr.types import PageName
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from autowsgr.emulator import AndroidController
+    from autowsgr.context import GameContext
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -43,14 +43,14 @@ class NavEdge:
     target:
         到达页面。
     action:
-        执行导航的函数 ``(ctrl) -> None``，内部调用页面控制器方法。
+        执行导航的函数 ``(ctx) -> None``，内部调用页面控制器方法。
     description:
         人类可读描述。
     """
 
     source: PageName
     target: PageName
-    action: Callable[[AndroidController], None] = field(repr=False)
+    action: Callable[[GameContext], None] = field(repr=False)
     description: str = ""
 
 
@@ -59,119 +59,119 @@ class NavEdge:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _main_to_map(ctrl: AndroidController) -> None:
+def _main_to_map(ctx: GameContext) -> None:
     from autowsgr.ui.main_page import MainPage
-    MainPage(ctrl).navigate_to(MainPage.Target.SORTIE)
+    MainPage(ctx).navigate_to(MainPage.Target.SORTIE)
 
 
-def _main_to_mission(ctrl: AndroidController) -> None:
+def _main_to_mission(ctx: GameContext) -> None:
     from autowsgr.ui.main_page import MainPage
-    MainPage(ctrl).navigate_to(MainPage.Target.TASK)
+    MainPage(ctx).navigate_to(MainPage.Target.TASK)
 
 
-def _main_to_backyard(ctrl: AndroidController) -> None:
+def _main_to_backyard(ctx: GameContext) -> None:
     from autowsgr.ui.main_page import MainPage
-    MainPage(ctrl).navigate_to(MainPage.Target.HOME)
+    MainPage(ctx).navigate_to(MainPage.Target.HOME)
 
 
-def _main_to_sidebar(ctrl: AndroidController) -> None:
+def _main_to_sidebar(ctx: GameContext) -> None:
     from autowsgr.ui.main_page import MainPage
-    MainPage(ctrl).navigate_to(MainPage.Target.SIDEBAR)
+    MainPage(ctx).navigate_to(MainPage.Target.SIDEBAR)
 
 
-def _map_to_main(ctrl: AndroidController) -> None:
+def _map_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.map.page import MapPage
-    MapPage(ctrl).go_back()
+    MapPage(ctx).go_back()
 
 
-def _mission_to_main(ctrl: AndroidController) -> None:
+def _mission_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.mission_page import MissionPage
-    MissionPage(ctrl).go_back()
+    MissionPage(ctx).go_back()
 
 
-def _backyard_to_main(ctrl: AndroidController) -> None:
+def _backyard_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.backyard_page import BackyardPage
-    BackyardPage(ctrl).go_back()
+    BackyardPage(ctx).go_back()
 
 
-def _sidebar_to_main(ctrl: AndroidController) -> None:
+def _sidebar_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.sidebar_page import SidebarPage
-    SidebarPage(ctrl).close()
+    SidebarPage(ctx).close()
 
 
-def _map_to_decisive(ctrl: AndroidController) -> None:
+def _map_to_decisive(ctx: GameContext) -> None:
     from autowsgr.ui.map.page import MapPage
-    MapPage(ctrl).enter_decisive()
+    MapPage(ctx).enter_decisive()
 
 
-def _battle_prep_to_map(ctrl: AndroidController) -> None:
+def _battle_prep_to_map(ctx: GameContext) -> None:
     from autowsgr.ui.battle.preparation import BattlePreparationPage
-    BattlePreparationPage(ctrl).go_back()
+    BattlePreparationPage(ctx).go_back()
 
 
-def _backyard_to_bath(ctrl: AndroidController) -> None:
+def _backyard_to_bath(ctx: GameContext) -> None:
     from autowsgr.ui.backyard_page import BackyardPage, BackyardTarget
-    BackyardPage(ctrl).navigate_to(BackyardTarget.BATH)
+    BackyardPage(ctx).navigate_to(BackyardTarget.BATH)
 
 
-def _backyard_to_canteen(ctrl: AndroidController) -> None:
+def _backyard_to_canteen(ctx: GameContext) -> None:
     from autowsgr.ui.backyard_page import BackyardPage, BackyardTarget
-    BackyardPage(ctrl).navigate_to(BackyardTarget.CANTEEN)
+    BackyardPage(ctx).navigate_to(BackyardTarget.CANTEEN)
 
 
-def _bath_to_backyard(ctrl: AndroidController) -> None:
+def _bath_to_backyard(ctx: GameContext) -> None:
     from autowsgr.ui.bath_page import BathPage
-    BathPage(ctrl).go_back()
+    BathPage(ctx).go_back()
 
 
-def _canteen_to_backyard(ctrl: AndroidController) -> None:
+def _canteen_to_backyard(ctx: GameContext) -> None:
     from autowsgr.ui.canteen_page import CanteenPage
-    CanteenPage(ctrl).go_back()
+    CanteenPage(ctx).go_back()
 
 
-def _sidebar_to_build(ctrl: AndroidController) -> None:
+def _sidebar_to_build(ctx: GameContext) -> None:
     from autowsgr.ui.sidebar_page import SidebarPage, SidebarTarget
-    SidebarPage(ctrl).navigate_to(SidebarTarget.BUILD)
+    SidebarPage(ctx).navigate_to(SidebarTarget.BUILD)
 
 
-def _sidebar_to_intensify(ctrl: AndroidController) -> None:
+def _sidebar_to_intensify(ctx: GameContext) -> None:
     from autowsgr.ui.sidebar_page import SidebarPage, SidebarTarget
-    SidebarPage(ctrl).navigate_to(SidebarTarget.INTENSIFY)
+    SidebarPage(ctx).navigate_to(SidebarTarget.INTENSIFY)
 
 
-def _sidebar_to_friend(ctrl: AndroidController) -> None:
+def _sidebar_to_friend(ctx: GameContext) -> None:
     from autowsgr.ui.sidebar_page import SidebarPage, SidebarTarget
-    SidebarPage(ctrl).navigate_to(SidebarTarget.FRIEND)
+    SidebarPage(ctx).navigate_to(SidebarTarget.FRIEND)
 
 
-def _build_to_sidebar(ctrl: AndroidController) -> None:
+def _build_to_sidebar(ctx: GameContext) -> None:
     from autowsgr.ui.build_page import BuildPage
-    BuildPage(ctrl).go_back()
+    BuildPage(ctx).go_back()
 
 
-def _intensify_to_sidebar(ctrl: AndroidController) -> None:
+def _intensify_to_sidebar(ctx: GameContext) -> None:
     from autowsgr.ui.intensify_page import IntensifyPage
-    IntensifyPage(ctrl).go_back()
+    IntensifyPage(ctx).go_back()
 
 
-def _friend_to_sidebar(ctrl: AndroidController) -> None:
+def _friend_to_sidebar(ctx: GameContext) -> None:
     from autowsgr.ui.friend_page import FriendPage
-    FriendPage(ctrl).go_back()
+    FriendPage(ctx).go_back()
 
 
-def _decisive_to_main(ctrl: AndroidController) -> None:
+def _decisive_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.decisive import DecisiveBattlePage
-    DecisiveBattlePage(ctrl).go_back()
+    DecisiveBattlePage(ctx).go_back()
 
 
-def _main_to_event(ctrl: AndroidController) -> None:
+def _main_to_event(ctx: GameContext) -> None:
     from autowsgr.ui.main_page import MainPage
-    MainPage(ctrl).navigate_to(MainPage.Target.EVENT)
+    MainPage(ctx).navigate_to(MainPage.Target.EVENT)
 
 
-def _event_to_main(ctrl: AndroidController) -> None:
+def _event_to_main(ctx: GameContext) -> None:
     from autowsgr.ui.event.event_page import BaseEventPage
-    BaseEventPage(ctrl).go_back()
+    BaseEventPage(ctx).go_back()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

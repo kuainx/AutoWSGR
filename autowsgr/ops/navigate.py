@@ -1,18 +1,21 @@
 """跨页面导航 — 从任意页面到达目标页面。
 
-提供游戏层的核心导航能力: ``goto_page(ctrl, PageName.目标)``
+提供游戏层的核心导航能力: ``goto_page(ctx, PageName.目标)``
 """
 
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 
-from autowsgr.emulator import AndroidController
 from autowsgr.types import PageName
 from autowsgr.ui.navigation import find_path
 from autowsgr.ui.page import NavigationError, get_current_page
+
+if TYPE_CHECKING:
+    from autowsgr.context import GameContext
 
 _log = get_logger("ops")
 
@@ -32,7 +35,7 @@ IDENTIFY_INTERVAL: float = 1.0
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def identify_current_page(ctrl: AndroidController) -> str | None:
+def identify_current_page(ctx: GameContext) -> str | None:
     """截图并识别当前页面。
 
     尝试多次截图以应对动画或加载中的情况。
@@ -42,6 +45,7 @@ def identify_current_page(ctrl: AndroidController) -> str | None:
     str | None
         当前页面名称，无法识别返回 ``None``。
     """
+    ctrl = ctx.ctrl
     for attempt in range(MAX_IDENTIFY_ATTEMPTS):
         screen = ctrl.screenshot()
         page = get_current_page(screen)
@@ -60,19 +64,19 @@ def identify_current_page(ctrl: AndroidController) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _goto_page(ctrl: AndroidController, target: str) -> None:
+def _goto_page(ctx: GameContext, target: str) -> None:
     """从当前页面导航到目标页面。
 
     1. 识别当前页面
     2. BFS 查找路径
-    3. 逐边调用 ``edge.action(ctrl)``（截图验证由页面控制器内部完成）
+    3. 逐边调用 ``edge.action(ctx)``（截图验证由页面控制器内部完成）
 
     Raises
     ------
     NavigationError
         无法识别当前页面或找不到路径。
     """
-    current = identify_current_page(ctrl)
+    current = identify_current_page(ctx)
     if current is None:
         raise NavigationError(
             f"无法识别当前页面，无法导航到 '{target}'"
@@ -95,17 +99,17 @@ def _goto_page(ctrl: AndroidController, target: str) -> None:
             "[OPS]   步骤 {}/{}: {} → {} ({})",
             i + 1, len(path), edge.source, edge.target, edge.description,
         )
-        edge.action(ctrl)
+        edge.action(ctx)
 
     _log.info("[OPS] 已到达: {}", target)
 
 
-def goto_page(ctrl: AndroidController, target: str) -> None:
+def goto_page(ctx: GameContext, target: str) -> None:
     """导航到目标页面，失败时自动重试一次。"""
     try:
-        _goto_page(ctrl, target)
+        _goto_page(ctx, target)
     except NavigationError as e:
         _log.error("[OPS] 导航失败: {}", e)
-        current_page = identify_current_page(ctrl)
+        current_page = identify_current_page(ctx)
         _log.info("[OPS] 当前页面: {}, 执行一次重试", current_page)
-        _goto_page(ctrl, target)
+        _goto_page(ctx, target)

@@ -129,7 +129,7 @@ class NormalFightRunner:
 
     def _enter_fight(self) -> None:
         """导航到目标地图并进入。"""
-        goto_page(self._ctrl, PageName.MAP)
+        goto_page(self._ctx, PageName.MAP)
         map_page = MapPage(self._ctx)
         map_page.enter_sortie(self._plan.chapter, self._plan.map_id)
 

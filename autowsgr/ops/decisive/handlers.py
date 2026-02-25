@@ -231,7 +231,7 @@ class DecisivePhaseHandlers(DecisiveBase):
             return
 
         self._map.enter_formation()
-        page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
+        page = DecisiveBattlePreparationPage(self._ctx, self._config, self._ocr)
 
         current_fleet = self._state.fleet[:]
         if current_fleet != best_fleet:

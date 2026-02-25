@@ -346,7 +346,7 @@ class DecisiveMapController:
         _log.info("[地图控制器] 扫描当前编队与可用舰船")
 
         self.enter_formation()
-        page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
+        page = DecisiveBattlePreparationPage(self._ctx, self._config, self._ocr)
 
         screen = self._ctrl.screenshot()
         fleet = page.detect_fleet(screen)
@@ -494,7 +494,7 @@ class DecisiveMapController:
         self._ctrl.click(*CLICK_SORTIE)
         time.sleep(2.0)
 
-        page = BattlePreparationPage(self._ctrl)
+        page = BattlePreparationPage(self._ctx)
         strategy = RepairStrategy.MODERATE if repair_level <= 1 else RepairStrategy.SEVERE
         repaired = page.apply_repair(strategy)
 
@@ -525,7 +525,7 @@ class DecisiveMapController:
             目标舰船名列表 (按槽位 0–5)；``None``/``""`` 表示该位留空。
         """
         _log.info("[地图控制器] 进入准备页换船: {} 队 → {}", fleet_id, ship_names)
-        page = DecisiveBattlePreparationPage(self._ctrl, self._config, self._ocr)
+        page = DecisiveBattlePreparationPage(self._ctx, self._config, self._ocr)
         page.change_fleet(fleet_id, ship_names)
 
     # ══════════════════════════════════════════════════════════════════════

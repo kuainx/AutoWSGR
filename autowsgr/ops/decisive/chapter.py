@@ -28,7 +28,7 @@ class DecisiveChapterOps(DecisiveBase):
         """进入决战总览并推断入口状态。"""
         from autowsgr.ops.navigate import goto_page
 
-        goto_page(self._ctrl, PageName.DECISIVE_BATTLE)
+        goto_page(self._ctx, PageName.DECISIVE_BATTLE)
         self._battle_page.navigate_to_chapter(self._config.chapter)
 
     def _do_dock_full_destroy(self) -> None:
@@ -39,7 +39,7 @@ class DecisiveChapterOps(DecisiveBase):
             _log.warning("[决战] 船坞已满，执行自动解装")
             self._ctrl.click(0.38, 0.565)
             destroy_ships(
-                self._ctrl,
+                self._ctx,
                 ship_types=self._config.destroy_ship_types or None,
             )
             return

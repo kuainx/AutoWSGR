@@ -388,7 +388,7 @@ class BattlePreparationPage:
         self.click_ship_slot(slot)
         time.sleep(1.0)
 
-        choose_page = ChooseShipPage(self._ctrl)
+        choose_page = ChooseShipPage(self._ctx)
 
         if name is None:
             choose_page.click_remove()

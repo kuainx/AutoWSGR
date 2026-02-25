@@ -5,18 +5,22 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from autowsgr.infra.logger import get_logger
 
-from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName
 from autowsgr.ui.canteen_page import CanteenPage
+
+if TYPE_CHECKING:
+    from autowsgr.context import GameContext
 
 _log = get_logger("ops")
 
 
 def cook(
-    ctrl: AndroidController,
+    ctx: GameContext,
     *,
     position: int = 1,
     force_cook: bool = False,
@@ -31,8 +35,8 @@ def cook(
         当有菜正在生效时是否继续做菜。
     """
     _log.info("[OPS] 做菜开始")
-    goto_page(ctrl, PageName.CANTEEN)
-    page = CanteenPage(ctrl)
+    goto_page(ctx, PageName.CANTEEN)
+    page = CanteenPage(ctx)
     result = page.cook(position, force_cook=force_cook)
     _log.info("[OPS] 做菜完成")
     return result

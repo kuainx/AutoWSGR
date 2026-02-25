@@ -10,12 +10,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from autowsgr.infra.logger import get_logger
 
-from autowsgr.emulator import AndroidController
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import PageName
 from autowsgr.ui.bath_page import BathPage
+
+if TYPE_CHECKING:
+    from autowsgr.context import GameContext
 
 _log = get_logger("ops")
 
@@ -24,7 +28,7 @@ _log = get_logger("ops")
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def repair_in_bath(ctrl: AndroidController) -> None:
+def repair_in_bath(ctx: GameContext) -> None:
     """使用浴室修理修理时间最长的舰船。
 
     流程: 导航到浴室 → 打开选择修理 overlay → 点击第一个待修理舰船
@@ -32,9 +36,9 @@ def repair_in_bath(ctrl: AndroidController) -> None:
 
     旧代码参考: ``repair_by_bath(timer)``
     """
-    goto_page(ctrl, PageName.BATH)
+    goto_page(ctx, PageName.BATH)
 
-    page = BathPage(ctrl)
+    page = BathPage(ctx)
     page.go_to_choose_repair()
     page.click_first_repair_ship()
 
@@ -42,7 +46,7 @@ def repair_in_bath(ctrl: AndroidController) -> None:
     _log.info("[OPS] 浴室修理操作完成")
 
 
-def repair_ship_by_name(ctrl: AndroidController, ship_name: str) -> None:
+def repair_ship_by_name(ctx: GameContext, ship_name: str) -> None:
     """使用浴室修理指定名称的舰船。
 
     .. note::
@@ -50,8 +54,8 @@ def repair_ship_by_name(ctrl: AndroidController, ship_name: str) -> None:
 
     Parameters
     ----------
-    ctrl:
-        Android 设备控制器实例。
+    ctx:
+        游戏上下文。
     ship_name:
         要修理的舰船名称 (中文)。
 
@@ -60,9 +64,9 @@ def repair_ship_by_name(ctrl: AndroidController, ship_name: str) -> None:
     NotImplementedError
         OCR 识别功能尚未实现。
     """
-    goto_page(ctrl, PageName.BATH)
+    goto_page(ctx, PageName.BATH)
 
-    page = BathPage(ctrl)
+    page = BathPage(ctx)
     page.go_to_choose_repair()
     page.repair_ship(ship_name)
 

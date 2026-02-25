@@ -190,7 +190,7 @@ class BaseEventPage:
         self._change_difficulty(difficulty)
         self._enter_node(node_id)
         if entrance is not None:
-            self.select_entrance(entrance)
+            self._select_entrance(entrance)
         
         from autowsgr.ui.battle.preparation import BattlePreparationPage
 
@@ -250,14 +250,14 @@ class BaseEventPage:
 
     # ── 入口选择 (alpha/beta) ─────────────────────────────────────────────
 
-    def is_alpha_entrance(self) -> bool:
+    def _is_alpha_entrance(self) -> bool:
         """检测当前是否为 alpha 入口。"""
         screen = self._ctrl.screenshot()
         x, y = ENTRANCE_ALPHA_PROBE
         pixel = PixelChecker.get_pixel(screen, x, y)
         return pixel.near(ENTRANCE_ALPHA_COLOR, 40.0)
 
-    def select_entrance(self, entrance: Literal["alpha", "beta"]) -> None:
+    def _select_entrance(self, entrance: Literal["alpha", "beta"]) -> None:
         # 选择入口
         pass
 
