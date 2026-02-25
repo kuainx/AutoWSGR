@@ -105,7 +105,7 @@ class MapNodeData:
 
     @classmethod
     def load(cls, chapter: int | str, map_id: int | str) -> MapNodeData | None:
-        """从 YAML 文件加载地图节点数据。
+        """从 YAML 文件加载常规地图节点数据。
 
         Parameters
         ----------
@@ -127,6 +127,43 @@ class MapNodeData:
         from autowsgr.infra.file_utils import load_yaml
 
         raw: dict[str, Any] = load_yaml(path)
+        return cls._parse(raw)
+
+    @classmethod
+    def load_event(
+        cls,
+        event_name: str,
+        chapter: int | str,
+        map_id: int | str,
+    ) -> MapNodeData | None:
+        """从 YAML 文件加载活动地图节点数据。
+
+        数据路径: ``autowsgr/data/map/event/{event_name}/{chapter}-{map_id}.yaml``
+
+        Parameters
+        ----------
+        event_name:
+            活动名称，如 ``"20260212"``。
+        chapter:
+            活动难度档，如 ``"H"``、``"E"``。
+        map_id:
+            地图编号，如 ``5``。
+
+        Returns
+        -------
+        MapNodeData | None
+            加载成功返回数据对象；文件不存在返回 ``None``。
+        """
+        _event_root = Path(__file__).resolve().parent.parent / "data" / "map" / "event"
+        path = _event_root / event_name / f"{chapter}-{map_id}.yaml"
+        if not path.exists():
+            _log.warning("[NodeTracker] 活动地图文件不存在: {}", path)
+            return None
+
+        from autowsgr.infra.file_utils import load_yaml
+
+        raw: dict[str, Any] = load_yaml(path)
+        _log.info("[NodeTracker] 加载活动地图数据: {}", path)
         return cls._parse(raw)
 
     @classmethod

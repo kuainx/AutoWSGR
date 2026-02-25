@@ -54,6 +54,10 @@ class EventFightRunner:
         若不提供则从 ``plan.chapter`` + ``plan.map_id`` 推导。
     entrance:
         入口选择 ``"alpha"``/``"beta"``/``None``。
+    event_name:
+        活动名称（如 ``"20260212"``），用于加载地图节点数据。
+        优先取此参数；若为 ``None`` 则用 ``plan.event_name``；
+        两者均未指定时节点追踪器不启用。
     """
 
     def __init__(
@@ -63,11 +67,14 @@ class EventFightRunner:
         *,
         map_code: str | None = None,
         entrance: Literal["alpha", "beta"] | None = None,
+        fleet_id: int | None = None,
+        event_name: str | None = None,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
         self._plan = plan
         self._entrance = entrance
+        self._fleet_id = fleet_id if fleet_id is not None else (plan.fleet_id or 1)
 
         # 推导 map_code
         if map_code is not None:
@@ -80,6 +87,11 @@ class EventFightRunner:
                 self._map_code = f"{ch}{mid}"
             else:
                 self._map_code = f"H{mid}"
+
+        # 活动名称：用于节点追踪器加载地图数据
+        resolved_event_name = event_name or plan.event_name
+        if resolved_event_name and not plan.event_name:
+            plan.event_name = resolved_event_name
 
         # 从 config 读取拆船配置
         self._dock_full_destroy = ctx.config.dock_full_destroy
@@ -181,7 +193,8 @@ class EventFightRunner:
 
         # 委托 UI 层完成: 难度 / 节点 / 出击
         event_page = BaseEventPage(self._ctx)
-        event_page.start_fight(self._map_code, entrance=self._entrance)
+        entrance: Literal["alpha", "beta"] | None = self._entrance  # type: ignore[assignment]
+        event_page.start_fight(self._map_code, entrance=entrance)
 
     # ── 出征准备 ──
 
@@ -191,13 +204,13 @@ class EventFightRunner:
         page = BattlePreparationPage(self._ctx)
 
         # 选择舰队
-        page.select_fleet(self._plan.fleet_id)
+        page.select_fleet(self._fleet_id)
         time.sleep(0.5)
 
         # 换船 (如果指定了舰船列表)
         if self._plan.fleet is not None:
             page.change_fleet(
-                self._plan.fleet_id,
+                self._fleet_id,
                 self._plan.fleet,
             )
             time.sleep(0.5)

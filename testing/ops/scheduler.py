@@ -147,6 +147,7 @@ def main() -> None:
         ctx,
         plan,
         map_code=args.map_code,
+        fleet_id=2
     )
 
     # ── 构建调度器 ──

@@ -102,7 +102,7 @@ class CombatEngine(PhaseHandlersMixin):
         )
         self._reset()
 
-        # 常规战模式下加载地图节点数据并初始化节点追踪器
+        # 常规战 / 活动战模式下加载地图节点数据并初始化节点追踪器
         if plan.mode == CombatMode.NORMAL:
             map_data = MapNodeData.load(plan.chapter, plan.map_id)
             if map_data is not None:
@@ -116,6 +116,22 @@ class CombatEngine(PhaseHandlersMixin):
                 _log.warning(
                     "[Combat] 无法加载地图数据 {}-{}，节点追踪将不可用",
                     plan.chapter, plan.map_id,
+                )
+        elif plan.mode == CombatMode.EVENT and plan.event_name:
+            map_data = MapNodeData.load_event(
+                plan.event_name, plan.chapter, plan.map_id
+            )
+            if map_data is not None:
+                self._tracker = NodeTracker(map_data)
+                _log.info(
+                    "[Combat] 活动节点追踪器已加载: {}/{}-{} ({} 个节点)",
+                    plan.event_name, plan.chapter, plan.map_id, len(map_data),
+                )
+            else:
+                self._tracker = None
+                _log.warning(
+                    "[Combat] 无法加载活动地图数据 {}/{}-{}，节点追踪将不可用",
+                    plan.event_name, plan.chapter, plan.map_id,
                 )
         else:
             self._tracker = None

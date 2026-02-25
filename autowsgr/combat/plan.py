@@ -243,6 +243,9 @@ class CombatPlan:
     selected_nodes: list[str] = field(default_factory=list)
     nodes: dict[str, NodeDecision] = field(default_factory=dict)
     default_node: NodeDecision = field(default_factory=NodeDecision)
+    event_name: str | None = None
+    """活动名称（如 ``"20260212"``），用于定位活动地图节点数据。
+    在 YAML 中写为 ``event: "20260212"``。"""
 
     def __post_init__(self) -> None:
         """\u5c06单个 repair_mode 展开为 6 个位置的列表，保证属性始终为 ``list[RepairMode]``。"""
@@ -336,6 +339,8 @@ class CombatPlan:
             if node_name not in nodes:
                 nodes[node_name] = copy.deepcopy(default_node)
 
+        event_name: str | None = data.get("event") or None
+
         plan = cls(
             name=name or data.get("name", ""),
             mode=mode,
@@ -348,6 +353,7 @@ class CombatPlan:
             selected_nodes=selected_nodes,
             nodes=nodes,
             default_node=default_node,
+            event_name=event_name,
         )
 
         _log.info(
