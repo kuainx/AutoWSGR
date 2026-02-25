@@ -87,7 +87,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.read_state(
         "活动地图状态",
         readers={
-            "浮层 (进入页弹窗)": lambda s: BaseEventPage.detect_overlay(s),
+            "浮层 (进入页弹窗)": lambda s: BaseEventPage._detect_overlay(s),
         },
     )
 

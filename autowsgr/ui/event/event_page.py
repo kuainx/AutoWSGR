@@ -90,6 +90,8 @@ CLICK_BACK: tuple[float, float] = (0.0273, 0.0558)
 CLICK_FIGHT_BUTTON: tuple[float, float] = (0.8276, 0.8426)
 """出击按钮坐标 (活动地图右下角，选择节点后出现)。"""
 
+CLICK_CLOSE_OVERLAY: tuple[float, float] = (0.95, 0.1)
+
 # 难度相关像素探测
 DIFFICULTY_PROBE: tuple[float, float] = (0.8276, 0.1296)
 """难度切换按钮区域探测点。"""
@@ -149,13 +151,22 @@ class BaseEventPage:
         result_overlay = PixelChecker.check_signature(screen, OVERLAY_SIGNATURE)
         return result_base.matched or result_overlay.matched
 
-    # —— 悬浮窗检测
-    @staticmethod
-    def detect_overlay(screen: np.ndarray) -> bool:
+    # —— 悬浮窗检测 ─────────────────────────────────────────────────────────
+    def _detect_overlay(self, screen: np.ndarray) -> bool:
         """检测截图中是否存在可消除的浮层（地图进入页）。
         """
         result = PixelChecker.check_signature(screen, OVERLAY_SIGNATURE)
         return result.matched
+
+    def _close_overlay(self) -> None:
+        """点击浮层中的关闭按钮，返回地图基础页面。"""
+        _log.info("[UI] 活动地图: 关闭进入页浮层")
+        self._ctrl.click(*CLICK_CLOSE_OVERLAY)
+        wait_for_page(self._ctrl, self.is_current_page, timeout=5.0)
+
+    def _ensure_no_overlay(self) -> None:
+        if self._detect_overlay(self._ctrl.screenshot()):
+            self._close_overlay()
 
     # ── 节点选择 ──────────────────────────────────────────────────────────
     def _enter_node(self, node_id: int) -> None:
@@ -171,7 +182,7 @@ class BaseEventPage:
         self._ctrl.click(x, y)
         for _ in range(10):
             # 检测到节点浮层即成功
-            if self.detect_overlay(self._ctrl.screenshot()):
+            if self._detect_overlay(self._ctrl.screenshot()):
                 break
             time.sleep(0.25)
         else:
@@ -268,6 +279,8 @@ class BaseEventPage:
         from autowsgr.ui.main_page import MainPage
 
         _log.info("[UI] 活动地图 -> 主页面")
+        self._ensure_no_overlay()
+        time.sleep(0.5)
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
