@@ -203,11 +203,14 @@ _SIGNATURES: dict[Sig, PixelSignature] = {
         ],
     ),
     Sig.BOOKING: PixelSignature(
-        name="booking_page",
+        name="booking_overlay",
         strategy=MatchStrategy.ALL,
         rules=[
-            PixelRule.of(0.5000, 0.1000, (40, 40, 50), tolerance=60.0),
-            PixelRule.of(0.5000, 0.9000, (40, 40, 50), tolerance=60.0),
+            PixelRule.of(0.3375, 0.3861, (225, 225, 225), tolerance=30.0),
+            PixelRule.of(0.6078, 0.3625, (225, 225, 225), tolerance=30.0),
+            PixelRule.of(0.3344, 0.5694, (33, 122, 216), tolerance=30.0),
+            PixelRule.of(0.5789, 0.5681, (153, 37, 37), tolerance=30.0),
+            PixelRule.of(0.4875, 0.5736, (225, 225, 225), tolerance=30.0),
         ],
     ),
 }

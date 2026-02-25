@@ -36,7 +36,7 @@ _log = get_logger("ui")
 def detect_overlay(screen: np.ndarray) -> OverlayKind | None:
     """检测截图中是否存在主页面浮层。
 
-    按优先级依次检测: NEWS → SIGN。
+    按优先级依次检测: NEWS → SIGN → BOOKING。
 
     Returns
     -------
