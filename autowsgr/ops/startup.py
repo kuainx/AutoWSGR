@@ -103,49 +103,6 @@ def is_on_main_page(ctrl: AndroidController) -> bool:
     _log.debug("[Startup] 主页面检测: {}", "是" if result else "否")
     return result
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 浮层处理
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def dismiss_login_overlays(
-    ctrl: AndroidController,
-    *,
-    timeout: float = _OVERLAY_DISMISS_TIMEOUT,
-    delay: float = _OVERLAY_DISMISS_DELAY,
-) -> None:
-    """消除游戏登录后弹出的浮层（新闻公告、每日签到）。
-
-    轮询截图，发现浮层即消除，直到连续两次截图均无浮层为止。
-
-    Parameters
-    ----------
-    ctrl:
-        Android 设备控制器。
-    timeout:
-        最长等待时间 (秒)；超时后不抛出异常，记录警告。
-    delay:
-        消除浮层后的稳定等待时间 (秒)。
-    """
-    _log.info("[Startup] 检测并消除登录浮层")
-    deadline = time.monotonic() + timeout
-
-    while time.monotonic() < deadline:
-        screen = ctrl.screenshot()
-        overlay = detect_overlay(screen)
-
-        if overlay is None:
-            _log.debug("[Startup] 无浮层，跳过")
-            return
-
-        _log.info("[Startup] 检测到浮层: {}，正在消除", overlay.value)
-        dismiss_overlay(ctrl, overlay)
-        time.sleep(delay)
-
-    _log.warning("[Startup] 浮层消除超时 ({:.0f}s)，继续执行", timeout)
-
-
 def wait_for_game_ui(
     ctrl: AndroidController,
     *,
