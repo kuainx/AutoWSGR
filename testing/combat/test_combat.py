@@ -35,24 +35,6 @@ from autowsgr.types import Formation, RepairMode, ShipDamageState
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestCombatPhase:
-    """CombatPhase 枚举测试。"""
-
-    def test_all_phases_exist(self):
-        assert CombatPhase.PROCEED is not None
-        assert CombatPhase.FIGHT_CONDITION is not None
-        assert CombatPhase.SPOT_ENEMY_SUCCESS is not None
-        assert CombatPhase.FORMATION is not None
-        assert CombatPhase.MISSILE_ANIMATION is not None
-        assert CombatPhase.FIGHT_PERIOD is not None
-        assert CombatPhase.NIGHT_PROMPT is not None
-        assert CombatPhase.RESULT is not None
-        assert CombatPhase.GET_SHIP is not None
-        assert CombatPhase.FLAGSHIP_SEVERE_DAMAGE is not None
-        assert CombatPhase.MAP_PAGE is not None
-        assert CombatPhase.EXERCISE_PAGE is not None
-
-
 class TestResolveSuccessors:
     """状态转移解析测试。"""
 

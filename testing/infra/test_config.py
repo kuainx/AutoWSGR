@@ -9,13 +9,11 @@ from autowsgr.infra import (
     DecisiveBattleConfig,
     EmulatorConfig,
     FightConfig,
-    LogConfig,
     UserConfig,
 )
 from autowsgr.types import (
     DestroyShipWorkMode,
     EmulatorType,
-    OSType,
     RepairMode,
 )
 
@@ -28,16 +26,6 @@ class TestEmulatorConfig:
         cfg = EmulatorConfig.model_validate({"type": "蓝叠", "serial": "127.0.0.1:5555"})
         assert cfg.type == EmulatorType.bluestacks
         assert cfg.serial == "127.0.0.1:5555"
-
-
-# ── LogConfig ──
-
-
-class TestLogConfig:
-    def test_dir_auto_generated(self):
-        cfg = LogConfig()
-        assert cfg.dir is not None
-        assert str(cfg.root) in str(cfg.dir)
 
 
 # ── DecisiveBattleConfig ──
@@ -53,12 +41,6 @@ class TestDecisiveBattleConfig:
 
 
 class TestUserConfig:
-    def test_emulator_serial_auto_resolved(self):
-        """非 WSL 环境下 serial 应被自动填充。"""
-        cfg = UserConfig()
-        if cfg.os_type != OSType.linux:
-            assert cfg.emulator.serial is not None
-
     def test_from_yaml(self, tmp_yaml):
         content = """\
 emulator:

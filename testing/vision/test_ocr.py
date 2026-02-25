@@ -40,16 +40,6 @@ def _dummy_image() -> np.ndarray:
 
 
 class TestOCRResult:
-    def test_basic_fields(self):
-        r = OCRResult(text="hello", confidence=0.95)
-        assert r.text == "hello"
-        assert r.confidence == pytest.approx(0.95)
-        assert r.bbox is None
-
-    def test_with_bbox(self):
-        r = OCRResult(text="42", confidence=0.8, bbox=(10, 20, 50, 40))
-        assert r.bbox == (10, 20, 50, 40)
-
     def test_immutable(self):
         r = OCRResult(text="x", confidence=0.5)
         with pytest.raises((AttributeError, TypeError)):

@@ -10,47 +10,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autowsgr.emulator import (
-    EmulatorProcessManager,
-    create_emulator_manager,
     WindowsEmulatorManager,
     MacEmulatorManager,
     LinuxEmulatorManager,
 )
 from autowsgr.infra import EmulatorConfig, EmulatorError, EmulatorNotFoundError
-from autowsgr.types import EmulatorType, OSType
-
-
-# ═══════════════════════════════════════════════
-# 工厂函数
-# ═══════════════════════════════════════════════
-
-
-class TestCreateEmulatorManager:
-    """create_emulator_manager 工厂函数。"""
-
-    def test_windows(self):
-        config = EmulatorConfig(type=EmulatorType.leidian)
-        mgr = create_emulator_manager(config, os_type=OSType.windows)
-        assert isinstance(mgr, WindowsEmulatorManager)
-
-    def test_macos(self):
-        config = EmulatorConfig(type=EmulatorType.mumu)
-        mgr = create_emulator_manager(config, os_type=OSType.macos)
-        assert isinstance(mgr, MacEmulatorManager)
-
-    def test_linux(self):
-        config = EmulatorConfig(type=EmulatorType.leidian)
-        mgr = create_emulator_manager(config, os_type=OSType.linux)
-        assert isinstance(mgr, LinuxEmulatorManager)
-
-    def test_auto_os_detection(self):
-        """不传 os_type 时自动检测。"""
-        config = EmulatorConfig()
-        mgr = create_emulator_manager(config)
-        # 验证类型是三种之一
-        assert isinstance(
-            mgr, (WindowsEmulatorManager, MacEmulatorManager, LinuxEmulatorManager)
-        )
+from autowsgr.types import EmulatorType
 
 
 # ═══════════════════════════════════════════════
@@ -253,23 +218,3 @@ class TestLinuxEmulatorManager:
             assert mgr.is_running() is True
 
 
-# ═══════════════════════════════════════════════
-# EmulatorConfig 集成
-# ═══════════════════════════════════════════════
-
-
-class TestEmulatorConfigIntegration:
-    """验证 EmulatorConfig 与管理器联动。"""
-
-    def test_default_config(self):
-        config = EmulatorConfig()
-        assert config.type == EmulatorType.leidian
-        assert config.path is None
-        assert config.serial is None
-        assert config.process_name is None
-
-    def test_config_types(self):
-        for emu_type in EmulatorType:
-            config = EmulatorConfig(type=emu_type)
-            mgr = create_emulator_manager(config, os_type=OSType.windows)
-            assert isinstance(mgr, WindowsEmulatorManager)

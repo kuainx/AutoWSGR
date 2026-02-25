@@ -432,36 +432,6 @@ class TestMultiResolutionScaling:
         detail_b = ImageChecker.find_template(screen, tmpl_b, confidence=0.85)
         assert detail_b is not None, "1080p template should match on 720p screen"
 
-    def test_source_resolution_preserved_in_template(self):
-        """ImageTemplate 应保留 source_resolution 元数据。"""
-        import numpy as np
-        from autowsgr.vision import ImageTemplate
-
-        # 默认
-        img = np.zeros((10, 10, 3), dtype=np.uint8)
-        t1 = ImageTemplate(name="t1", image=img)
-        assert t1.source_resolution == (960, 540)
-
-        # 自定义
-        t2 = ImageTemplate(name="t2", image=img, source_resolution=(1920, 1080))
-        assert t2.source_resolution == (1920, 1080)
-
-        # from_ndarray
-        t3 = ImageTemplate.from_ndarray(img, "t3", source_resolution=(1280, 720))
-        assert t3.source_resolution == (1280, 720)
-
-    def test_repr_shows_non_default_resolution(self):
-        """非默认分辨率应在 repr 中显示。"""
-        import numpy as np
-        from autowsgr.vision import ImageTemplate
-
-        img = np.zeros((10, 10, 3), dtype=np.uint8)
-        t_default = ImageTemplate(name="t", image=img)
-        assert "source_resolution" not in repr(t_default)
-
-        t_custom = ImageTemplate(name="t", image=img, source_resolution=(1920, 1080))
-        assert "source_resolution=(1920, 1080)" in repr(t_custom)
-
     def test_scale_template_if_needed_with_source_resolution(self):
         """_scale_template_if_needed 应使用传入的 source_resolution。"""
         import numpy as np

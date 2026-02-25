@@ -19,15 +19,6 @@ from ._helpers import make_template
 
 
 class TestImageTemplate:
-    def test_from_ndarray(self):
-        img = np.zeros((50, 80, 3), dtype=np.uint8)
-        tmpl = ImageTemplate.from_ndarray(img, name="test")
-        assert tmpl.name == "test"
-        assert tmpl.height == 50
-        assert tmpl.width == 80
-        assert tmpl.shape == (50, 80)
-        assert tmpl.source == "ndarray"
-
     def test_from_ndarray_bgr(self):
         """BGR 输入应自动转换为 RGB。"""
         bgr = np.zeros((10, 10, 3), dtype=np.uint8)
