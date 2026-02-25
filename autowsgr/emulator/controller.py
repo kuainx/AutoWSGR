@@ -22,11 +22,13 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import time
 import cv2
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from .detector import detect_emulators, prompt_user_select, resolve_serial
+from .detector import _find_adb, detect_emulators, prompt_user_select, resolve_serial
 
 import numpy as np
 from autowsgr.infra import EmulatorConfig, EmulatorConnectionError
@@ -37,6 +39,63 @@ from airtest.core.error import AdbError, DeviceConnectionError
 from airtest.core.android import Android
 
 _log = get_logger("emulator")
+
+
+# ── ADB 进程清理辅助 ──
+
+def _kill_adb_process(adb_path: str | None = None) -> None:
+    """终止已有的 adb 服务/进程，以便重新建立干净的连接。
+
+    跨平台策略：
+
+    1. 执行 ``adb kill-server``（ADB 官方方式，所有平台适用，优先）。
+    2. Windows 下额外通过 ``taskkill /F /IM adb.exe`` 强制结束进程（兜底）。
+    3. Unix 下额外通过 ``pkill -f adb`` 强制终止（兜底）。
+
+    所有子步骤的失败均被静默忽略，不会向上抛出异常。
+    """
+    # Step 1: adb kill-server（跨平台正式方式）
+    try:
+        adb = adb_path or _find_adb()
+        subprocess.run(
+            [adb, "kill-server"],
+            timeout=5,
+            capture_output=True,
+        )
+        _log.debug("[Emulator] adb kill-server 已执行")
+    except Exception as exc:
+        _log.debug("[Emulator] adb kill-server 失败: {}", exc)
+
+    # Step 2: OS 级强制终止（兜底，防止 adb kill-server 本身挂起或找不到 adb）
+    try:
+        if sys.platform.startswith("win"):
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "adb.exe"],
+                timeout=5,
+                capture_output=True,
+            )
+            _log.debug("[Emulator] taskkill adb.exe 已执行")
+        else:
+            subprocess.run(
+                ["pkill", "-f", "adb"],
+                timeout=5,
+                capture_output=True,
+            )
+            _log.debug("[Emulator] pkill adb 已执行")
+    except Exception as exc:
+        _log.debug("[Emulator] OS 级终止 adb 进程失败: {}", exc)
+
+    # Step 3: 重新启动 adb server，确保后续连接时 server 已就绪
+    try:
+        adb = adb_path or _find_adb()
+        subprocess.run(
+            [adb, "start-server"],
+            timeout=8,
+            capture_output=True,
+        )
+        _log.debug("[Emulator] adb start-server 已执行")
+    except Exception as exc:
+        _log.debug("[Emulator] adb start-server 失败（连接时会自动启动）: {}", exc)
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,14 +321,8 @@ class ADBController(AndroidController):
         )
 
 
-        try:
-            connect_device(uri)
-            self._device = get_device()
-        except (AdbError, DeviceConnectionError) as exc:
-            raise EmulatorConnectionError(f"连接设备失败: {self._serial}") from exc
-
-        if self._device is None:
-            raise EmulatorConnectionError(f"连接后设备对象为 None: {self._serial}")
+        self._connect_with_retry(uri)
+        assert self._device is not None  # _try_connect 成功后保证非 None
 
         # 获取分辨率
         display = self._device.display_info
@@ -315,6 +368,87 @@ class ADBController(AndroidController):
             serial=self._serial or "auto",
             resolution=self._resolution,
         )
+
+    # ── 内部连接辅助 ──
+
+    def _try_connect(self, uri: str, *, kill_first: bool = False) -> None:
+        """尝试建立设备连接（单次，不重试）。
+
+        Parameters
+        ----------
+        uri:
+            Airtest 设备 URI，如
+            ``"Android:///127.0.0.1:16384?cap_method=javacap"``。
+        kill_first:
+            为 ``True`` 时先调用 :func:`_kill_adb_process` 清理残留的 adb
+            进程再连接；首次尝试应传 ``False``，重试时传 ``True``。
+
+        Raises
+        ------
+        EmulatorConnectionError
+            连接失败时抛出。
+        """
+        if kill_first:
+            _kill_adb_process()
+        try:
+            connect_device(uri)
+            self._device = get_device()
+        except (AdbError, DeviceConnectionError) as exc:
+            raise EmulatorConnectionError(f"连接设备失败: {self._serial}") from exc
+
+        if self._device is None:
+            raise EmulatorConnectionError(f"连接后设备对象为 None: {self._serial}")
+
+    def _connect_with_retry(
+        self,
+        uri: str,
+        max_attempts: int = 3,
+        retry_delay: float = 3.0,
+    ) -> None:
+        """带重试逻辑的连接入口，内部调用 :meth:`_try_connect`。
+
+        策略：首次直接尝试连接（不 kill adb），失败后才执行清场再重试，
+        避免在 adb 原本正常时无谓地破坏现有连接。
+
+        Parameters
+        ----------
+        uri:
+            Airtest 设备 URI。
+        max_attempts:
+            最大尝试次数（含首次），默认 3 次。
+        retry_delay:
+            相邻两次重试之间的等待秒数（含 adb start-server 预热时间），默认 3 秒。
+
+        Raises
+        ------
+        EmulatorConnectionError
+            所有重试均失败后抛出。
+        """
+        last_exc: EmulatorConnectionError | None = None
+        for attempt in range(1, max_attempts + 1):
+            # 首次直连；后续重试先 kill adb 再连（清场重连）
+            kill_first = attempt > 1
+            try:
+                _log.info(
+                    "[Emulator] 连接尝试 {}/{}{}: {}",
+                    attempt, max_attempts,
+                    " (kill-adb)" if kill_first else "",
+                    uri,
+                )
+                self._try_connect(uri, kill_first=kill_first)
+                return  # 连接成功，直接返回
+            except EmulatorConnectionError as exc:
+                last_exc = exc
+                if attempt < max_attempts:
+                    _log.warning(
+                        "[Emulator] 连接失败 (尝试 {}/{}): {}，{:.1f}s 后重试...",
+                        attempt, max_attempts, exc, retry_delay,
+                    )
+                    time.sleep(retry_delay)
+
+        raise EmulatorConnectionError(
+            f"连接失败（共尝试 {max_attempts} 次）: {self._serial}"
+        ) from last_exc
 
     def disconnect(self) -> None:
         serial = self._serial or "auto"
