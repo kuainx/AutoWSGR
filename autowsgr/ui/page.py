@@ -102,10 +102,13 @@ _PAGE_REGISTRY: dict[str, Callable[[np.ndarray], bool]] = {}
 
 def register_page(name: str, checker: Callable[[np.ndarray], bool]) -> None:
     """注册页面识别函数。"""
-    if name in _PAGE_REGISTRY:
-        _log.warning("[UI] 页面 '{}' 已注册，将覆盖", name)
-    _PAGE_REGISTRY[name] = checker
-    _log.debug("[UI] 注册页面: {}", name)
+    # Python 3.13+ 中 StrEnum 的 str()/format() 返回 'ClassName.MEMBER' 而非值，
+    # 显式提取 .value 确保 key 始终为纯 str，避免日志和比较中出现意外格式。
+    key: str = name.value if hasattr(name, "value") else name
+    if key in _PAGE_REGISTRY:
+        _log.warning("[UI] 页面 '{}' 已注册，将覆盖", key)
+    _PAGE_REGISTRY[key] = checker
+    _log.debug("[UI] 注册页面: {}", key)
 
 
 def get_current_page(screen: np.ndarray) -> str | None:
