@@ -479,6 +479,7 @@ def reset_to_main_page(ctrl: "ADBController", pause: float = 1.5) -> bool:
     from autowsgr.ui.map.page import MapPage
     from autowsgr.ui.mission_page import MissionPage
     from autowsgr.ui.sidebar_page import SidebarPage
+    from autowsgr.ui.event.event_page import BaseEventPage
 
     for _ in range(5):
         screen = ctrl.screenshot()
@@ -501,6 +502,8 @@ def reset_to_main_page(ctrl: "ADBController", pause: float = 1.5) -> bool:
             BattlePreparationPage(ctrl).go_back()
         elif DecisiveBattlePage.is_current_page(screen):
             DecisiveBattlePage(ctrl).go_back()
+        elif BaseEventPage.is_current_page(screen):
+            BaseEventPage(ctrl).go_back()
         # 中间页面
         elif BackyardPage.is_current_page(screen):
             BackyardPage(ctrl).go_back()
