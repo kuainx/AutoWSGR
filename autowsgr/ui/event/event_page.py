@@ -83,7 +83,7 @@ NODE_POSITIONS = {
 # 坐标常量
 # ═══════════════════════════════════════════════════════════════════════════════
 
-CLICK_BACK: tuple[float, float] = (0.0573, 0.0528)
+CLICK_BACK: tuple[float, float] = (0.0273, 0.0558)
 """返回按钮坐标 (活动地图左上角)。"""
 
 CLICK_FIGHT_BUTTON: tuple[float, float] = (0.8276, 0.8426)
