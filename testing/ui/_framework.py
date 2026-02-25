@@ -12,7 +12,7 @@
 
     def run_test(runner: UIControllerTestRunner) -> None:
         from autowsgr.ui.xxx_page import XxxPage
-        page = XxxPage(runner.ctrl)
+        page = XxxPage(runner.ctx)
 
         runner.verify_current("初始验证: Xxx页面", "Xxx页面", XxxPage.is_current_page)
         runner.execute_step(
@@ -237,6 +237,16 @@ class UIControllerTestRunner:
         )
         self._step_counter = 0
         self._aborted = False
+        self._ctx: "GameContext | None" = None
+
+    @property
+    def ctx(self) -> "GameContext":
+        """懒加载 GameContext (测试用)。"""
+        if self._ctx is None:
+            from autowsgr.context import GameContext
+            from autowsgr.infra import UserConfig
+            self._ctx = GameContext(ctrl=self.ctrl, config=UserConfig())
+        return self._ctx
 
     # ── 截图 ─────────────────────────────────────────────────────────
 
@@ -467,6 +477,8 @@ def reset_to_main_page(ctrl: "ADBController", pause: float = 1.5) -> bool:
     bool
         成功回到主页面时返回 ``True``，超出重试次数仍未到达则返回 ``False``。
     """
+    from autowsgr.context import GameContext
+    from autowsgr.infra import UserConfig
     from autowsgr.ui.backyard_page import BackyardPage
     from autowsgr.ui.bath_page import BathPage
     from autowsgr.ui.battle.preparation import BattlePreparationPage
@@ -481,36 +493,38 @@ def reset_to_main_page(ctrl: "ADBController", pause: float = 1.5) -> bool:
     from autowsgr.ui.sidebar_page import SidebarPage
     from autowsgr.ui.event.event_page import BaseEventPage
 
+    ctx = GameContext(ctrl=ctrl, config=UserConfig())
+
     for _ in range(5):
         screen = ctrl.screenshot()
         if MainPage.is_current_page(screen):
             return True
         # 叶页面（深层）先返回
         if BathPage.is_current_page(screen):
-            BathPage(ctrl).go_back()
+            BathPage(ctx).go_back()
         elif CanteenPage.is_current_page(screen):
-            CanteenPage(ctrl).go_back()
+            CanteenPage(ctx).go_back()
         elif BuildPage.is_current_page(screen):
-            BuildPage(ctrl).go_back()
+            BuildPage(ctx).go_back()
         elif IntensifyPage.is_current_page(screen):
-            IntensifyPage(ctrl).go_back()
+            IntensifyPage(ctx).go_back()
         elif FriendPage.is_current_page(screen):
-            FriendPage(ctrl).go_back()
+            FriendPage(ctx).go_back()
         elif MissionPage.is_current_page(screen):
-            MissionPage(ctrl).go_back()
+            MissionPage(ctx).go_back()
         elif BattlePreparationPage.is_current_page(screen):
-            BattlePreparationPage(ctrl).go_back()
+            BattlePreparationPage(ctx).go_back()
         elif DecisiveBattlePage.is_current_page(screen):
-            DecisiveBattlePage(ctrl).go_back()
+            DecisiveBattlePage(ctx).go_back()
         elif BaseEventPage.is_current_page(screen):
-            BaseEventPage(ctrl).go_back()
+            BaseEventPage(ctx).go_back()
         # 中间页面
         elif BackyardPage.is_current_page(screen):
-            BackyardPage(ctrl).go_back()
+            BackyardPage(ctx).go_back()
         elif SidebarPage.is_current_page(screen):
-            SidebarPage(ctrl).close()
+            SidebarPage(ctx).close()
         elif MapPage.is_current_page(screen):
-            MapPage(ctrl).go_back()
+            MapPage(ctx).go_back()
         else:
             # 未知页面，无法自动返回
             return False

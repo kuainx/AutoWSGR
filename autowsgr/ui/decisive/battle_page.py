@@ -21,6 +21,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.types import DecisiveEntryStatus, PageName
 from autowsgr.ui.page import click_and_wait_for_page, confirm_operation
 from autowsgr.vision import (
@@ -144,11 +145,12 @@ class DecisiveBattlePage:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         ocr: OCREngine | None = None,
     ) -> None:
-        self._ctrl = ctrl
-        self._ocr = ocr
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
+        self._ocr = ocr or ctx.ocr
 
     # ── 页面识别 ──────────────────────────────────────────────────────────
 

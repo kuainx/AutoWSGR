@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from autowsgr.constants import DECISIVE_SKILL_NAMES, update_shipnames
+from autowsgr.context import GameContext
 from autowsgr.ops.decisive.logic import DecisiveLogic
 from autowsgr.ops.decisive.state import DecisiveState
 from autowsgr.ui.decisive import DecisiveBattlePage, DecisiveMapController
@@ -51,12 +52,13 @@ class DecisiveBase:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         config: DecisiveConfig,
         *,
         ocr: OCREngine,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
         self._config = config
         self._ocr = ocr
 
@@ -67,9 +69,9 @@ class DecisiveBase:
 
         self._state = DecisiveState(chapter=config.chapter)
         self._logic = DecisiveLogic(config, self._state)
-        self._battle_page = DecisiveBattlePage(self._ctrl, ocr=self._ocr)
+        self._battle_page = DecisiveBattlePage(self._ctx, ocr=self._ocr)
         self._map = DecisiveMapController(
-            ctrl, config, ocr=ocr,
+            ctx, config, ocr=ocr,
         )
         self._resume_mode: bool = False
         self._has_chosen_fleet: bool = False

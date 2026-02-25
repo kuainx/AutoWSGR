@@ -32,7 +32,6 @@ from autowsgr.infra.logger import get_logger
 from autowsgr.ops.navigate import goto_page
 from autowsgr.types import GameAPP, PageName
 from autowsgr.ui.main_page import MainPage
-from autowsgr.ui.overlay import detect_overlay, dismiss_overlay
 from autowsgr.ui.start_screen_page import StartScreenPage
 
 if TYPE_CHECKING:
@@ -109,6 +108,7 @@ def wait_for_game_ui(
     timeout: float = _STARTUP_TIMEOUT,
     interval: float = _STARTUP_POLL_INTERVAL,
 ) -> bool:
+    # TODO: 游戏更新处理
     """等待游戏进入任意可识别的游戏页面或启动画面。
 
     通过反复截图，直到出现主页面或启动画面任意一种状态。
@@ -127,7 +127,6 @@ def wait_for_game_ui(
     bool
         超时前成功检测到返回 ``True``，超时返回 ``False``。
     """
-    from autowsgr.ui.page import get_current_page
 
     _log.info("[Startup] 等待游戏 UI 就绪 (超时 {:.0f}s)…", timeout)
     deadline = time.monotonic() + timeout
@@ -138,11 +137,6 @@ def wait_for_game_ui(
         # 出现「点击进入」画面
         if StartScreenPage.is_current_page(screen):
             _log.info("[Startup] 检测到启动画面")
-            return True
-
-        # 出现登录后浮层（依然算 UI 就绪）
-        if detect_overlay(screen) is not None:
-            _log.info("[Startup] 检测到登录浮层，游戏已加载")
             return True
 
         _log.debug("[Startup] 游戏尚未就绪，等待 {:.1f}s…", interval)
@@ -236,9 +230,6 @@ def go_main_page(ctrl: AndroidController, *, dismiss_overlays: bool = True) -> N
     dismiss_overlays:
         是否先消除登录浮层，默认 ``True``。
     """
-    if dismiss_overlays:
-        dismiss_login_overlays(ctrl)
-
     _log.info("[Startup] 导航到主页面")
     goto_page(ctrl, PageName.MAIN)
 

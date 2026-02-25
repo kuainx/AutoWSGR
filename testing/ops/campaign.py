@@ -52,8 +52,9 @@ except Exception:
 
 from loguru import logger
 
-from autowsgr.infra import setup_logger
+from autowsgr.infra import setup_logger, UserConfig
 from autowsgr.emulator import ADBController
+from autowsgr.context import GameContext
 from autowsgr.combat.engine import CombatEngine
 from autowsgr.ops.campaign import CampaignRunner, CAMPAIGN_NAME_MAP
 from autowsgr.types import ConditionFlag, Formation, RepairMode
@@ -155,13 +156,12 @@ def main() -> None:
         logger.error("连接设备失败: {}", exc)
         sys.exit(1)
 
-    # ── 初始化战斗引擎 ────────────────────────────────────────────────────────
-    engine = CombatEngine(ctrl)
+    # ── 构建 GameContext ──────────────────────────────────────────────────────────
+    ctx = GameContext(ctrl=ctrl, config=UserConfig())
 
     # ── 初始化战役执行器 ──────────────────────────────────────────────────────
     runner = CampaignRunner(
-        ctrl=ctrl,
-        engine=engine,
+        ctx=ctx,
         campaign_name=campaign_name,
         times=times,
         formation=formation,

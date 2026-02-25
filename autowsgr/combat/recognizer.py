@@ -23,6 +23,7 @@ from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat.state import CombatPhase
 from autowsgr.emulator.controller import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.image_resources import TemplateKey
 from autowsgr.vision import ImageChecker, PixelChecker, PixelSignature
 
@@ -171,8 +172,9 @@ class CombatRecognizer:
         设备控制器（用于截图）。
     """
 
-    def __init__(self, device: AndroidController) -> None:
-        self._device = device
+    def __init__(self, ctx: GameContext) -> None:
+        self._ctx = ctx
+        self._device = ctx.ctrl
 
     @staticmethod
     def _match_template(

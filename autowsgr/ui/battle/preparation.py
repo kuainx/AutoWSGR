@@ -14,6 +14,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.ui.battle.blood import classify_blood
 from autowsgr.ui.battle.constants import (
     AUTO_SUPPLY_ON,
@@ -110,9 +111,10 @@ class BattlePreparationPage:
     **操作动作** 为实例方法，通过注入的控制器执行。
     """
 
-    def __init__(self, ctrl: AndroidController, ocr: OCREngine | None = None) -> None:
-        self._ctrl = ctrl
-        self._ocr = ocr
+    def __init__(self, ctx: GameContext, ocr: OCREngine | None = None) -> None:
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
+        self._ocr = ocr or ctx.ocr
 
     # ── 页面识别 ──
 

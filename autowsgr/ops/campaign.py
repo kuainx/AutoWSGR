@@ -6,8 +6,7 @@
 
 使用方式::
 
-    engine = CombatEngine(ctrl)
-    runner = CampaignRunner(ctrl, engine, "困难航母")
+    runner = CampaignRunner(ctx, "困难航母")
     results = runner.run()
 """
 
@@ -22,6 +21,7 @@ from autowsgr.ops import goto_page
 from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode, ShipDamageState
 from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 
 _log = get_logger("ops")
 
@@ -80,10 +80,8 @@ class CampaignRunner:
 
     Parameters
     ----------
-    ctrl:
-        设备控制器。
-    engine:
-        自包含的战斗引擎 (无需外部回调)。
+    ctx:
+        游戏上下文。
     campaign_name:
         战役名称，如 ``"困难航母"``、``"简单驱逐"``。
     times:
@@ -98,16 +96,16 @@ class CampaignRunner:
 
     def __init__(
         self,
-        ctrl: AndroidController,
-        engine: CombatEngine,
+        ctx: GameContext,
         campaign_name: str,
         times: int = 3,
         formation: Formation = Formation.double_column,
         night: bool = True,
         repair_mode: RepairMode = RepairMode.moderate_damage,
     ) -> None:
-        self._ctrl = ctrl
-        self._engine = engine
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
+        self._engine = CombatEngine(ctx)
         self._campaign_name = campaign_name
         self._times = times
         self._formation = formation
@@ -168,7 +166,7 @@ class CampaignRunner:
     def _enter_battle(self) -> None:
         """导航到战役面板并选择战役。"""
         goto_page(self._ctrl, PageName.MAP)
-        map_page = MapPage(self._ctrl)
+        map_page = MapPage(self._ctx)
         map_page.enter_campaign(
             map_index=self._map_index,
             difficulty=self._difficulty,
@@ -186,7 +184,7 @@ class CampaignRunner:
             战前血量状态。
         """
         time.sleep(0.25) # 等待页面稳定
-        page = BattlePreparationPage(self._ctrl)
+        page = BattlePreparationPage(self._ctx)
 
         # 修理策略
         if self._repair_mode == RepairMode.moderate_damage:

@@ -17,6 +17,7 @@ from autowsgr.ops import goto_page
 from autowsgr.types import ConditionFlag, PageName, RepairMode, ShipDamageState
 from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.infra import UserConfig
 from autowsgr.vision import EasyOCREngine
 
@@ -27,21 +28,16 @@ class NormalFightRunner:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         plan: CombatPlan,
-        *,
-        config: UserConfig | None = None,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
         self._plan = plan
 
-        # 从 config 读取拆船配置；无 config 时使用默认值
-        if config is not None:
-            self._dock_full_destroy = config.dock_full_destroy
-            self._destroy_ship_types = config.destroy_ship_types or None
-        else:
-            self._dock_full_destroy = True
-            self._destroy_ship_types = None
+        # 从 config 读取拆船配置
+        self._dock_full_destroy = ctx.config.dock_full_destroy
+        self._destroy_ship_types = ctx.config.destroy_ship_types or None
 
         # 确保 plan 模式是 NORMAL
         if plan.mode != CombatMode.NORMAL:
@@ -134,7 +130,7 @@ class NormalFightRunner:
     def _enter_fight(self) -> None:
         """导航到目标地图并进入。"""
         goto_page(self._ctrl, PageName.MAP)
-        map_page = MapPage(self._ctrl, EasyOCREngine.create())
+        map_page = MapPage(self._ctx)
         map_page.enter_sortie(self._plan.chapter, self._plan.map_id)
 
     # ── 出征准备 ──
@@ -148,7 +144,7 @@ class NormalFightRunner:
             战前血量状态。
         """
         time.sleep(1.0)
-        page = BattlePreparationPage(self._ctrl, EasyOCREngine.create())
+        page = BattlePreparationPage(self._ctx)
 
         # 选择舰队
         page.select_fleet(self._plan.fleet_id)
@@ -196,7 +192,7 @@ class NormalFightRunner:
     def _do_combat(self, ship_stats: list[ShipDamageState]) -> CombatResult:
         """构建 CombatEngine 并执行战斗。"""
         return run_combat(
-            self._ctrl,
+            self._ctx,
             self._plan,
             ship_stats=ship_stats,
         )
@@ -240,24 +236,22 @@ class NormalFightRunner:
 
 
 def run_normal_fight(
-    ctrl: AndroidController,
+    ctx: GameContext,
     plan: CombatPlan,
     *,
     times: int = 1,
     gap: float = 0.0,
-    config: UserConfig | None = None,
 ) -> list[CombatResult]:
     """执行常规战的便捷函数。"""
     runner = NormalFightRunner(
-        ctrl,
+        ctx,
         plan,
-        config=config,
     )
     return runner.run_for_times(times, gap=gap)
 
 
 def run_normal_fight_from_yaml(
-    ctrl: AndroidController,
+    ctx: GameContext,
     yaml_path: str,
     *,
     times: int = 1,
@@ -265,4 +259,4 @@ def run_normal_fight_from_yaml(
 ) -> list[CombatResult]:
     """从 YAML 文件加载计划并执行常规战。"""
     plan = CombatPlan.from_yaml(yaml_path)
-    return run_normal_fight(ctrl, plan, times=times, **kwargs)
+    return run_normal_fight(ctx, plan, times=times, **kwargs)

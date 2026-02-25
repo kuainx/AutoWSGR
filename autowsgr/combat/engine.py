@@ -21,6 +21,7 @@ from autowsgr.types import ConditionFlag, Formation, ShipDamageState
 
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.vision import OCREngine
 
 _log = get_logger("combat")
@@ -47,11 +48,12 @@ class CombatEngine(PhaseHandlersMixin):
 
     def __init__(
         self,
-        device: AndroidController,
+        ctx: GameContext,
         ocr: OCREngine | None = None,
     ) -> None:
-        self._device = device
-        self._ocr = ocr
+        self._ctx = ctx
+        self._device = ctx.ctrl
+        self._ocr = ocr or ctx.ocr
 
         # 运行时状态 (由 fight() 重置)
         self._plan: CombatPlan = CombatPlan(name="", mode=CombatMode.BATTLE)
@@ -96,7 +98,7 @@ class CombatEngine(PhaseHandlersMixin):
         """
         self._plan = plan
         self._recognizer = CombatRecognizer(
-            self._device,
+            self._ctx,
         )
         self._reset()
 
@@ -291,11 +293,11 @@ class CombatEngine(PhaseHandlersMixin):
 
 
 def run_combat(
-    device: AndroidController,
+    ctx: GameContext,
     plan: CombatPlan,
     *,
     ship_stats: list[ShipDamageState] | None = None,
 ) -> CombatResult:
     """执行一次完整战斗的便捷函数。"""
-    engine = CombatEngine(device=device)
+    engine = CombatEngine(ctx=ctx)
     return engine.fight(plan, initial_ship_stats=ship_stats)

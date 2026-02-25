@@ -19,6 +19,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.types import PageName
 from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.vision import (
@@ -91,8 +92,9 @@ class BackyardPage:
         Android 设备控制器实例。
     """
 
-    def __init__(self, ctrl: AndroidController) -> None:
-        self._ctrl = ctrl
+    def __init__(self, ctx: GameContext) -> None:
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
 
     # ── 页面识别 ──────────────────────────────────────────────────────────
 

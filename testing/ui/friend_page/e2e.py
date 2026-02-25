@@ -27,7 +27,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     from autowsgr.ui.friend_page import FriendPage
     from autowsgr.ui.sidebar_page import SidebarPage
 
-    friend_page = FriendPage(runner.ctrl)
+    friend_page = FriendPage(runner.ctx)
 
     runner.verify_current("初始验证: 好友页面", "好友页面", FriendPage.is_current_page)
     if runner.aborted:
@@ -45,18 +45,21 @@ def _navigate_to(ctrl, pause: float) -> None:
     """从任意已知页面导航到好友页面。"""
     import time
 
+    from autowsgr.context import GameContext
+    from autowsgr.infra import UserConfig
     from autowsgr.ui.main_page import MainPage
     from autowsgr.ui.sidebar_page import SidebarPage
 
     if not reset_to_main_page(ctrl, pause):
         return
+    ctx = GameContext(ctrl=ctrl, config=UserConfig())
     screen = ctrl.screenshot()
     if MainPage.is_current_page(screen):
-        MainPage(ctrl).navigate_to(MainPage.Target.SIDEBAR)
+        MainPage(ctx).navigate_to(MainPage.Target.SIDEBAR)
         time.sleep(pause)
         screen = ctrl.screenshot()
     if SidebarPage.is_current_page(screen):
-        SidebarPage(ctrl).go_to_friend()
+        SidebarPage(ctx).go_to_friend()
         time.sleep(pause)
 
 

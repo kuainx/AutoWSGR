@@ -33,10 +33,10 @@ def run_test(runner: UIControllerTestRunner) -> None:
     from autowsgr.ui.main_page import MainPage
     from autowsgr.ui.sidebar_page import SidebarPage, SidebarTarget
 
-    sidebar_page = SidebarPage(runner.ctrl)
-    build_page = BuildPage(runner.ctrl)
-    intensify_page = IntensifyPage(runner.ctrl)
-    friend_page = FriendPage(runner.ctrl)
+    sidebar_page = SidebarPage(runner.ctx)
+    build_page = BuildPage(runner.ctx)
+    intensify_page = IntensifyPage(runner.ctx)
+    friend_page = FriendPage(runner.ctx)
 
     # Step 0: 验证初始
     runner.verify_current("初始验证: 侧边栏", "侧边栏", SidebarPage.is_current_page)
@@ -138,13 +138,16 @@ def _navigate_to(ctrl, pause: float) -> None:
     """从任意已知页面导航到侧边栏。"""
     import time
 
+    from autowsgr.context import GameContext
+    from autowsgr.infra import UserConfig
     from autowsgr.ui.main_page import MainPage
 
     if not reset_to_main_page(ctrl, pause):
         return
     screen = ctrl.screenshot()
     if MainPage.is_current_page(screen):
-        MainPage(ctrl).navigate_to(MainPage.Target.SIDEBAR)
+        ctx = GameContext(ctrl=ctrl, config=UserConfig())
+        MainPage(ctx).navigate_to(MainPage.Target.SIDEBAR)
         time.sleep(pause)
 
 

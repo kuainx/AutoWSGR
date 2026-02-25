@@ -32,6 +32,7 @@ from autowsgr.infra.logger import get_logger
 
 from autowsgr.constants import SHIPNAMES
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.infra import DecisiveConfig
 from autowsgr.ui.battle.constants import CLICK_SHIP_SLOT
 from autowsgr.ui.battle.preparation import BattlePreparationPage
@@ -91,13 +92,13 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         config: DecisiveConfig,
-        ocr: OCREngine,
+        ocr: OCREngine | None = None,
     ) -> None:
-        super().__init__(ctrl, ocr)
+        super().__init__(ctx, ocr)
         # 收窄父类 _ocr 类型：决战版本必须有 OCR 引擎
-        self._ocr: OCREngine = ocr
+        self._ocr: OCREngine = ocr or ctx.ocr  # type: ignore[assignment]
         self._config = config
 
     # ══════════════════════════════════════════════════════════════════════════

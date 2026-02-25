@@ -15,7 +15,7 @@
             3: (0.908, 0.315),
         },
     )
-    runner = EventFightRunner(ctrl, plan, event_config=config)
+    runner = EventFightRunner(ctx, plan, event_config=config)
     result = runner.run()
 """
 
@@ -33,6 +33,7 @@ from autowsgr.types import ConditionFlag, PageName, RepairMode, ShipDamageState
 from autowsgr.ui import BattlePreparationPage, RepairStrategy
 from autowsgr.ui.event.event_page import BaseEventPage
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.infra import UserConfig
 from autowsgr.vision import EasyOCREngine
 
@@ -113,23 +114,19 @@ class EventFightRunner:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         plan: CombatPlan,
         *,
         event_config: EventConfig | None = None,
-        config: UserConfig | None = None,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
         self._plan = plan
         self._event_config = event_config or EventConfig()
 
         # 从 config 读取拆船配置
-        if config is not None:
-            self._dock_full_destroy = config.dock_full_destroy
-            self._destroy_ship_types = config.destroy_ship_types or None
-        else:
-            self._dock_full_destroy = True
-            self._destroy_ship_types = None
+        self._dock_full_destroy = ctx.config.dock_full_destroy
+        self._destroy_ship_types = ctx.config.destroy_ship_types or None
 
         # 强制设置为 EVENT 模式
         if plan.mode != CombatMode.EVENT:
@@ -238,8 +235,7 @@ class EventFightRunner:
 
         # 切换难度
         event_page = BaseEventPage(
-            self._ctrl,
-            node_positions=self._event_config.node_positions,
+            self._ctx,
         )
 
         if self._event_config.difficulty is not None:
@@ -286,7 +282,7 @@ class EventFightRunner:
     def _prepare_for_battle(self) -> list[ShipDamageState]:
         """出征准备: 舰队选择、修理、检测血量。"""
         time.sleep(1.0)
-        page = BattlePreparationPage(self._ctrl, EasyOCREngine.create())
+        page = BattlePreparationPage(self._ctx)
 
         # 选择舰队
         page.select_fleet(self._plan.fleet_id)
@@ -334,7 +330,7 @@ class EventFightRunner:
     def _do_combat(self, ship_stats: list[ShipDamageState]) -> CombatResult:
         """构建 CombatEngine 并执行战斗。"""
         return run_combat(
-            self._ctrl,
+            self._ctx,
             self._plan,
             ship_stats=ship_stats,
         )
@@ -371,20 +367,19 @@ class EventFightRunner:
 
 
 def run_event_fight(
-    ctrl: AndroidController,
+    ctx: GameContext,
     plan: CombatPlan,
     *,
     event_config: EventConfig | None = None,
     times: int = 1,
     gap: float = 0.0,
-    config: UserConfig | None = None,
 ) -> list[CombatResult]:
     """执行活动战的便捷函数。
 
     Parameters
     ----------
-    ctrl:
-        设备控制器。
+    ctx:
+        游戏上下文。
     plan:
         战斗计划。
     event_config:
@@ -393,24 +388,21 @@ def run_event_fight(
         重复次数。
     gap:
         每次间隔。
-    config:
-        用户配置。
 
     Returns
     -------
     list[CombatResult]
     """
     runner = EventFightRunner(
-        ctrl,
+        ctx,
         plan,
         event_config=event_config,
-        config=config,
     )
     return runner.run_for_times(times, gap=gap)
 
 
 def run_event_fight_from_yaml(
-    ctrl: AndroidController,
+    ctx: GameContext,
     yaml_path: str,
     *,
     event_config: EventConfig | None = None,
@@ -421,8 +413,8 @@ def run_event_fight_from_yaml(
 
     Parameters
     ----------
-    ctrl:
-        设备控制器。
+    ctx:
+        游戏上下文。
     yaml_path:
         YAML 配置路径。
     event_config:
@@ -438,7 +430,7 @@ def run_event_fight_from_yaml(
     """
     plan = CombatPlan.from_yaml(yaml_path)
     return run_event_fight(
-        ctrl, plan,
+        ctx, plan,
         event_config=event_config,
         times=times,
         **kwargs,

@@ -37,7 +37,8 @@ except Exception:
 from loguru import logger
 
 from autowsgr.emulator import ADBController
-from autowsgr.infra import DecisiveConfig, setup_logger
+from autowsgr.infra import DecisiveConfig, setup_logger, UserConfig
+from autowsgr.context import GameContext
 from autowsgr.ops.decisive import DecisiveController, DecisiveResult
 from autowsgr.vision import EasyOCREngine
 
@@ -168,15 +169,14 @@ def main() -> None:
         ctrl.disconnect()
         sys.exit(1)
 
-    # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────
-    config = DecisiveConfig(
+    # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────    ctx = GameContext(ctrl=ctrl, config=UserConfig(), ocr=ocr)    config = DecisiveConfig(
         chapter=args.chapter,
         level1=args.level1,
         level2=args.level2,
         flagship_priority=args.flagship,
         repair_level=args.repair_level,
     )
-    controller = DecisiveController(ctrl, config, ocr=ocr)
+    controller = DecisiveController(ctx, config, ocr=ocr)
     logger.info("DecisiveController 构建完成 (章节 {})", args.chapter)
     print(f"  [OK] 控制器就绪 (章节 {args.chapter})")
     print()

@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from autowsgr.emulator import AndroidController
+    from autowsgr.context import GameContext
 
 _log = get_logger("ui")
 
@@ -81,8 +82,9 @@ class MainPage:
 
     Target = Target
 
-    def __init__(self, ctrl: AndroidController) -> None:
-        self._ctrl = ctrl
+    def __init__(self, ctx: GameContext) -> None:
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
 
     # ── 页面识别 ──────────────────────────────────────────────────────────
 

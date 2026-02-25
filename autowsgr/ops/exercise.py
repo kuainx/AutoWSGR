@@ -18,6 +18,7 @@ from autowsgr.ops.navigate import goto_page
 from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode
 from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage, MapPanel
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 
 _log = get_logger("ops")
 
@@ -31,10 +32,11 @@ class ExerciseRunner:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         fleet_id: int = 1,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
         self._fleet_id = fleet_id
         self._results: list[CombatResult] = []
 
@@ -53,7 +55,7 @@ class ExerciseRunner:
 
         # 1. 导航到演习面板
         self._enter_exercise_page()
-        rivals_status = MapPage(self._ctrl).get_exercise_rival_status()
+        rivals_status = MapPage(self._ctx).get_exercise_rival_status()
         _log.info("[OPS] 当前可挑战对手: {}", rivals_status)
         for index, rival in enumerate(rivals_status.rivals, start=1):
             if rival:
@@ -68,7 +70,7 @@ class ExerciseRunner:
     def _enter_exercise_page(self) -> None:
         """导航到地图页面的演习面板。"""
         goto_page(self._ctrl, PageName.MAP)
-        map_page = MapPage(self._ctrl)
+        map_page = MapPage(self._ctx)
         map_page.switch_panel(MapPanel.EXERCISE)
         time.sleep(1.0)
 
@@ -80,7 +82,7 @@ class ExerciseRunner:
         if rival < 1 or rival > 5:
             raise ValueError(f"无效的对手索引: {rival} (应在 1–5 之间)")
         _log.info("[OPS] 选择对手 {}", rival)
-        map_page = MapPage(self._ctrl)
+        map_page = MapPage(self._ctx)
         map_page.select_exercise_rival(rival)
         map_page.enter_exercise_battle()
         self._prepare_for_battle()
@@ -91,7 +93,7 @@ class ExerciseRunner:
     def _prepare_for_battle(self) -> None:
         """在出征准备页面执行舰队选择和修理。"""
         time.sleep(1.0)
-        page = BattlePreparationPage(self._ctrl)
+        page = BattlePreparationPage(self._ctx)
 
         # 选择舰队
         page.select_fleet(self._fleet_id)
@@ -116,7 +118,7 @@ class ExerciseRunner:
         )
 
         result = run_combat(
-            self._ctrl,
+            self._ctx,
             plan,
         )
         _log.debug("[OPS] 演习战斗结束")
@@ -124,12 +126,12 @@ class ExerciseRunner:
 
 
 def run_exercise(
-    ctrl: AndroidController,
+    ctx: GameContext,
     fleet_id: int = 1,
     rival: int | None = 1,
 ) -> list[CombatResult]:
     """执行演习的便捷函数。"""
-    runner = ExerciseRunner(ctrl, fleet_id)
+    runner = ExerciseRunner(ctx, fleet_id)
     if rival is None:
         return runner.run()
     return [runner._challenge_rival(rival)]

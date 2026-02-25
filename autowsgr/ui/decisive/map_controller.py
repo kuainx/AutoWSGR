@@ -42,6 +42,7 @@ from autowsgr.vision import PixelChecker, ROI, get_api_dll, OCREngine, ImageChec
 from autowsgr.types import FleetSelection, DecisivePhase, ShipDamageState
 from autowsgr.infra import DecisiveConfig
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 
 _log = get_logger("ui.decisive")
 
@@ -71,14 +72,15 @@ class DecisiveMapController:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         config: DecisiveConfig,
         *,
-        ocr: OCREngine,
+        ocr: OCREngine | None = None,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
         self._config = config
-        self._ocr = ocr
+        self._ocr = ocr or ctx.ocr
 
     # ══════════════════════════════════════════════════════════════════════
     # 页面状态检测

@@ -61,11 +61,14 @@ from testing.ui._framework import (
 
 def run_test(runner: UIControllerTestRunner) -> None:
     """执行活动地图页面控制器完整测试序列。"""
+    from autowsgr.context import GameContext
+    from autowsgr.infra import UserConfig
     from autowsgr.ui.event.event_page import BaseEventPage
     from autowsgr.ui.main_page import MainPage
 
-    event_page = BaseEventPage(runner.ctrl)
-    main_page = MainPage(runner.ctrl)
+    ctx = GameContext(ctrl=runner.ctrl, config=UserConfig())
+    event_page = BaseEventPage(ctx)
+    main_page = MainPage(ctx)
 
     # ═══════════════════════════════════════════════════════════════════════
     # A. 页面识别
@@ -184,6 +187,8 @@ def _try_enter_node(event_page: object, node_id: int) -> None:
 
 def _navigate_to(ctrl, pause: float) -> None:
     """从任意已知页面导航到活动地图页面。"""
+    from autowsgr.context import GameContext
+    from autowsgr.infra import UserConfig
     from autowsgr.ui.main_page import MainPage
 
     if not reset_to_main_page(ctrl, pause):
@@ -191,7 +196,8 @@ def _navigate_to(ctrl, pause: float) -> None:
     time.sleep(pause)
     screen = ctrl.screenshot()
     if MainPage.is_current_page(screen):
-        MainPage(ctrl).navigate_to(MainPage.Target.EVENT)
+        ctx = GameContext(ctrl=ctrl, config=UserConfig())
+        MainPage(ctx).navigate_to(MainPage.Target.EVENT)
         time.sleep(pause)
 
 

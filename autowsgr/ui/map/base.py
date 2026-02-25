@@ -12,6 +12,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.ui.map.data import (
     CHAPTER_NAV_DELAY,
     CHAPTER_NAV_MAX_ATTEMPTS,
@@ -62,11 +63,12 @@ class BaseMapPage:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
         ocr: OCREngine | None = None,
     ) -> None:
-        self._ctrl = ctrl
-        self._ocr = ocr
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
+        self._ocr = ocr or ctx.ocr
 
     # ═══════════════════════════════════════════════════════════════════════
     # 页面识别

@@ -64,7 +64,7 @@ UI 层 (autowsgr.ui.decisive)::
         level2=["甘比尔湾", "平海"],
         flagship_priority=["U-1206"],
     )
-    controller = DecisiveController(ctrl, config)
+    controller = DecisiveController(ctx, config)
 
     # 打一轮
     result = controller.run()

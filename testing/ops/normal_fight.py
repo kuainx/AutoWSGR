@@ -50,7 +50,8 @@ from loguru import logger
 
 from autowsgr.combat import CombatMode, CombatPlan, NodeDecision, RuleEngine, CombatEngine
 from autowsgr.emulator import ADBController
-from autowsgr.infra import setup_logger
+from autowsgr.infra import setup_logger, UserConfig
+from autowsgr.context import GameContext
 from autowsgr.ops import ensure_game_ready, NormalFightRunner
 from autowsgr.types import ConditionFlag, FightCondition, Formation, GameAPP, RepairMode
 
@@ -197,8 +198,11 @@ def main() -> None:
     # ── 初始化：确保游戏已就绪 ──
     # ensure_game_ready(ctrl, GameAPP.official)
 
+    # ── 构建 GameContext ──
+    ctx = GameContext(ctrl=ctrl, config=UserConfig())
+
     # ── 初始化引擎 ──
-    runner = NormalFightRunner(ctrl, plan)
+    runner = NormalFightRunner(ctx, plan)
 
     # ── 运行战斗 ──
     results: list = []

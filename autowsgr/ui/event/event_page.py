@@ -38,6 +38,7 @@ from autowsgr.vision import (
 
 if TYPE_CHECKING:
     from autowsgr.emulator import AndroidController
+    from autowsgr.context import GameContext
 
 _log = get_logger("ui")
 
@@ -134,9 +135,10 @@ class BaseEventPage:
 
     def __init__(
         self,
-        ctrl: AndroidController,
+        ctx: GameContext,
     ) -> None:
-        self._ctrl = ctrl
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
 
     # ── 页面识别 ──────────────────────────────────────────────────────────
 

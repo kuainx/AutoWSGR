@@ -43,6 +43,7 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
+from autowsgr.context import GameContext
 from autowsgr.vision import (
     MatchStrategy,
     PixelChecker,
@@ -171,8 +172,9 @@ class BathPage:
         Android 设备控制器实例。
     """
 
-    def __init__(self, ctrl: AndroidController) -> None:
-        self._ctrl = ctrl
+    def __init__(self, ctx: GameContext) -> None:
+        self._ctx = ctx
+        self._ctrl = ctx.ctrl
 
     # ── 页面识别 ──────────────────────────────────────────────────────────
 
