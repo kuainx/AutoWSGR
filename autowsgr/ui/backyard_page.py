@@ -127,8 +127,8 @@ class BackyardPage:
         NavigationError
             超时未到达目标页面。
         """
-        from autowsgr.ui.bath_page import BathPage
-        from autowsgr.ui.canteen_page import CanteenPage
+        from .bath_page import BathPage
+        from .canteen_page import CanteenPage
 
         target_checker = {
             BackyardTarget.BATH: BathPage.is_current_page,
@@ -161,7 +161,7 @@ class BackyardPage:
         NavigationError
             超时仍在后院页面。
         """
-        from autowsgr.ui.main_page import MainPage
+        from .main_page import MainPage
 
         _log.info("[UI] 后院 → 返回主页面")
         click_and_wait_for_page(
