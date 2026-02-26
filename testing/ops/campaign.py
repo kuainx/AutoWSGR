@@ -56,6 +56,7 @@ from autowsgr.infra import ConfigManager, setup_logger
 from autowsgr.emulator import ADBController
 from autowsgr.context import GameContext
 from autowsgr.combat.engine import CombatEngine
+from autowsgr.ops import ensure_game_ready
 from autowsgr.ops.campaign import CampaignRunner, CAMPAIGN_NAME_MAP
 from autowsgr.types import ConditionFlag, Formation, RepairMode
 
@@ -160,6 +161,7 @@ def main() -> None:
 
     # ── 构建 GameContext ──────────────────────────────────────────────────────────
     ctx = GameContext(ctrl=ctrl, config=cfg)
+    ensure_game_ready(ctx, cfg.account.game_app)
 
     # ── 初始化战役执行器 ──────────────────────────────────────────────────────
     runner = CampaignRunner(

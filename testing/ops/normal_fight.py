@@ -53,7 +53,7 @@ from autowsgr.emulator import ADBController
 from autowsgr.infra import ConfigManager, setup_logger
 from autowsgr.context import GameContext
 from autowsgr.ops import ensure_game_ready, NormalFightRunner
-from autowsgr.types import ConditionFlag, FightCondition, Formation, GameAPP, RepairMode
+from autowsgr.types import ConditionFlag, FightCondition, Formation, RepairMode
 
 
 # ── 默认值 ──
@@ -197,11 +197,10 @@ def main() -> None:
         logger.error("连接设备失败: {}", exc)
         sys.exit(1)
 
-    # ── 初始化：确保游戏已就绪 ──
-    # ensure_game_ready(ctrl, GameAPP.official)
-
     # ── 构建 GameContext ──
     ctx = GameContext(ctrl=ctrl, config=cfg)
+    # ── 确保游戏已就绪 ──
+    ensure_game_ready(ctx, cfg.account.game_app)
 
     # ── 初始化引擎 ──
     runner = NormalFightRunner(ctx, plan)

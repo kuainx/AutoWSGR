@@ -39,6 +39,7 @@ from loguru import logger
 from autowsgr.emulator import ADBController
 from autowsgr.infra import ConfigManager, DecisiveConfig, setup_logger
 from autowsgr.context import GameContext
+from autowsgr.ops import ensure_game_ready
 from autowsgr.ops.decisive import DecisiveController, DecisiveResult
 from autowsgr.vision import EasyOCREngine
 
@@ -173,6 +174,7 @@ def main() -> None:
 
     # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────
     ctx = GameContext(ctrl=ctrl, config=cfg, ocr=ocr)
+    ensure_game_ready(ctx, cfg.account.game_app)
     config = DecisiveConfig(
         chapter=args.chapter,
         level1=args.level1,

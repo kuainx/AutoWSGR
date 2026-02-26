@@ -24,8 +24,10 @@ except Exception:
 
 from loguru import logger
 
+from autowsgr.context import GameContext
 from autowsgr.emulator import ADBController
 from autowsgr.infra import ConfigManager, setup_logger
+from autowsgr.ops import ensure_game_ready
 
 _STEPS = [
     "1. 连接设备",
@@ -56,6 +58,10 @@ def main() -> None:
         dev = ctrl.connect()
         logger.info(f"已连接: {dev.serial}")
         print(f"  [OK] 已连接: {dev.serial}")
+
+        # ── 确保游戏就绪 ──
+        ctx = GameContext(ctrl=ctrl, config=cfg)
+        ensure_game_ready(ctx, cfg.account.game_app)
 
         from autowsgr.ops.expedition import collect_expedition
 

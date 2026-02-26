@@ -45,6 +45,7 @@ from autowsgr.combat import CombatPlan
 from autowsgr.context import GameContext
 from autowsgr.emulator import ADBController
 from autowsgr.infra import ConfigManager, setup_logger
+from autowsgr.ops import ensure_game_ready
 from autowsgr.ops.event_fight import EventFightRunner
 from autowsgr.scheduler import FightTask, TaskScheduler
 from autowsgr.types import ConditionFlag
@@ -141,6 +142,7 @@ def main() -> None:
 
     # ── 构建 GameContext ──
     ctx = GameContext(ctrl=ctrl, config=cfg)
+    ensure_game_ready(ctx, cfg.account.game_app)
 
     # ── 加载计划 ──
     plan = CombatPlan.from_yaml(args.plan)

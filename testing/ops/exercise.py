@@ -28,8 +28,10 @@ except Exception:
 
 from loguru import logger
 
+from autowsgr.context import GameContext
 from autowsgr.emulator import ADBController
 from autowsgr.infra import ConfigManager, setup_logger
+from autowsgr.ops import ensure_game_ready
 
 
 def _parse_args() -> argparse.Namespace:
@@ -95,6 +97,10 @@ def main() -> None:
         dev = ctrl.connect()
         logger.info("已连接: {}", dev.serial)
         print(f"  [OK] 已连接: {dev.serial}")
+
+        # ── 确保游戏就绪 ──
+        ctx = GameContext(ctrl=ctrl, config=cfg)
+        ensure_game_ready(ctx, cfg.account.game_app)
 
         from autowsgr.ops.exercise import run_exercise
 
