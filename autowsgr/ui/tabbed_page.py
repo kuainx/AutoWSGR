@@ -125,7 +125,7 @@ TAB_DARK = (22, 37, 62)
 # 模板匹配常量与加载
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "images" / "ui"
 """参考模板目录 (autowsgr/ui/templates/)。"""
 
 _CROP_Y: float = 0.075
