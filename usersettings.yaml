@@ -47,7 +47,7 @@ log:
   show_fight_stage: false
   show_chapter_info: false
   show_match_fight_stage: false
-  show_decisive_battle_info: false
+  show_decisive_battle_info: true
   show_ocr_info: false
   show_emulator_debug: false        # 是否输出 emulator 通道 DEBUG (click/swipe 等操作)
   show_ui_debug: false              # 是否输出 ui 通道 DEBUG (页面识别/等待轮询)
