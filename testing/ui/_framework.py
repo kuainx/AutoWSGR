@@ -689,3 +689,60 @@ def connect_device(serial: str | None, *, timeout: float = 15.0) -> "ADBControll
         fail(f"连接失败: {exc}")
         sys.exit(1)
     return ctrl
+
+
+def connect_via_launcher(
+    serial: str | None,
+    log_dir: Path,
+    log_level: str,
+    *,
+    timeout: float = 15.0,
+) -> "ADBController":
+    """通过 Launcher 加载配置并连接设备。
+
+    自动从 ``usersettings.yaml``（当前工作目录）加载用户配置，
+    以 *log_dir* / *log_level* 覆盖日志目录和级别，
+    并将配置中的 ``channels`` / ``show_*_debug`` 一并传入 ``setup_logger``，
+    然后建立 ADB 连接并返回控制器。
+
+    Parameters
+    ----------
+    serial:
+        ADB 设备序列号；为 ``None`` 时沿用配置文件中的值（或自动检测）。
+    log_dir:
+        测试日志目录（覆盖配置文件的 log.dir）。
+    log_level:
+        日志级别字符串（覆盖配置文件的 log.level）。
+    timeout:
+        截图超时 (秒)。
+
+    Returns
+    -------
+    ADBController
+        已建立连接的设备控制器。
+    """
+    from autowsgr.emulator import ADBController
+    from autowsgr.infra import ConfigManager
+    from autowsgr.infra.logger import setup_logger
+
+    # 加载配置（自动检测当前目录下的 usersettings.yaml，不存在则用默认值）
+    cfg = ConfigManager.load()
+
+    # 命令行指定 serial 时覆盖配置
+    if serial is not None:
+        new_emu = cfg.emulator.model_copy(update={"serial": serial})
+        cfg = cfg.model_copy(update={"emulator": new_emu})
+
+    # 初始化日志：日志目录/级别以测试参数为准，通道配置来自 usersettings.yaml
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=log_dir, level=log_level, save_images=True, channels=channels)
+
+    # 连接设备
+    ctrl = ADBController(serial=cfg.emulator.serial, screenshot_timeout=timeout)
+    try:
+        dev_info = ctrl.connect()
+        ok(f"已连接: {dev_info.serial}  分辨率: {dev_info.resolution[0]}x{dev_info.resolution[1]}")
+    except Exception as exc:
+        fail(f"连接失败: {exc}")
+        sys.exit(1)
+    return ctrl

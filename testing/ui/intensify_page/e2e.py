@@ -20,8 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from autowsgr.infra import setup_logger
-from testing.ui._framework import UIControllerTestRunner, connect_device, ensure_page, info, parse_e2e_args, reset_to_main_page
+from testing.ui._framework import UIControllerTestRunner, connect_via_launcher, ensure_page, info, parse_e2e_args, reset_to_main_page
 
 
 def run_test(runner: UIControllerTestRunner) -> None:
@@ -82,11 +81,10 @@ def main() -> None:
         precondition="游戏位于强化页面 (侧边栏 → 强化)",
         default_log_dir="logs/e2e/intensify_page",
     )
-    setup_logger(log_dir=args.log_dir, level=args.log_level, save_images=True)
+    ctrl = connect_via_launcher(args.serial, args.log_dir, args.log_level)
     from loguru import logger
 
     logger.info("=== 强化页面 e2e 测试开始 ===")
-    ctrl = connect_device(args.serial)
     from autowsgr.ui.intensify_page import IntensifyPage
     if not ensure_page(
         ctrl, IntensifyPage.is_current_page,

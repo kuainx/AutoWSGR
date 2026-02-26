@@ -20,8 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from autowsgr.infra import setup_logger
-from testing.ui._framework import UIControllerTestRunner, connect_device, ensure_page, info, parse_e2e_args, reset_to_main_page
+from testing.ui._framework import UIControllerTestRunner, connect_via_launcher, ensure_page, info, parse_e2e_args, reset_to_main_page
 
 
 def run_test(runner: UIControllerTestRunner) -> None:
@@ -82,11 +81,10 @@ def main() -> None:
         precondition="游戏位于建造页面 (侧边栏 → 建造)",
         default_log_dir="logs/e2e/build_page",
     )
-    setup_logger(log_dir=args.log_dir, level=args.log_level, save_images=True)
+    ctrl = connect_via_launcher(args.serial, args.log_dir, args.log_level)
     from loguru import logger
 
     logger.info("=== 建造页面 e2e 测试开始 ===")
-    ctrl = connect_device(args.serial)
     from autowsgr.ui.build_page import BuildPage
     if not ensure_page(
         ctrl, BuildPage.is_current_page,

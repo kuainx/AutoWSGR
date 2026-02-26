@@ -22,8 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from autowsgr.infra import setup_logger
-from testing.ui._framework import UIControllerTestRunner, connect_device, ensure_page, info, parse_e2e_args, reset_to_main_page
+from testing.ui._framework import UIControllerTestRunner, connect_via_launcher, ensure_page, info, parse_e2e_args, reset_to_main_page
 
 
 def run_test(runner: UIControllerTestRunner) -> None:
@@ -161,12 +160,11 @@ def main() -> None:
         default_log_dir="logs/e2e/battle_preparation",
     )
     chapter, map_node = _parse_extra_args()
-    setup_logger(log_dir=args.log_dir, level=args.log_level, save_images=True)
+    ctrl = connect_via_launcher(args.serial, args.log_dir, args.log_level)
     from loguru import logger
 
     logger.info("=== 出征准备页面 e2e 测试开始 === 章节={} 地图节点={}", chapter, map_node)
     info(f"  章节: {chapter}   地图节点: {map_node}  (可用 --chapter N --map-node M 覆盖)")
-    ctrl = connect_device(args.serial)
     from autowsgr.ui.battle.preparation import BattlePreparationPage
     if not ensure_page(
         ctrl, BattlePreparationPage.is_current_page,
