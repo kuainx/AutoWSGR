@@ -246,6 +246,7 @@ class CombatRecognizer:
         )
 
         while time.time() < deadline:
+            start_time = time.time()
             screen = self._device.screenshot()
             if poll_action is not None:
                 poll_action(screen)
@@ -258,6 +259,7 @@ class CombatRecognizer:
                         time.sleep(sig.after_match_delay)
                     _log.debug("[Combat] 匹配到状态: {}", phase.name)
                     return phase
+            _log.info("[Combat] 匹配轮询耗时（含匹配）: {:.1f}ms", (time.time() - start_time) * 1000)
 
         # 超时
         phase_names = [p.name for p, _ in phase_sigs]
