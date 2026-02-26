@@ -108,7 +108,7 @@ def register_page(name: str, checker: Callable[[np.ndarray], bool]) -> None:
     if key in _PAGE_REGISTRY:
         _log.warning("[UI] 页面 '{}' 已注册，将覆盖", key)
     _PAGE_REGISTRY[key] = checker
-    _log.debug("[UI] 注册页面: {}", key)
+    # _log.debug("[UI] 注册页面: {}", key)
 
 
 def get_current_page(screen: np.ndarray) -> str | None:
@@ -186,7 +186,7 @@ def wait_for_page(
     """
     deadline = time.monotonic() + timeout
     attempt = 0
-    _log.info("[UI] 等待到达: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
+    _log.debug("[UI] 等待到达: {} → {} (超时 {:.1f}s)", source or "?", target or "?", timeout)
 
     while True:
         attempt += 1
@@ -197,7 +197,7 @@ def wait_for_page(
             continue
 
         if checker(screen):
-            _log.info("[UI] 已到达: {} → {} (第 {} 次截图)", source or "?", target or "?", attempt)
+            _log.debug("[UI] 已到达: {} → {} (第 {} 次截图)", source or "?", target or "?", attempt)
             return screen
 
         current = get_current_page(screen)

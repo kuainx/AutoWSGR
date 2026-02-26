@@ -1,11 +1,5 @@
 """战斗状态枚举与状态转移图。
-
-战斗过程独立于正常 UI 页面框架，使用自有的状态机驱动。
-:class:`ModeCategory` 将所有战斗模式归为两大类（MAP / SINGLE），
-:func:`build_transitions` 据此自动构建状态转移图。
-
 一次完整的 MAP 类战斗流程::
-
     PROCEED → FIGHT_CONDITION → SPOT_ENEMY_SUCCESS → FORMATION
         → FIGHT_PERIOD → NIGHT_PROMPT → RESULT → GET_SHIP → PROCEED → ...
 """

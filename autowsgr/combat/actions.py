@@ -12,12 +12,16 @@
 from __future__ import annotations
 
 import time
-
-from autowsgr.infra.logger import get_logger
-
-from autowsgr.emulator.controller import AndroidController
-from autowsgr.image_resources import TemplateKey
+from numpy import ndarray
+from autowsgr.infra import get_logger
+from autowsgr.emulator import AndroidController
+from autowsgr.image_resources import TemplateKey, Templates
 from autowsgr.types import FightCondition, Formation, RepairMode, ShipDamageState
+from autowsgr.vision import ImageChecker, PixelChecker
+from autowsgr.image_resources.keys import RESULT_GRADE_KEYS
+from autowsgr.ui.battle.blood import classify_blood
+from .recognition import recognize_enemy_formation, recognize_enemy_ships, RESULT_BLOOD_BAR_PROBE
+from .recognizer import CombatRecognitionTimeout
 
 _log = get_logger("combat")
 
@@ -244,12 +248,9 @@ def image_exist(device: AndroidController, template_key: TemplateKey, confidence
     bool
         ``True`` = 模板存在，``False`` = 不存在。
     """
-    from autowsgr.image_resources import TemplateKey as _TK
-    from autowsgr.vision import ImageChecker
-
     screen = device.screenshot()
     if isinstance(template_key, str):
-        template_key = _TK(template_key)
+        template_key = TemplateKey(template_key)
     templates = template_key.templates
     return ImageChecker.find_any(screen, templates, confidence=confidence) is not None
 
@@ -271,11 +272,9 @@ def click_image(device: AndroidController, template_key: TemplateKey, timeout: f
     bool
         ``True`` = 成功点击，``False`` = 超时未找到。
     """
-    from autowsgr.image_resources import TemplateKey as _TK
-    from autowsgr.vision import ImageChecker
 
     if isinstance(template_key, str):
-        template_key = _TK(template_key)
+        template_key = TemplateKey(template_key)
     deadline = time.time() + timeout
     while time.time() < deadline:
         screen = device.screenshot()
@@ -325,29 +324,17 @@ def get_enemy_info(device: AndroidController, mode: str = "fight") -> dict[str, 
     dict[str, int]
         敌方编成信息，如 ``{"BB": 2, "CV": 1, ...}``。
     """
-    from autowsgr.combat.recognition import recognize_enemy_ships
-
     screen = device.screenshot()
     return recognize_enemy_ships(screen, mode=mode)
 
 
 def get_enemy_formation(device: AndroidController, ocr_engine) -> str:
     """OCR 识别敌方阵型。
-
-    Parameters
-    ----------
-    device:
-        设备控制器。
-    ocr_engine:
-        OCR 引擎实例（可为 ``None``）。
-
     Returns
     -------
     str
         敌方阵型名称，如 ``"单纵阵"``；若无 OCR 引擎则返回空字符串。
     """
-    from autowsgr.combat.recognition import recognize_enemy_formation
-
     if ocr_engine is None:
         return ""
     screen = device.screenshot()
@@ -356,26 +343,11 @@ def get_enemy_formation(device: AndroidController, ocr_engine) -> str:
 
 def detect_result_grade(device: AndroidController) -> str:
     """从战果结算截图识别评级 (SS/S/A/B/C/D)。
-
-    Parameters
-    ----------
-    device:
-        设备控制器。
-
     Returns
     -------
     str
         战果等级。
-
-    Raises
-    ------
-    CombatRecognitionTimeout
-        无法识别到有效的等级。
     """
-    from autowsgr.combat.recognizer import CombatRecognitionTimeout
-    from autowsgr.image_resources.keys import RESULT_GRADE_KEYS
-    from autowsgr.vision import ImageChecker
-
     retry = 0
     while retry < 5:
         screen = device.screenshot()
@@ -395,8 +367,6 @@ def detect_ship_stats(
     """战斗结算页检测我方舰队血量状态。
     Parameters
     ----------
-    device:
-        设备控制器。
     pre_battle_stats:
         战斗开始前的血量状态（0-indexed，长度 6）。
         若对应位置为 :attr:`ShipDamageState.NO_SHIP`，则无论检测结果如何
@@ -407,10 +377,6 @@ def detect_ship_stats(
     list[ShipDamageState]
         长度 6 的列表（0-indexed）。
     """
-    from autowsgr.combat.recognition import RESULT_BLOOD_BAR_PROBE
-    from autowsgr.ui.battle.blood import classify_blood
-    from autowsgr.vision import PixelChecker
-
     screen = device.screenshot()
     result: list[ShipDamageState] = [ShipDamageState.NORMAL] * 6
 
@@ -425,17 +391,11 @@ def detect_ship_stats(
     return result
 
 
-def dismiss_resource_confirm(device: AndroidController) -> None:
+def dismiss_resource_confirm(device: AndroidController, screen: ndarray) -> None:
     """检测并关闭地图移动中弹出的资源获取/失去确认弹窗。
 
     仅对当前帧做一次快速检测（不阻塞等待），找到任意确认按钮模板就点击。
     """
-    import time
-
-    from autowsgr.image_resources import Templates
-    from autowsgr.vision import ImageChecker
-
-    screen = device.screenshot()
     detail = ImageChecker.find_any(
         screen, Templates.Confirm.all(), confidence=0.8,
     )

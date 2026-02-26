@@ -3,16 +3,6 @@
 记录一次完整战斗流程中每个节点发生的事件（索敌、阵型、夜战、结算等），
 用于日志输出、战后分析和条件检查。
 
-使用方式::
-
-    history = CombatHistory()
-    history.add(CombatEvent(
-        event_type=EventType.SPOT_ENEMY,
-        node="A",
-        action="retreat",
-        enemies={"BB": 2, "CV": 1},
-    ))
-    print(history)
 """
 
 from __future__ import annotations

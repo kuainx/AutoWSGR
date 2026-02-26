@@ -158,7 +158,7 @@ class BattlePreparationPage:
         """点击回退按钮 (◁)，返回地图页面。"""
         from autowsgr.ui.map.page import MapPage
 
-        _log.info("[UI] 出征准备 → 回退")
+        _log.debug("[UI] 出征准备 → 回退")
         click_and_wait_leave_page(
             self._ctrl,
             click_coord=CLICK_BACK,
@@ -178,12 +178,12 @@ class BattlePreparationPage:
         """选择舰队 (1–4)。"""
         if fleet not in CLICK_FLEET:
             raise ValueError(f"舰队编号必须为 1–4，收到: {fleet}")
-        _log.info("[UI] 出征准备 → 选择 {}队", fleet)
+        _log.debug("[UI] 出征准备 → 选择 {}队", fleet)
         self._ctrl.click(*CLICK_FLEET[fleet])
 
     def select_panel(self, panel: Panel) -> None:
         """切换底部面板标签。"""
-        _log.info("[UI] 出征准备 → {}", panel.value)
+        _log.debug("[UI] 出征准备 → {}", panel.value)
         self._ctrl.click(*CLICK_PANEL[panel])
 
     def quick_supply(self) -> None:
@@ -198,12 +198,12 @@ class BattlePreparationPage:
 
     def toggle_battle_support(self) -> None:
         """切换战役支援开关。"""
-        _log.info("[UI] 出征准备 → 切换战役支援")
+        _log.debug("[UI] 出征准备 → 切换战役支援")
         self._ctrl.click(*CLICK_SUPPORT)
 
     def toggle_auto_supply(self) -> None:
         """切换自动补给开关。"""
-        _log.info("[UI] 出征准备 → 切换自动补给")
+        _log.debug("[UI] 出征准备 → 切换自动补给")
         self._ctrl.click(*CLICK_AUTO_SUPPLY)
 
     # ── 状态查询 — 舰船血量 ──
@@ -255,7 +255,7 @@ class BattlePreparationPage:
                 continue
             self._ctrl.click(*CLICK_SHIP_SLOT[sid])
             time.sleep(0.3)
-        _log.info("[UI] 出征准备 → 补给 {}", ship_ids)
+        _log.debug("[UI] 出征准备 → 补给 {}", ship_ids)
 
     def repair_slots(self, positions: list[int]) -> None:
         """切换到快速修理面板并修理指定位置的舰船。"""
@@ -275,7 +275,7 @@ class BattlePreparationPage:
         """点击指定舰船槽位 (0–5)。"""
         if slot not in CLICK_SHIP_SLOT:
             raise ValueError(f"舰船槽位必须为 0–5，收到: {slot}")
-        _log.info("[UI] 出征准备 → 点击舰船位 {}", slot)
+        _log.debug("[UI] 出征准备 → 点击舰船位 {}", slot)
         self._ctrl.click(*CLICK_SHIP_SLOT[slot])
 
     # ── 组合动作 — 修理 / 补给 / 换船 ──

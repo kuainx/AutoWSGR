@@ -72,7 +72,7 @@ def _try_navigate_to_event(
     screen = ctrl.screenshot()
     overlay = detect_overlay(screen)
     if overlay is not None:
-        _log.info("[UI] 活动导航: 先消除浮层 {}", overlay.value)
+        _log.debug("[UI] 活动导航: 先消除浮层 {}", overlay.value)
         dismiss_overlay(ctrl, overlay)
         time.sleep(0.5)
         screen = ctrl.screenshot()
@@ -99,7 +99,7 @@ def _try_navigate_to_event(
 
     # ③ 点击活动图标并等待活动页面
     coord = NavCoord.EVENT.xy
-    _log.info("[UI] 主页面 → 活动")
+    _log.debug("[UI] 主页面 → 活动")
     ctrl.click(*coord)
     time.sleep(1.0)
 
@@ -112,7 +112,7 @@ def _try_navigate_to_event(
         # 点击后可能触发的浮层 (如预约页) 由 overlay 机制统一处理
         overlay = detect_overlay(screen)
         if overlay is not None:
-            _log.info("[UI] 活动导航: 点击后出现浮层 {}, 消除", overlay.value)
+            _log.debug("[UI] 活动导航: 点击后出现浮层 {}, 消除", overlay.value)
             dismiss_overlay(ctrl, overlay)
         time.sleep(0.5)
 

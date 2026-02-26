@@ -157,7 +157,7 @@ def recognize_enemy_ships(
         total += 1
     counts["ALL"] = total
 
-    _log.info("[识别] 敌方编成: {}", counts)
+    _log.debug("[识别] 敌方编成: {}", counts)
     return counts
 
 

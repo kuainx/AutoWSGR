@@ -261,7 +261,6 @@ class EventFightRunner:
         if result.flag == ConditionFlag.DOCK_FULL:
             self._handle_dock_full(result)
             return
-        _log.info("[OPS] 活动战结果: {}", result.flag.value)
 
     def _handle_dock_full(self, result: CombatResult) -> None:
         """船坞已满处理。"""

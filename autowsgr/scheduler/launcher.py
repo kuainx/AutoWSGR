@@ -42,11 +42,19 @@ class Launcher:
     分步骤构造 ``AndroidController`` + ``GameContext``，
     每一步可独立调用，便于单元测试或自定义流程。
 
+    配置查找顺序:
+
+    1. 显式传入 ``config_path`` → 直接加载。
+    2. ``config_path=None`` → 自动检测当前目录下 ``usersettings.yaml``。
+    3. 上述文件不存在 → 使用内置默认值。
+
+    也可跳过文件加载，通过 :meth:`set_config` 直接注入
+    :class:`UserConfig` 实例。
+
     Parameters
     ----------
     config_path:
-        用户配置文件路径 (YAML)。可以为 ``None``，
-        此时必须通过 ``set_config`` 手动传入 :class:`UserConfig`。
+        用户配置文件路径 (YAML)。为 ``None`` 时自动检测。
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -58,12 +66,29 @@ class Launcher:
     # ── 配置 ──
 
     def load_config(self) -> UserConfig:
-        """从 YAML 加载配置并初始化日志。"""
-        if self._config_path is None:
-            raise ValueError("config_path 未指定，请在构造时传入或调用 set_config")
-        _log.info("[Launcher] 加载配置: {}", self._config_path)
+        """从 YAML 加载配置并初始化日志。
+
+        如果构造时未传入 ``config_path``，将由 :class:`ConfigManager`
+        自动检测当前目录下的 ``usersettings.yaml``；若也不存在则
+        使用内置默认配置。
+        """
+        if self._config_path is not None:
+            _log.info("[Launcher] 加载配置: {}", self._config_path)
+        else:
+            _log.info("[Launcher] 未指定配置文件，尝试自动检测")
         self._config = ConfigManager.load(self._config_path)
-        setup_logger(self._config.log.dir, self._config.log.level)
+        log_cfg = self._config.log
+        setup_logger(
+            log_cfg.dir,
+            log_cfg.level,
+            channels=log_cfg.effective_channels or None,
+        )
+        ch_summary = log_cfg.effective_channels
+        _log.info(
+            "[Launcher] 日志初始化完成: level={}, 通道覆盖={}",
+            log_cfg.level,
+            ch_summary if ch_summary else "无",
+        )
         return self._config
 
     def set_config(self, config: UserConfig) -> None:
@@ -175,7 +200,7 @@ class Launcher:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def launch(config_path: str | Path) -> GameContext:
+def launch(config_path: str | Path | None = None) -> GameContext:
     """一站式启动入口。
 
     加载配置 → 连接模拟器 → 启动游戏 → 返回就绪的 :class:`GameContext`。
@@ -183,7 +208,8 @@ def launch(config_path: str | Path) -> GameContext:
     Parameters
     ----------
     config_path:
-        用户配置文件路径 (YAML)。
+        用户配置文件路径 (YAML)。为 ``None`` 时自动检测当前目录下
+        的 ``usersettings.yaml``，若也不存在则使用内置默认配置。
 
     Returns
     -------
@@ -196,7 +222,10 @@ def launch(config_path: str | Path) -> GameContext:
 
         from autowsgr.scheduler import launch
 
-        ctx = launch("user_settings.yaml")
-        # 直接使用 ctx 进行后续操作
+        # 显式指定配置路径
+        ctx = launch("my_settings.yaml")
+
+        # 自动检测 usersettings.yaml 或使用默认值
+        ctx = launch()
     """
     return Launcher(config_path).launch()

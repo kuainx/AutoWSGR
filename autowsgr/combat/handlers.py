@@ -416,9 +416,6 @@ class PhaseHandlersMixin:
 
     def _handle_dock_full(self) -> ConditionFlag:
         """处理船坞已满弹窗 — 返回 DOCK_FULL 标志交由上层处理。
-
-        此方法不执行任何点击操作（弹窗应由 ops 层决定如何处理），
-        仅记录事件并向引擎返回 DOCK_FULL 信号使其退出主循环。
         """
         _log.warning("[Combat] 检测到船坞已满，战斗无法开始")
         self._history.add(CombatEvent(

@@ -22,6 +22,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from autowsgr.infra import save_image
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.vision import (
@@ -163,7 +164,7 @@ class MapNodeData:
         from autowsgr.infra.file_utils import load_yaml
 
         raw: dict[str, Any] = load_yaml(path)
-        _log.info("[NodeTracker] 加载活动地图数据: {}", path)
+        _log.debug("[NodeTracker] 加载活动地图数据: {}", path)
         return cls._parse(raw)
 
     @classmethod
@@ -249,17 +250,6 @@ class NodeTracker:
 
     def _recheck_pixel(self, center: tuple[float, float], screen) -> bool:
         """验证中心及其左右两侧的像素特征。
-
-        在检测到的 center 位置及其左右相对距离 0.03 的位置检查像素。
-        三个位置都需满足黄色小船的像素特征才认为匹配有效。
-
-        Parameters
-        ----------
-        center:
-            中心位置（相对坐标）。
-        screen:
-            当前截图。
-
         Returns
         -------
         bool
@@ -284,11 +274,6 @@ class NodeTracker:
     @staticmethod
     def _find_yellow_cluster(screen: np.ndarray) -> tuple[float, float] | None:
         """在截图中查找最大的黄色像素簇，返回其质心的相对坐标。
-
-        黄色船体在 RGB 空间满足: R>200, G>180, 50<B<150。
-        找到所有满足条件的像素后，使用连通组件分析选取面积最大的簇，
-        过滤过小的噪点（面积 < 200 像素）。
-
         Returns
         -------
         tuple[float, float] | None
@@ -328,20 +313,6 @@ class NodeTracker:
 
     def update_ship_position(self, screen) -> tuple[float, float] | None:
         """在战斗移动界面检测黄色小船图标的位置。
-
-        小船图标是一个纯黄色水平条纹，在灰度空间内近乎均匀亮度，
-        传统模板匹配（灰度 ``TM_CCOEFF_NORMED``）容易产生大量假阳性。
-        因此改用 **颜色空间直接检测** 策略：
-
-        1. 在 RGB 空间筛选黄色像素（R>200, G>180, 50<B<150）；
-        2. 用连通组件分析找到最大的黄色簇；
-        3. 对簇质心执行像素验证确认。
-
-        Parameters
-        ----------
-        screen:
-            当前截图 (H×W×3, RGB)。
-
         Returns
         -------
         tuple[float, float] | None
@@ -416,7 +387,7 @@ class NodeTracker:
                 best_node = name
 
         if best_node != self._current_node:
-            _log.info(
+            _log.debug(
                 "[NodeTracker] 节点更新: {} → {} (距离 {:.4f}), 位置: ({:.3f}, {:.3f})",
                 self._current_node, best_node, best_distance, sx, sy
             )
@@ -426,18 +397,6 @@ class NodeTracker:
 
     def track(self, screen) -> str:
         """一站式追踪：更新位置 + 判定节点。
-
-        在每轮匹配前的回调中调用此方法即可完成完整追踪。
-
-        Parameters
-        ----------
-        screen:
-            当前截图 (H×W×3, RGB)。
-
-        Returns
-        -------
-        str
-            当前节点标识符。
         """
         self.update_ship_position(screen)
         return self.update_node()

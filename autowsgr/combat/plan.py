@@ -274,35 +274,11 @@ class CombatPlan:
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> CombatPlan:
-        """从 YAML 文件加载作战计划。
-
-        Parameters
-        ----------
-        path:
-            YAML 文件路径。
-
-        Returns
-        -------
-        CombatPlan
-        """
         data = load_yaml(path)
         return cls.from_dict(data, name=Path(path).stem)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], name: str = "") -> CombatPlan:
-        """从字典构建作战计划。
-
-        Parameters
-        ----------
-        data:
-            原始配置字典（通常来自 YAML）。
-        name:
-            计划名称。
-
-        Returns
-        -------
-        CombatPlan
-        """
         # 基础配置
         mode = data.get("mode", CombatMode.NORMAL)
         chapter = data.get("chapter", 1)

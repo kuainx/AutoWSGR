@@ -92,10 +92,10 @@ def _goto_page(ctx: GameContext, target: str) -> None:
             f"无法找到从 '{current}' 到 '{target}' 的路径"
         )
 
-    _log.info("[OPS] 导航: {} → {} (共 {} 步)", current, target, len(path))
+    _log.debug("[OPS] 导航: {} → {} (共 {} 步)", current, target, len(path))
 
     for i, edge in enumerate(path):
-        _log.info(
+        _log.debug(
             "[OPS]   步骤 {}/{}: {} → {} ({})",
             i + 1, len(path), edge.source, edge.target, edge.description,
         )
