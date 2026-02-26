@@ -52,7 +52,7 @@ except Exception:
 
 from loguru import logger
 
-from autowsgr.infra import setup_logger, UserConfig
+from autowsgr.infra import ConfigManager, setup_logger
 from autowsgr.emulator import ADBController
 from autowsgr.context import GameContext
 from autowsgr.combat.engine import CombatEngine
@@ -124,7 +124,9 @@ def main() -> None:
 
     # ── 日志：默认 DEBUG ──────────────────────────────────────────────────────
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/interactive/campaign")
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True)
+    cfg = ConfigManager.load()
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
 
     serial: str | None = args.serial or None
     campaign_name: str = args.campaign
@@ -143,7 +145,7 @@ def main() -> None:
 
     # ── 连接设备 ─────────────────────────────────────────────────────────────
     logger.info("正在连接设备{}...", f" ({serial})" if serial else "（自动检测）")
-    ctrl = ADBController(serial=serial)
+    ctrl = ADBController(serial=serial or cfg.emulator.serial)
     try:
         dev_info = ctrl.connect()
         logger.info(
@@ -157,7 +159,7 @@ def main() -> None:
         sys.exit(1)
 
     # ── 构建 GameContext ──────────────────────────────────────────────────────────
-    ctx = GameContext(ctrl=ctrl, config=UserConfig())
+    ctx = GameContext(ctrl=ctrl, config=cfg)
 
     # ── 初始化战役执行器 ──────────────────────────────────────────────────────
     runner = CampaignRunner(

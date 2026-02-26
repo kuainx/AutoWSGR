@@ -29,7 +29,7 @@ except Exception:
 from loguru import logger
 
 from autowsgr.emulator import ADBController
-from autowsgr.infra import setup_logger
+from autowsgr.infra import ConfigManager, setup_logger
 
 
 def _parse_args() -> argparse.Namespace:
@@ -63,7 +63,9 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    setup_logger(log_dir=Path("logs/e2e/exercise"), level="DEBUG", save_images=True)
+    cfg = ConfigManager.load()
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=Path("logs/e2e/exercise"), level="DEBUG", save_images=True, channels=channels)
 
     rivalry_desc = f"对手 {args.rival}" if args.rival is not None else "全部可用对手"
 
@@ -88,7 +90,7 @@ def main() -> None:
     input("  按 Enter 开始运行...")
     print()
 
-    ctrl = ADBController(serial=args.serial)
+    ctrl = ADBController(serial=args.serial or cfg.emulator.serial)
     try:
         dev = ctrl.connect()
         logger.info("已连接: {}", dev.serial)

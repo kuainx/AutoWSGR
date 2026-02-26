@@ -50,7 +50,7 @@ from loguru import logger
 
 from autowsgr.combat import CombatMode, CombatPlan, NodeDecision, RuleEngine, CombatEngine
 from autowsgr.emulator import ADBController
-from autowsgr.infra import setup_logger, UserConfig
+from autowsgr.infra import ConfigManager, setup_logger
 from autowsgr.context import GameContext
 from autowsgr.ops import ensure_game_ready, NormalFightRunner
 from autowsgr.types import ConditionFlag, FightCondition, Formation, GameAPP, RepairMode
@@ -159,7 +159,9 @@ def main() -> None:
 
     # ── 日志 ──
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/interactive/normal_fight")
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True)
+    cfg = ConfigManager.load()
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
 
     serial: str | None = args.serial or None
     times: int = args.times
@@ -182,7 +184,7 @@ def main() -> None:
 
     # ── 连接设备 ──
     logger.info("正在连接设备{}...", f" ({serial})" if serial else " (自动检测)")
-    ctrl = ADBController(serial=serial)
+    ctrl = ADBController(serial=serial or cfg.emulator.serial)
     try:
         dev_info = ctrl.connect()
         logger.info(
@@ -199,7 +201,7 @@ def main() -> None:
     # ensure_game_ready(ctrl, GameAPP.official)
 
     # ── 构建 GameContext ──
-    ctx = GameContext(ctrl=ctrl, config=UserConfig())
+    ctx = GameContext(ctrl=ctrl, config=cfg)
 
     # ── 初始化引擎 ──
     runner = NormalFightRunner(ctx, plan)

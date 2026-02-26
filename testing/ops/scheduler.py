@@ -44,7 +44,7 @@ from loguru import logger
 from autowsgr.combat import CombatPlan
 from autowsgr.context import GameContext
 from autowsgr.emulator import ADBController
-from autowsgr.infra import UserConfig, setup_logger
+from autowsgr.infra import ConfigManager, setup_logger
 from autowsgr.ops.event_fight import EventFightRunner
 from autowsgr.scheduler import FightTask, TaskScheduler
 from autowsgr.types import ConditionFlag
@@ -109,7 +109,11 @@ def main() -> None:
     args = _parse_args()
 
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/interactive/scheduler")
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True)
+
+    # 读取 usersettings.yaml 获取通道配置（不存在则用默认值）
+    cfg = ConfigManager.load()
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
 
     logger.info("=" * 60)
     logger.info("调度器 E2E 测试 — Ex5 三连夜战 + 远征")
@@ -122,7 +126,7 @@ def main() -> None:
     # ── 连接设备 ──
     serial = args.serial or None
     logger.info("正在连接设备{}...", f" ({serial})" if serial else "（自动检测）")
-    ctrl = ADBController(serial=serial)
+    ctrl = ADBController(serial=serial or cfg.emulator.serial)
     try:
         dev_info = ctrl.connect()
         logger.info(
@@ -136,7 +140,7 @@ def main() -> None:
         sys.exit(1)
 
     # ── 构建 GameContext ──
-    ctx = GameContext(ctrl=ctrl, config=UserConfig())
+    ctx = GameContext(ctrl=ctrl, config=cfg)
 
     # ── 加载计划 ──
     plan = CombatPlan.from_yaml(args.plan)

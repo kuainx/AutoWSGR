@@ -25,7 +25,7 @@ except Exception:
 from loguru import logger
 
 from autowsgr.emulator import ADBController
-from autowsgr.infra import setup_logger
+from autowsgr.infra import ConfigManager, setup_logger
 
 _STEPS = [
     "1. 连接设备",
@@ -36,7 +36,9 @@ _STEPS = [
 
 def main() -> None:
     serial = sys.argv[1] if len(sys.argv) > 1 else None
-    setup_logger(log_dir=Path("logs/e2e/repair"), level="DEBUG", save_images=True)
+    cfg = ConfigManager.load()
+    channels = cfg.log.effective_channels or None
+    setup_logger(log_dir=Path("logs/e2e/repair"), level="DEBUG", save_images=True, channels=channels)
 
     print("=" * 60)
     print("  浴室修理 (repair_in_bath) E2E 测试")
@@ -49,7 +51,7 @@ def main() -> None:
     input("  按 Enter 开始运行...")
     print()
 
-    ctrl = ADBController(serial=serial)
+    ctrl = ADBController(serial=serial or cfg.emulator.serial)
     try:
         dev = ctrl.connect()
         logger.info(f"已连接: {dev.serial}")
