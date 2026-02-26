@@ -397,12 +397,12 @@ def dismiss_resource_confirm(device: AndroidController, screen: ndarray) -> None
     仅对当前帧做一次快速检测（不阻塞等待），找到任意确认按钮模板就点击。
     """
     detail = ImageChecker.find_any(
-        screen, Templates.Confirm.all(), confidence=0.8,
+        screen, [Templates.Confirm.CONFIRM_1], confidence=0.75,
     )
     if detail is not None:
+        time.sleep(0.25)
         device.click(*detail.center)
         _log.info(
             "[Combat] 点掉资源确认弹窗: '{}' ({:.4f}, {:.4f})",
             detail.template_name, *detail.center,
         )
-        time.sleep(0.25)

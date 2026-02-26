@@ -238,7 +238,6 @@ class CombatRecognizer:
             phase_sigs.append((phase, sig))
 
         deadline = time.time() + max_timeout
-        poll_interval = 0.05
 
         _log.debug(
             "[Combat] 等待状态: {} (超时 {:.1f}s)",
@@ -247,15 +246,10 @@ class CombatRecognizer:
         )
 
         while time.time() < deadline:
-            start_time = time.time()
             screen = self._device.screenshot()
-            _log.info("[Combat] 截图耗时: {:.1f}ms", (time.time() - start_time) * 1000)
-            start_time = time.time()
             if poll_action is not None:
                 poll_action(screen)
-            _log.info("[Combat] poll_action 耗时: {:.1f}ms", (time.time() - start_time) * 1000)
 
-            start_time = time.time()
             for phase, sig in phase_sigs:
                 if sig.template_key is None and sig.pixel_signature is None:
                     continue
@@ -264,9 +258,6 @@ class CombatRecognizer:
                         time.sleep(sig.after_match_delay)
                     _log.debug("[Combat] 匹配到状态: {}", phase.name)
                     return phase
-            _log.info("[Combat] 匹配轮询耗时（含匹配）: {:.1f}ms", (time.time() - start_time) * 1000)
-
-            time.sleep(poll_interval)
 
         # 超时
         phase_names = [p.name for p, _ in phase_sigs]

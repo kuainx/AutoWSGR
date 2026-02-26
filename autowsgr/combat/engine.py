@@ -8,7 +8,7 @@ import numpy as np
 from typing import Callable
 from autowsgr.infra.logger import get_logger
 
-from .actions import click_speed_up, dismiss_resource_confirm
+from .actions import dismiss_resource_confirm, click_speed_up
 from .handlers import PhaseHandlersMixin
 from .history import CombatHistory, CombatResult
 from .node_tracker import MapNodeData, NodeTracker
@@ -179,6 +179,12 @@ class CombatEngine(PhaseHandlersMixin):
     # ═══════════════════════════════════════════════════════════════════════════
     # 内部方法
     # ═══════════════════════════════════════════════════════════════════════════
+    def _is_map_routing_phase(self, last_phase: CombatPhase):
+        return last_phase in (
+            CombatPhase.PROCEED,
+            CombatPhase.FIGHT_CONDITION,
+            CombatPhase.START_FIGHT
+        ) or self._last_action == "detour"
 
     def _reset(self) -> None:
         """重置运行时状态。"""
@@ -225,7 +231,7 @@ class CombatEngine(PhaseHandlersMixin):
 
         self._phase = new_phase
         return new_phase
-
+    
     def _get_poll_action(self, last_phase: CombatPhase) -> Callable[[np.ndarray], None] | None:
         """根据当前状态和模式大类，返回每轮匹配前执行的动作。
 
@@ -233,35 +239,28 @@ class CombatEngine(PhaseHandlersMixin):
         SINGLE 模式下仅加速点击。
         """
         category = MODE_CATEGORIES.get(self._plan.mode)
-
-        if category == ModeCategory.MAP:
-            if last_phase in (
-                CombatPhase.PROCEED,
-                CombatPhase.FIGHT_CONDITION,
-                CombatPhase.START_FIGHT
-            ) or self._last_action == "detour":
+        if self._phase is CombatPhase.FIGHT_PERIOD:
+            return lambda _: time.sleep(0.5)
+        if category is ModeCategory.MAP:
+            if self._is_map_routing_phase(last_phase):
                 tracker = self._tracker
                 device = self._device
-
                 def _poll_map(screen: np.ndarray) -> None:
-                    click_speed_up(device, battle_mode=False)
+                    click_speed_up(device)
                     if tracker is not None:
                         tracker.update_ship_position(screen)
                         new_node = tracker.update_node()
                         if new_node != self._node:
                             self._node = new_node
                         dismiss_resource_confirm(device, screen)
-
                 return _poll_map
-
-        elif category == ModeCategory.SINGLE:
-            if last_phase == CombatPhase.START_FIGHT:
-
-                def _poll_single(screen: np.ndarray) -> None:
-                    click_speed_up(self._device, battle_mode=True)
-
+            
+        elif category is ModeCategory.SINGLE:
+            if last_phase is CombatPhase.START_FIGHT:
+                def _poll_single(_: np.ndarray) -> None:
+                    click_speed_up(self._device)
                 return _poll_single
-
+            
         return None
 
     # ═══════════════════════════════════════════════════════════════════════════
