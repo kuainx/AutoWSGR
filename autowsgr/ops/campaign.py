@@ -19,7 +19,8 @@ from autowsgr.infra.logger import get_logger
 from autowsgr.combat import CombatResult, CombatMode, CombatPlan, NodeDecision, CombatEngine
 from autowsgr.ops import goto_page
 from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode, ShipDamageState
-from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage
+from autowsgr.ui import BattlePreparationPage, NavigationError, RepairStrategy, MapPage, wait_leave_page
+from autowsgr.ui.battle.base import BaseBattlePreparation
 from autowsgr.emulator import AndroidController
 from autowsgr.context import GameContext
 
@@ -140,7 +141,16 @@ class CampaignRunner:
             self._enter_battle()
 
             # 2. 出征准备
-            ship_stats = self._prepare_for_battle()
+            ship_stats, started = self._prepare_for_battle()
+
+            if not started:
+                result = CombatResult(
+                    flag=ConditionFlag.BATTLE_TIMES_EXCEED,
+                    ship_stats=ship_stats,
+                )
+                results.append(result)
+                _log.info("[OPS] 战役次数已用完")
+                break
 
             # 3. 构建计划并执行战斗
             result = self._do_combat(ship_stats)
@@ -175,13 +185,17 @@ class CampaignRunner:
 
     # ── 出征准备 ──
 
-    def _prepare_for_battle(self) -> list[ShipDamageState]:
-        """出征准备: 修理、出征。
+    def _prepare_for_battle(self) -> tuple[list[ShipDamageState], bool]:
+        """出征准备: 修理、出征，并确认离开准备页面。
+
+        点击出征后通过 ``wait_leave_page`` 确认离开；若超时则重试一次。
+        两次均失败视为战役次数用尽。
 
         Returns
         -------
-        list[int]
-            战前血量状态。
+        tuple[list[ShipDamageState], bool]
+            ``(战前血量状态, 是否成功出征)``。
+            当 ``False`` 时表示战役次数已用完。
         """
         time.sleep(0.25) # 等待页面稳定
         page = BattlePreparationPage(self._ctx)
@@ -197,11 +211,50 @@ class CampaignRunner:
         damage = page.detect_ship_damage(screen)
         ship_stats = [damage.get(i, ShipDamageState.NORMAL) for i in range(6)]
 
-        # 出征
-        page.start_battle()
-        time.sleep(1.0)
+        # 出征 + 确认离开
+        left = self._start_battle_with_retry(page)
 
-        return ship_stats
+        return ship_stats, left
+
+    def _try_start_battle(self, page: BattlePreparationPage) -> bool:
+        """点击出征并等待离开准备页面。
+
+        Returns
+        -------
+        bool
+            ``True`` 表示已成功离开出征准备页面。
+            ``False`` 表示超时仍在当前页面 (可能是战役次数用尽)。
+        """
+        page.start_battle()
+        try:
+            wait_leave_page(
+                self._ctrl,
+                checker=BaseBattlePreparation.is_current_page,
+                timeout=1.5,
+                source=PageName.BATTLE_PREP,
+                target="combat",
+            )
+            return True
+        except NavigationError:
+            return False
+
+    def _start_battle_with_retry(self, page: BattlePreparationPage) -> bool:
+        """尝试出征，失败后重试一次。
+
+        Returns
+        -------
+        bool
+            ``True`` 成功出征；``False`` 战役次数用尽。
+        """
+        if self._try_start_battle(page):
+            return True
+
+        _log.warning("[OPS] 出征后未离开准备页面，重试一次")
+        if self._try_start_battle(page):
+            return True
+
+        _log.info("[OPS] 两次出征均未离开准备页面，判定为战役次数已用完")
+        return False
 
     # ── 战斗 ──
 

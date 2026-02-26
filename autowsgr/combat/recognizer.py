@@ -71,10 +71,6 @@ PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
         template_key=TemplateKey.DOCK_FULL,
         default_timeout=3.0,
     ),
-    CombatPhase.BATTLE_TIMES_EXCEED: PhaseSignature(
-        template_key=TemplateKey.BATTLE_TIMES_EXCEED,
-        default_timeout=3.0,
-    ),
     CombatPhase.FIGHT_CONDITION: PhaseSignature(
         template_key=TemplateKey.FIGHT_CONDITION,
         default_timeout=22.5,

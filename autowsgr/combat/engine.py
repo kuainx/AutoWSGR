@@ -155,10 +155,6 @@ class CombatEngine(PhaseHandlersMixin):
                 _log.warning("[Combat] 战斗进入失败：船坞已满")
                 result.flag = ConditionFlag.DOCK_FULL
                 break
-            elif decision == ConditionFlag.BATTLE_TIMES_EXCEED:
-                _log.warning("[Combat] 战斗进入失败：战役次数耗尽")
-                result.flag = ConditionFlag.BATTLE_TIMES_EXCEED
-                break
             elif decision == ConditionFlag.SL:
                 # TODO: 这里出现了轻微的抽象泄露，因为 SL 需要调用 restart_game
                 result.flag = ConditionFlag.SL
