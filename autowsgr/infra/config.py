@@ -1,13 +1,6 @@
 """配置管理 — 基于 Pydantic v2。
 
 配置从 YAML 文件加载，经过 Pydantic 校验后生成不可变的配置对象。
-
-使用方式::
-
-    from autowsgr.infra.config import ConfigManager
-
-    config = ConfigManager.load("user_settings.yaml")
-    print(config.emulator.type)
 """
 
 from __future__ import annotations
@@ -104,10 +97,23 @@ class LogConfig(BaseModel):
     show_match_fight_stage: bool = True
     show_decisive_battle_info: bool = True
     show_ocr_info: bool = True
+    show_emulator_debug: bool = True
+    """是否输出 emulator 通道的 DEBUG 日志（click/swipe 等操作）。"""
+    show_ui_debug: bool = True
+    """是否输出 ui 通道的 DEBUG 日志（页面识别/等待轮询）。"""
+    show_vision_debug: bool = True
+    """是否输出 vision 通道的 DEBUG 日志（模板匹配规则结果）。"""
+    show_ops_debug: bool = True
+    """是否输出 ops 通道的 DEBUG 日志（页面导航/操作重试）。"""
+    show_combat_state_debug: bool = True
+    """是否输出战斗状态机转移 DEBUG 日志（当前状态→候选列表）。对应通道 combat.engine。"""
+    show_combat_recognition_debug: bool = True
+    """是否输出战斗识别 DEBUG 日志（匹配到状态、DLL 返回、敌方编成）。对应通道 combat.recognition。"""
     channels: dict[str, str] = {}
     """通道级别覆盖。键为通道名（支持前缀匹配），值为级别字符串，如
     ``{"vision.pixel": "TRACE", "emulator": "INFO"}``。
-    详见 :func:`~autowsgr.infra.logger.setup_logger`。"""
+    详见 :func:`~autowsgr.infra.logger.setup_logger`。
+    此处的显式配置优先级高于上方所有 show_*_debug 布尔开关。"""
 
     @model_validator(mode="after")
     def _set_log_dir(self) -> LogConfig:
@@ -115,6 +121,31 @@ class LogConfig(BaseModel):
             ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             object.__setattr__(self, "dir", self.root / ts)
         return self
+
+    @property
+    def effective_channels(self) -> dict[str, str]:
+        """合并布尔开关与显式 channels 配置，生成最终通道级别字典。
+
+        布尔开关优先级低于 ``channels`` 中的显式覆盖：若用户在
+        ``channels`` 里单独设置了 ``"emulator": "DEBUG"``，即使
+        ``show_emulator_debug=False`` 也仍生效。
+        """
+        merged: dict[str, str] = {}
+        if not self.show_emulator_debug:
+            merged["emulator"] = "INFO"
+        if not self.show_ui_debug:
+            merged["ui"] = "INFO"
+        if not self.show_vision_debug:
+            merged["vision"] = "INFO"
+        if not self.show_ops_debug:
+            merged["ops"] = "INFO"
+        if not self.show_combat_state_debug:
+            merged["combat.engine"] = "INFO"
+        if not self.show_combat_recognition_debug:
+            merged["combat.recognition"] = "INFO"
+        # 显式 channels 配置覆盖布尔开关
+        merged.update(self.channels)
+        return merged
 
 
 class DailyAutomationConfig(BaseModel):
@@ -243,6 +274,27 @@ class UserConfig(BaseModel):
     """指定舰种列表"""
     remove_equipment_mode: bool = True
     """默认卸下装备"""
+
+    @field_validator("destroy_ship_work_mode", mode="before")
+    @classmethod
+    def _coerce_destroy_mode(cls, v: object) -> object:
+        """允许用中文别名或英文成员名指定解装模式。"""
+        _ALIAS: dict[str, int] = {
+            "不启用": 0,
+            "disable": 0,
+            "黑名单": 1,
+            "include": 1,
+            "白名单": 2,
+            "exclude": 2,
+        }
+        if isinstance(v, str):
+            key = v.strip()
+            if key in _ALIAS:
+                return _ALIAS[key]
+            # 纯数字字符串也兼容
+            if key.isdigit():
+                return int(key)
+        return v
 
     # 数据路径
     plan_root: Path | None = None
@@ -415,16 +467,49 @@ class DecisiveConfig:
 # ── ConfigManager ──
 
 
+# 默认配置文件名（当前目录下）
+_DEFAULT_CONFIG_FILENAME = "usersettings.yaml"
+
+
 class ConfigManager:
     """配置管理器 — 提供加载入口。"""
 
     @staticmethod
-    def load(path: str | Path) -> UserConfig:
-        """从文件加载用户配置。不存在时返回默认配置。"""
-        path = Path(path)
-        if not path.exists():
-            _log.warning("配置文件 {} 不存在，使用默认配置", path)
-            return UserConfig()
-        config = UserConfig.from_yaml(path)
-        _log.info("已加载配置: {}", path)
-        return config
+    def load(path: str | Path | None = None) -> UserConfig:
+        """从文件加载用户配置。
+
+        查找策略:
+
+        1. 如果显式指定了 *path*，直接加载该文件；文件不存在时回退默认值。
+        2. 如果 *path* 为 ``None``，尝试当前工作目录下的
+           ``usersettings.yaml``；文件存在则加载，不存在则使用默认值。
+
+        Parameters
+        ----------
+        path:
+            用户配置文件路径 (YAML)。为 ``None`` 时自动检测。
+
+        Returns
+        -------
+        UserConfig
+            校验后的不可变配置对象。
+        """
+        if path is not None:
+            path = Path(path)
+            if not path.exists():
+                _log.warning("配置文件 {} 不存在，使用默认配置", path)
+                return UserConfig()
+            config = UserConfig.from_yaml(path)
+            _log.info("已加载配置: {}", path)
+            return config
+
+        # 未指定路径 → 尝试当前目录下的默认配置
+        default = Path.cwd() / _DEFAULT_CONFIG_FILENAME
+        if default.exists():
+            _log.info("检测到默认配置文件: {}", default)
+            config = UserConfig.from_yaml(default)
+            _log.info("已加载配置: {}", default)
+            return config
+
+        _log.info("未指定配置文件且未检测到 {}，使用内置默认配置", _DEFAULT_CONFIG_FILENAME)
+        return UserConfig()
