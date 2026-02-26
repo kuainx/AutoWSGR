@@ -74,13 +74,11 @@ class DecisiveMapController:
         self,
         ctx: GameContext,
         config: DecisiveConfig,
-        *,
-        ocr: OCREngine | None = None,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
         self._config = config
-        self._ocr = ocr or ctx.ocr
+        self._ocr = ctx.ocr
 
     # ══════════════════════════════════════════════════════════════════════
     # 页面状态检测
@@ -341,8 +339,6 @@ class DecisiveMapController:
             - *damage*: 各槽位血量状态
             - *all_ships*: 所有可用舰船名 (含编队成员)
         """
-        from autowsgr.ui.choose_ship_page import ChooseShipPage
-
         _log.info("[地图控制器] 扫描当前编队与可用舰船")
 
         self.enter_formation()

@@ -206,7 +206,11 @@ class DecisiveBattlePage:
     # ── 章节 OCR ──────────────────────────────────────────────────────────
 
     def _read_chapter(self, screen: np.ndarray | None = None) -> int | None:
-        """通过 OCR 读取当前章节编号 (Ex-N → N)。"""
+        """通过 OCR 读取当前章节编号 (Ex-N → N)。
+
+        使用字符白名单 ``0123456789Ex-`` 提升准确率，
+        避免将数字误识别为字母 (如 ``6`` → ``G``)。
+        """
         if self._ocr is None:
             return None
         if screen is None:
@@ -214,7 +218,7 @@ class DecisiveBattlePage:
 
         x1, y1, x2, y2 = CHAPTER_NUM_AREA
         cropped = PixelChecker.crop(screen, x1, y1, x2, y2)
-        result = self._ocr.recognize_single(cropped)
+        result = self._ocr.recognize_single(cropped, allowlist='0123456789Ex-')
         if not result.text:
             _log.debug("[决战] 决战章节 OCR 无结果")
             return None

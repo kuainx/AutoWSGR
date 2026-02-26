@@ -54,13 +54,11 @@ class DecisiveBase:
         self,
         ctx: GameContext,
         config: DecisiveConfig,
-        *,
-        ocr: OCREngine,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
         self._config = config
-        self._ocr = ocr
+        self._ocr = ctx.ocr
 
 
         # 将决战配置中的舰船名 + 技能名合并到全局 SHIPNAMES，
@@ -71,7 +69,7 @@ class DecisiveBase:
         self._logic = DecisiveLogic(config, self._state)
         self._battle_page = DecisiveBattlePage(self._ctx, ocr=self._ocr)
         self._map = DecisiveMapController(
-            ctx, config, ocr=ocr,
+            ctx, config,
         )
         self._resume_mode: bool = False
         self._has_chosen_fleet: bool = False

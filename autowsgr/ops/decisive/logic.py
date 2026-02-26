@@ -188,7 +188,7 @@ class DecisiveLogic:
         """
         ships = self.state.ships
         best: list[str] = [""]
-
+        _log.debug("[决战] 当前舰船: {}", ships)
         for ship in self.config.level1:
             if ship in ships and len(best) < 7:
                 best.append(ship)
