@@ -36,12 +36,9 @@ except Exception:
 
 from loguru import logger
 
-from autowsgr.emulator import ADBController
-from autowsgr.infra import ConfigManager, DecisiveConfig, setup_logger
-from autowsgr.context import GameContext
-from autowsgr.ops import ensure_game_ready
+from autowsgr.infra import DecisiveConfig
 from autowsgr.ops.decisive import DecisiveController, DecisiveResult
-from autowsgr.vision import EasyOCREngine
+from testing.ops._framework import launch_for_test
 
 
 # ── 默认舰船配置 (第 6 章示例) ────────────────────────────────────────────
@@ -142,39 +139,25 @@ def main() -> None:
     args = _parse_args()
 
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/e2e/decisive_battle")
-    cfg = ConfigManager.load()
-    channels = cfg.log.effective_channels or None
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
-
     _print_header(args)
     input("  按 Enter 开始运行...")
     print()
 
     # ── 1. 连接设备 ────────────────────────────────────────────────────────
-    ctrl = ADBController(serial=args.serial or cfg.emulator.serial)
+    # ── 1. 连接设备 + OCR + 游戏就绪 ──────────────────────────────────────────
     try:
-        dev = ctrl.connect()
-        logger.info("已连接: {} 分辨率: {}x{}", dev.serial, *dev.resolution)
-        print(f"  [OK] 已连接: {dev.serial}")
-    except Exception as exc:
-        logger.opt(exception=True).error("连接设备失败: {}", exc)
-        print(f"  [FAIL] 连接设备失败: {exc}")
-        sys.exit(1)
-
-    # ── 2. 初始化 OCR ──────────────────────────────────────────────────────
-    try:
-        ocr = EasyOCREngine.create()
-        logger.info("OCR 引擎初始化完成")
+        ctx = launch_for_test(args.serial, log_dir=log_dir, with_ocr=True)
+        ctrl = ctx.ctrl
+        ocr = ctx.ocr
+        logger.info("已连接: {}", ctrl.serial)
+        print(f"  [OK] 已连接: {ctrl.serial}")
         print("  [OK] OCR 引擎已就绪")
     except Exception as exc:
-        logger.opt(exception=True).error("OCR 初始化失败: {}", exc)
-        print(f"  [FAIL] OCR 初始化失败: {exc}")
-        ctrl.disconnect()
+        logger.opt(exception=True).error("启动失败: {}", exc)
+        print(f"  [FAIL] 启动失败: {exc}")
         sys.exit(1)
 
-    # ── 3. 构建 DecisiveConfig / DecisiveController ────────────────────────
-    ctx = GameContext(ctrl=ctrl, config=cfg, ocr=ocr)
-    ensure_game_ready(ctx, cfg.account.game_app)
+    # ── 2. 构建 DecisiveConfig / DecisiveController ────────────────────────
     config = DecisiveConfig(
         chapter=args.chapter,
         level1=args.level1,

@@ -49,11 +49,9 @@ except Exception:
 from loguru import logger
 
 from autowsgr.combat import CombatMode, CombatPlan, NodeDecision, RuleEngine, CombatEngine
-from autowsgr.emulator import ADBController
-from autowsgr.infra import ConfigManager, setup_logger
-from autowsgr.context import GameContext
-from autowsgr.ops import ensure_game_ready, NormalFightRunner
+from autowsgr.ops import NormalFightRunner
 from autowsgr.types import ConditionFlag, FightCondition, Formation, RepairMode
+from testing.ops._framework import launch_for_test
 
 
 # ── 默认值 ──
@@ -157,14 +155,17 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
 
-    # ── 日志 ──
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/interactive/normal_fight")
-    cfg = ConfigManager.load()
-    channels = cfg.log.effective_channels or None
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
-
     serial: str | None = args.serial or None
     times: int = args.times
+
+    # ── 连接并启动游戏 ──
+    try:
+        ctx = launch_for_test(serial, log_dir=log_dir)
+    except Exception as exc:
+        print(f"[ERROR] 启动失败: {exc}")
+        sys.exit(1)
+    ctrl = ctx.ctrl
 
     # ── 加载计划 ──
     if args.plan:
@@ -180,27 +181,8 @@ def main() -> None:
     logger.info("  节点: {}", plan.selected_nodes)
     logger.info("  次数: {}", times)
     logger.info("  日志: {}", log_dir)
+    logger.info("已连接: {}", ctrl.serial)
     logger.info("=" * 50)
-
-    # ── 连接设备 ──
-    logger.info("正在连接设备{}...", f" ({serial})" if serial else " (自动检测)")
-    ctrl = ADBController(serial=serial or cfg.emulator.serial)
-    try:
-        dev_info = ctrl.connect()
-        logger.info(
-            "已连接: {}  分辨率: {}x{}",
-            dev_info.serial,
-            dev_info.resolution[0],
-            dev_info.resolution[1],
-        )
-    except Exception as exc:
-        logger.error("连接设备失败: {}", exc)
-        sys.exit(1)
-
-    # ── 构建 GameContext ──
-    ctx = GameContext(ctrl=ctrl, config=cfg)
-    # ── 确保游戏已就绪 ──
-    ensure_game_ready(ctx, cfg.account.game_app)
 
     # ── 初始化引擎 ──
     runner = NormalFightRunner(ctx, plan)

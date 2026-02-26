@@ -42,13 +42,10 @@ except Exception:
 from loguru import logger
 
 from autowsgr.combat import CombatPlan
-from autowsgr.context import GameContext
-from autowsgr.emulator import ADBController
-from autowsgr.infra import ConfigManager, setup_logger
-from autowsgr.ops import ensure_game_ready
 from autowsgr.ops.event_fight import EventFightRunner
 from autowsgr.scheduler import FightTask, TaskScheduler
 from autowsgr.types import ConditionFlag
+from testing.ops._framework import launch_for_test
 
 # ── 默认值 ──
 _DEFAULT_PLAN_YAML = str(
@@ -111,10 +108,15 @@ def main() -> None:
 
     log_dir = Path(args.log_dir) if args.log_dir else Path("logs/interactive/scheduler")
 
-    # 读取 usersettings.yaml 获取通道配置（不存在则用默认值）
-    cfg = ConfigManager.load()
-    channels = cfg.log.effective_channels or None
-    setup_logger(log_dir=log_dir, level="DEBUG", save_images=True, channels=channels)
+    serial = args.serial or None
+
+    # ── 连接并启动游戏 ──
+    try:
+        ctx = launch_for_test(serial, log_dir=log_dir)
+    except Exception as exc:
+        print(f"[ERROR] 启动失败: {exc}")
+        sys.exit(1)
+    ctrl = ctx.ctrl
 
     logger.info("=" * 60)
     logger.info("调度器 E2E 测试 — Ex5 三连夜战 + 远征")
@@ -122,27 +124,8 @@ def main() -> None:
     logger.info("  地图: {}", args.map_code)
     logger.info("  次数: {}", args.times)
     logger.info("  远征: 每 {}s", args.expedition_interval)
+    logger.info("已连接: {}", ctrl.serial)
     logger.info("=" * 60)
-
-    # ── 连接设备 ──
-    serial = args.serial or None
-    logger.info("正在连接设备{}...", f" ({serial})" if serial else "（自动检测）")
-    ctrl = ADBController(serial=serial or cfg.emulator.serial)
-    try:
-        dev_info = ctrl.connect()
-        logger.info(
-            "已连接: {}  分辨率: {}x{}",
-            dev_info.serial,
-            dev_info.resolution[0],
-            dev_info.resolution[1],
-        )
-    except Exception as exc:
-        logger.error("连接设备失败: {}", exc)
-        sys.exit(1)
-
-    # ── 构建 GameContext ──
-    ctx = GameContext(ctrl=ctrl, config=cfg)
-    ensure_game_ready(ctx, cfg.account.game_app)
 
     # ── 加载计划 ──
     plan = CombatPlan.from_yaml(args.plan)

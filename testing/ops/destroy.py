@@ -32,10 +32,7 @@ except Exception:
 
 from loguru import logger
 
-from autowsgr.context import GameContext
-from autowsgr.emulator import ADBController
-from autowsgr.infra import ConfigManager, setup_logger
-from autowsgr.ops import ensure_game_ready
+from testing.ops._framework import launch_for_test
 from autowsgr.types import ShipType
 
 
@@ -79,10 +76,6 @@ def main() -> None:
             print(f"  可用舰种: {', '.join(t.name for t in ShipType)}")
             sys.exit(1)
 
-    cfg = ConfigManager.load()
-    channels = cfg.log.effective_channels or None
-    setup_logger(log_dir=Path("logs/e2e/destroy"), level="DEBUG", save_images=True, channels=channels)
-
     print("=" * 60)
     print("  舰船解装 (destroy_ships) E2E 测试")
     print("=" * 60)
@@ -103,15 +96,11 @@ def main() -> None:
     input("  按 Enter 开始运行...")
     print()
 
-    ctrl = ADBController(serial=args.serial or cfg.emulator.serial)
     try:
-        dev = ctrl.connect()
-        logger.info(f"已连接: {dev.serial}")
-        print(f"  [OK] 已连接: {dev.serial}")
-
-        # ── 确保游戏就绪 ──
-        ctx = GameContext(ctrl=ctrl, config=cfg)
-        ensure_game_ready(ctx, cfg.account.game_app)
+        ctx = launch_for_test(args.serial, log_dir=Path("logs/e2e/destroy"))
+        ctrl = ctx.ctrl
+        logger.info(f"已连接: {ctrl.serial}")
+        print(f"  [OK] 已连接: {ctrl.serial}")
 
         from autowsgr.ops.destroy import destroy_ships
 
@@ -125,7 +114,6 @@ def main() -> None:
     except Exception as exc:
         logger.opt(exception=True).error(f"测试失败: {exc}")
         print(f"  [FAIL] {exc}")
-        ctrl.disconnect()
         sys.exit(1)
 
     ctrl.disconnect()
