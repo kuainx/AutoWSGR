@@ -34,7 +34,7 @@ from .exceptions import (
     UIError,
     VisionError,
 )
-from .file_utils import load_yaml, merge_dicts, save_yaml
+from .file_utils import load_yaml, merge_dicts, resolve_plan_path, save_yaml
 from .logger import caller_info, get_logger, save_image, setup_logger
 
 __all__ = [
@@ -73,6 +73,7 @@ __all__ = [
     # file_utils
     "load_yaml",
     "merge_dicts",
+    "resolve_plan_path",
     "save_yaml",
     # logger
     "setup_logger",

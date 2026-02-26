@@ -2,10 +2,84 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+
+def _get_package_data_dir() -> Path:
+    """获取 ``autowsgr`` 包安装目录下的 ``data`` 文件夹路径。
+
+    兼容 pip 安装（site-packages）和开发模式（editable install / 源码目录）。
+    """
+    spec = importlib.util.find_spec('autowsgr')
+    if spec is None or spec.origin is None:
+        raise RuntimeError('无法定位 autowsgr 包安装路径')
+    return Path(spec.origin).resolve().parent / 'data'
+
+
+def resolve_plan_path(
+    name_or_path: str | Path,
+    category: str = 'normal_fight',
+) -> Path:
+    """解析策略文件路径。
+
+    查找优先级:
+
+    1. *name_or_path* 直接作为路径（绝对路径或相对于 cwd），若存在即使用。
+    2. 同上，补全 ``.yaml`` 后缀再试。
+    3. 在 ``autowsgr/data/plan/{category}/`` 包数据目录中查找。
+    4. 同上，补全 ``.yaml`` 后缀再试。
+
+    支持 pip 安装模式和开发模式。
+
+    Parameters
+    ----------
+    name_or_path:
+        策略文件名（如 ``"7-4千伪"``）或完整路径。
+    category:
+        策略分类子目录，如 ``"normal_fight"``、``"event"``。
+
+    Returns
+    -------
+    Path
+        解析后的绝对路径。
+
+    Raises
+    ------
+    FileNotFoundError
+        所有候选路径均不存在。
+    """
+    p = Path(name_or_path)
+
+    # 1. 直接路径
+    if p.exists():
+        return p.resolve()
+
+    # 2. 补全 .yaml
+    if not p.suffix:
+        p_yaml = p.with_suffix('.yaml')
+        if p_yaml.exists():
+            return p_yaml.resolve()
+
+    # 3. 包数据目录
+    data_dir = _get_package_data_dir() / 'plan' / category
+    candidate = data_dir / p.name
+    if candidate.exists():
+        return candidate.resolve()
+
+    # 4. 包数据目录 + .yaml
+    if not candidate.suffix:
+        candidate_yaml = candidate.with_suffix('.yaml')
+        if candidate_yaml.exists():
+            return candidate_yaml.resolve()
+
+    raise FileNotFoundError(
+        f'策略文件未找到: {name_or_path!r}\n'
+        f'已搜索: {p} | {data_dir / p.name}'
+    )
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

@@ -257,6 +257,16 @@ def run_normal_fight_from_yaml(
     times: int = 1,
     **kwargs,
 ) -> list[CombatResult]:
-    """从 YAML 文件加载计划并执行常规战。"""
-    plan = CombatPlan.from_yaml(yaml_path)
+    """从 YAML 文件加载计划并执行常规战。
+
+    *yaml_path* 支持以下格式:
+
+    - 绝对路径 / 相对路径: 直接加载。
+    - 策略名称 (如 ``"7-4千伪"``): 自动在 ``autowsgr/data/plan/normal_fight/``
+      包数据目录中查找，可省略 ``.yaml`` 后缀。
+    """
+    from autowsgr.infra.file_utils import resolve_plan_path
+
+    resolved = resolve_plan_path(yaml_path, category='normal_fight')
+    plan = CombatPlan.from_yaml(resolved)
     return run_normal_fight(ctx, plan, times=times, **kwargs)

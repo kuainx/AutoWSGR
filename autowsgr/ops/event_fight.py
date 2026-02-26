@@ -334,12 +334,18 @@ def run_event_fight_from_yaml(
 ) -> list[CombatResult]:
     """从 YAML 文件加载计划并执行活动战。
 
+    *yaml_path* 支持以下格式:
+
+    - 绝对路径 / 相对路径: 直接加载。
+    - 策略名称 (如 ``"E5ADE夜战"``): 自动在 ``autowsgr/data/plan/event/``
+      包数据目录中查找，可省略 ``.yaml`` 后缀。
+
     Parameters
     ----------
     ctx:
         游戏上下文。
     yaml_path:
-        YAML 配置路径。
+        YAML 配置路径或策略名称。
     map_code:
         活动地图代号。
     entrance:
@@ -353,7 +359,10 @@ def run_event_fight_from_yaml(
     -------
     list[CombatResult]
     """
-    plan = CombatPlan.from_yaml(yaml_path)
+    from autowsgr.infra.file_utils import resolve_plan_path
+
+    resolved = resolve_plan_path(yaml_path, category='event')
+    plan = CombatPlan.from_yaml(resolved)
     return run_event_fight(
         ctx, plan,
         map_code=map_code,
