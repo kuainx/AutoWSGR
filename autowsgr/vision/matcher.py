@@ -32,6 +32,7 @@ from autowsgr.infra.logger import get_logger
 # 从 pixel.py 导入所有数据类型 (保持向后兼容)
 from .pixel import (
     Color,
+    CompositePixelSignature,
     MatchStrategy,
     PixelDetail,
     PixelMatchResult,
@@ -105,21 +106,30 @@ class PixelChecker:
     @staticmethod
     def check_signature(
         screen: np.ndarray,
-        signature: PixelSignature,
+        signature: PixelSignature | CompositePixelSignature,
         *,
         with_details: bool = False,
     ) -> PixelMatchResult:
         """检查截图是否匹配一个像素签名。
+
+        支持单签名 (:class:`PixelSignature`) 和组合签名
+        (:class:`CompositePixelSignature`)。组合签名按 OR 逻辑
+        依次检查子签名，首个匹配即短路返回。
 
         Parameters
         ----------
         screen:
             截图 (H×W×3, RGB)。
         signature:
-            要检查的像素签名。
+            要检查的像素签名（单个或组合）。
         with_details:
             是否在结果中包含每条规则的详情（影响性能，调试用）。
         """
+        if isinstance(signature, CompositePixelSignature):
+            return PixelChecker._check_composite(
+                screen, signature, with_details=with_details,
+            )
+
         details: list[PixelDetail] = []
         matched_count = 0
 
@@ -203,6 +213,52 @@ class PixelChecker:
             matched_count=matched_count,
             total_count=total,
             details=tuple(details) if with_details else (),
+        )
+
+    @staticmethod
+    def _check_composite(
+        screen: np.ndarray,
+        composite: CompositePixelSignature,
+        *,
+        with_details: bool = False,
+    ) -> PixelMatchResult:
+        """检查组合签名（OR 逻辑）。"""
+        total_rules = len(composite)
+        all_details: list[PixelDetail] = []
+        total_matched = 0
+
+        for sig in composite.signatures:
+            result = PixelChecker.check_signature(
+                screen, sig, with_details=with_details,
+            )
+            total_matched += result.matched_count
+            if with_details:
+                all_details.extend(result.details)
+            if result.matched:
+                _log.debug(
+                    "[Matcher] composite '{}' OK — 子签名 '{}' 匹配",
+                    composite.name,
+                    sig.name,
+                )
+                return PixelMatchResult(
+                    matched=True,
+                    signature_name=composite.name,
+                    matched_count=total_matched,
+                    total_count=total_rules,
+                    details=tuple(all_details),
+                )
+
+        _log.debug(
+            "[Matcher] composite '{}' FAIL — 所有子签名 ({}) 均未匹配",
+            composite.name,
+            len(composite.signatures),
+        )
+        return PixelMatchResult(
+            matched=False,
+            signature_name=composite.name,
+            matched_count=total_matched,
+            total_count=total_rules,
+            details=tuple(all_details),
         )
 
     @staticmethod

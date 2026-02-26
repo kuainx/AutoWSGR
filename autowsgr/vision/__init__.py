@@ -39,6 +39,7 @@ from .image_template import (
 )
 from .pixel import (
     Color,
+    CompositePixelSignature,
     MatchStrategy,
     PixelDetail,
     PixelMatchResult,
@@ -52,6 +53,7 @@ from .roi import ROI
 __all__ = [
     # matcher (pixel)
     "Color",
+    "CompositePixelSignature",
     "MatchStrategy",
     "PixelChecker",
     "PixelDetail",

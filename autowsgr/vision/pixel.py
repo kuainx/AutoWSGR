@@ -6,6 +6,7 @@
 - :class:`PixelRule` — 单像素检测规则
 - :class:`MatchStrategy` — 多像素匹配策略
 - :class:`PixelSignature` — 多规则组合签名
+- :class:`CompositePixelSignature` — 多签名 OR 组合
 - :class:`PixelDetail` — 单规则检测结果
 - :class:`PixelMatchResult` — 签名匹配结果
 
@@ -244,6 +245,37 @@ class PixelSignature:
 
     def __len__(self) -> int:
         return len(self.rules)
+
+
+@dataclass(frozen=True)
+class CompositePixelSignature:
+    """多 :class:`PixelSignature` 的 OR 组合。
+
+    任意一个子签名匹配即视为整体匹配。
+    可直接传入 :meth:`PixelChecker.check_signature`。
+
+    Parameters
+    ----------
+    name:
+        组合签名的名称（用于日志）。
+    signatures:
+        子签名列表，匹配时按顺序检查，首个匹配即短路返回。
+    """
+
+    name: str
+    signatures: tuple[PixelSignature, ...] | list[PixelSignature]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.signatures, list):
+            object.__setattr__(self, "signatures", tuple(self.signatures))
+
+    def __len__(self) -> int:
+        return sum(len(s) for s in self.signatures)
+
+    @classmethod
+    def any_of(cls, name: str, *sigs: PixelSignature) -> CompositePixelSignature:
+        """便捷构造：任意子签名匹配即成功。"""
+        return cls(name=name, signatures=sigs)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
