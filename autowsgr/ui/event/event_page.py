@@ -30,6 +30,7 @@ from autowsgr.types import PageName
 from autowsgr.ui.page import click_and_wait_for_page, wait_for_page
 from autowsgr.vision import (
     Color,
+    CompositePixelSignature,
     MatchStrategy,
     PixelChecker,
     PixelRule,
@@ -66,6 +67,16 @@ OVERLAY_SIGNATURE = PixelSignature(
         PixelRule.of(0.7719, 0.5917, (237, 237, 237), tolerance=30.0),
         PixelRule.of(0.6133, 0.8556, (212, 212, 212), tolerance=30.0),
     ],
+)
+
+#: 组合签名：基础页面 OR 浮层 — 只要任一匹配即认定为活动地图页面。
+EVENT_MAP_COMPOSITE = CompositePixelSignature.any_of(
+    "event_map_page", BASE_PAGE_SIGNATURE, OVERLAY_SIGNATURE,
+)
+
+#: 组合签名：基础页面 OR 浮层 — 只要任一匹配即认定为活动地图页面。
+EVENT_MAP_COMPOSITE = CompositePixelSignature.any_of(
+    "event_map_page", BASE_PAGE_SIGNATURE, OVERLAY_SIGNATURE,
 )
 
 NODE_POSITIONS = {
@@ -147,9 +158,7 @@ class BaseEventPage:
     @staticmethod
     def is_current_page(screen: np.ndarray) -> bool:
         """判断截图是否为活动地图页面。"""
-        result_base = PixelChecker.check_signature(screen, BASE_PAGE_SIGNATURE)
-        result_overlay = PixelChecker.check_signature(screen, OVERLAY_SIGNATURE)
-        return result_base.matched or result_overlay.matched
+        return PixelChecker.check_signature(screen, EVENT_MAP_COMPOSITE).matched
 
     # —— 悬浮窗检测 ─────────────────────────────────────────────────────────
     def _detect_overlay(self, screen: np.ndarray) -> bool:
@@ -178,7 +187,7 @@ class BaseEventPage:
             节点编号，通常为 1~6。
         """
         x, y = NODE_POSITIONS[node_id]
-        _log.info("[UI] 活动地图: 选择节点 {}", node_id)
+        _log.debug("[UI] 活动地图: 选择节点 {}", node_id)
         self._ctrl.click(x, y)
         for _ in range(10):
             # 检测到节点浮层即成功
@@ -205,7 +214,7 @@ class BaseEventPage:
         
         from autowsgr.ui.battle.preparation import BattlePreparationPage
 
-        _log.info("[UI] 活动地图: 点击出击")
+        _log.debug("[UI] 活动地图: 点击出击")
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_FIGHT_BUTTON,
@@ -241,7 +250,7 @@ class BaseEventPage:
         """
         current = self._get_difficulty()
         if current == target:
-            _log.info("[UI] 活动地图: 当前已是 {} 难度", target)
+            _log.debug("[UI] 活动地图: 当前已是 {} 难度", target)
             return
 
         _log.info("[UI] 活动地图: 切换难度 {} -> {}", current, target)

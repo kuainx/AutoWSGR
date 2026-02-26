@@ -1,15 +1,4 @@
 """战斗状态视觉识别器。
-
-负责从截图中识别当前战斗状态。与旧代码 ``FightInfo.update_state()`` 中的
-图像匹配逻辑对应，但将识别职责独立抽取。
-
-每个 ``CombatPhase`` 关联一组视觉签名（模板图片和置信度阈值），
-识别器在候选状态集合中依次尝试匹配，返回首个匹配成功的状态。
-
-.. note::
-
-    本模块定义了每个状态的 **默认超时** 和 **匹配后延时**。
-    实际超时可被状态转移图中的覆盖值修改。
 """
 
 from __future__ import annotations
@@ -19,13 +8,12 @@ from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
-from autowsgr.infra.logger import get_logger
 
-from autowsgr.combat.state import CombatPhase
-from autowsgr.emulator.controller import AndroidController
+from .state import CombatPhase
+from autowsgr.infra import get_logger
 from autowsgr.context import GameContext
 from autowsgr.image_resources import TemplateKey
-from autowsgr.vision import ImageChecker, PixelChecker, PixelSignature
+from autowsgr.vision import CompositePixelSignature, ImageChecker, PixelChecker, PixelSignature
 
 _log = get_logger("combat.recognition")
 
@@ -58,13 +46,15 @@ class PhaseSignature:
     default_timeout: float = 15.0
     confidence: float = 0.8
     after_match_delay: float = 0.0
-    pixel_signature: PixelSignature | None = None
+    pixel_signature: PixelSignature | CompositePixelSignature | None = None
 
 
-def _get_event_map_signature() -> PixelSignature:
-    """延迟导入活动地图页面的像素签名。"""
-    from autowsgr.ui.event.event_page import BASE_PAGE_SIGNATURE
-    return BASE_PAGE_SIGNATURE
+def _get_event_map_signatures() -> CompositePixelSignature:
+    """延迟导入活动地图页面的组合像素签名（基础页面 OR 浮层）。"""
+    from autowsgr.ui.event.event_page import BASE_PAGE_SIGNATURE, OVERLAY_SIGNATURE
+    return CompositePixelSignature.any_of(
+        "event_map_page_composite", BASE_PAGE_SIGNATURE, OVERLAY_SIGNATURE,
+    )
 
 
 PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
@@ -130,7 +120,7 @@ PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
     CombatPhase.EVENT_MAP_PAGE: PhaseSignature(
         template_key=None,
         default_timeout=7.5,
-        pixel_signature=_get_event_map_signature(),
+        pixel_signature=_get_event_map_signatures(),
     ),
 }
 
@@ -187,9 +177,9 @@ class CombatRecognizer:
 
     @staticmethod
     def _match_pixel(
-        screen: np.ndarray, sig: PixelSignature,
+        screen: np.ndarray, sig: PixelSignature | CompositePixelSignature,
     ) -> bool:
-        """检查截图是否匹配像素特征签名。"""
+        """检查截图是否匹配像素特征签名（支持单签名或组合签名）。"""
         return PixelChecker.check_signature(screen, sig).matched
 
     def _match_phase(
@@ -216,7 +206,7 @@ class CombatRecognizer:
         self,
         candidates: list[CombatPhase],
         *,
-        poll_action: Callable[[], None] | None = None,
+        poll_action: Callable[[np.ndarray], None] | None = None,
     ) -> CombatPhase:
         """等待候选状态之一出现。
 
@@ -248,7 +238,7 @@ class CombatRecognizer:
             phase_sigs.append((phase, sig))
 
         deadline = time.time() + max_timeout
-        poll_interval = 0.3
+        poll_interval = 0.05
 
         _log.debug(
             "[Combat] 等待状态: {} (超时 {:.1f}s)",
@@ -257,19 +247,24 @@ class CombatRecognizer:
         )
 
         while time.time() < deadline:
-            if poll_action is not None:
-                poll_action()
-
+            start_time = time.time()
             screen = self._device.screenshot()
+            _log.info("[Combat] 截图耗时: {:.1f}ms", (time.time() - start_time) * 1000)
+            start_time = time.time()
+            if poll_action is not None:
+                poll_action(screen)
+            _log.info("[Combat] poll_action 耗时: {:.1f}ms", (time.time() - start_time) * 1000)
 
+            start_time = time.time()
             for phase, sig in phase_sigs:
                 if sig.template_key is None and sig.pixel_signature is None:
                     continue
                 if self._match_phase(screen, sig):
                     if sig.after_match_delay > 0:
                         time.sleep(sig.after_match_delay)
-                    _log.info("[Combat] 匹配到状态: {}", phase.name)
+                    _log.debug("[Combat] 匹配到状态: {}", phase.name)
                     return phase
+            _log.info("[Combat] 匹配轮询耗时（含匹配）: {:.1f}ms", (time.time() - start_time) * 1000)
 
             time.sleep(poll_interval)
 
