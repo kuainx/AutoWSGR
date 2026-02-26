@@ -48,10 +48,3 @@ class MapPage(
     ocr:
         OCR 引擎实例 (可选，章节导航时需要)。
     """
-
-    def __init__(
-        self,
-        ctrl: AndroidController,
-        ocr: OCREngine | None = None,
-    ) -> None:
-        super().__init__(ctrl, ocr)

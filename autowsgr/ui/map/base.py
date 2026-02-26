@@ -64,11 +64,10 @@ class BaseMapPage:
     def __init__(
         self,
         ctx: GameContext,
-        ocr: OCREngine | None = None,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
-        self._ocr = ocr or ctx.ocr
+        self._ocr = ctx.ocr
 
     # ═══════════════════════════════════════════════════════════════════════
     # 页面识别
