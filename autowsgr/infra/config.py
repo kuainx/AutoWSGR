@@ -143,6 +143,14 @@ class LogConfig(BaseModel):
             merged["combat.engine"] = "INFO"
         if not self.show_combat_recognition_debug:
             merged["combat.recognition"] = "INFO"
+
+        # 决战调试：show_decisive_battle_info 为 True 时，即使父通道
+        # (ui / ops) 被设为 INFO，也要让决战子通道输出 DEBUG 日志。
+        if self.show_decisive_battle_info:
+            merged["decisive"] = "DEBUG"
+            merged["ops.decisive"] = "DEBUG"
+            merged["ui.decisive"] = "DEBUG"
+
         # 显式 channels 配置覆盖布尔开关
         merged.update(self.channels)
         return merged
