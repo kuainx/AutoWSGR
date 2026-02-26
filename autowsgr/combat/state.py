@@ -23,6 +23,10 @@ class CombatPhase(Enum):
     DOCK_FULL = auto()
     """出征时检测到船坞已满弹窗。"""
 
+    # ── 战役次数耗尽 ──
+    BATTLE_TIMES_EXCEED = auto()
+    """战役每日次数已用完。"""
+
     # ── 航行 / 继续 ──
     PROCEED = auto()
     """继续前进 / 回港提示。"""
@@ -153,9 +157,11 @@ def _build_map_transitions(
     if ep is not None:
         start.append(ep)
     start.append(CombatPhase.DOCK_FULL)
+    start.append(CombatPhase.BATTLE_TIMES_EXCEED)
     t[CombatPhase.START_FIGHT] = start
 
     t[CombatPhase.DOCK_FULL] = []
+    t[CombatPhase.BATTLE_TIMES_EXCEED] = []
 
     proceed_yes = list(core_nav)
     if ep is not None:
@@ -217,8 +223,12 @@ def _build_single_transitions(
         CombatPhase.FIGHT_PERIOD,
     ]
 
-    t[CombatPhase.START_FIGHT] = list(core) + [CombatPhase.DOCK_FULL]
+    t[CombatPhase.START_FIGHT] = list(core) + [
+        CombatPhase.DOCK_FULL,
+        CombatPhase.BATTLE_TIMES_EXCEED,
+    ]
     t[CombatPhase.DOCK_FULL] = []
+    t[CombatPhase.BATTLE_TIMES_EXCEED] = []
 
     t[CombatPhase.SPOT_ENEMY_SUCCESS] = {
         "fight": [CombatPhase.FORMATION, CombatPhase.FIGHT_PERIOD],

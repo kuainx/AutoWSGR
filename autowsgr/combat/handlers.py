@@ -56,6 +56,7 @@ _PHASE_HANDLERS: dict[CombatPhase, str] = {
     CombatPhase.PROCEED: "_handle_proceed",
     CombatPhase.FLAGSHIP_SEVERE_DAMAGE: "_handle_flagship_severe_damage",
     CombatPhase.DOCK_FULL: "_handle_dock_full",
+    CombatPhase.BATTLE_TIMES_EXCEED: "_handle_battle_times_exceed",
 }
 
 
@@ -424,6 +425,17 @@ class PhaseHandlersMixin:
             action="船坞已满",
         ))
         return ConditionFlag.DOCK_FULL
+
+    def _handle_battle_times_exceed(self) -> ConditionFlag:
+        """处理战役次数耗尽 — 返回 BATTLE_TIMES_EXCEED 标志交由上层处理。
+        """
+        _log.warning("[Combat] 检测到战役次数耗尽，战斗无法开始")
+        self._history.add(CombatEvent(
+            event_type=EventType.AUTO_RETURN,
+            node=self._node,
+            action="战役次数耗尽",
+        ))
+        return ConditionFlag.BATTLE_TIMES_EXCEED
 
     # ── Mixin 所需的方法签名 (由宿主类提供) ──
 

@@ -211,7 +211,7 @@ class CombatPlan:
     name:
         计划名称（日志用）。
     mode:
-        战斗模式 (normal / battle / exercise)。
+        战斗模式 (normal / battle / exercise / decisive / event)。
     chapter:
         章节号。
     map_id:

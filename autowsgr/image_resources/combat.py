@@ -78,5 +78,10 @@ class CombatTemplates:
     # ── 船坞已满 ──
     DOCK_FULL = LazyTemplate("build/ship_full_depot_540p.png", "dock_full")
 
+    # ── 战役次数耗尽 ──
+    BATTLE_TIMES_EXCEED = LazyTemplate(
+        "combat/battle_times_exceed_540p.png", "battle_times_exceed"
+    )
+
     # ── 战果评级 ──
     Result = _ResultGrade

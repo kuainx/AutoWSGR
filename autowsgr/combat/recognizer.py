@@ -71,6 +71,10 @@ PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
         template_key=TemplateKey.DOCK_FULL,
         default_timeout=3.0,
     ),
+    CombatPhase.BATTLE_TIMES_EXCEED: PhaseSignature(
+        template_key=TemplateKey.BATTLE_TIMES_EXCEED,
+        default_timeout=3.0,
+    ),
     CombatPhase.FIGHT_CONDITION: PhaseSignature(
         template_key=TemplateKey.FIGHT_CONDITION,
         default_timeout=22.5,
@@ -246,7 +250,6 @@ class CombatRecognizer:
         )
 
         while time.time() < deadline:
-            start_time = time.time()
             screen = self._device.screenshot()
             if poll_action is not None:
                 poll_action(screen)
@@ -259,8 +262,6 @@ class CombatRecognizer:
                         time.sleep(sig.after_match_delay)
                     _log.debug("[Combat] 匹配到状态: {}", phase.name)
                     return phase
-            _log.info("[Combat] 匹配轮询耗时（含匹配）: {:.1f}ms", (time.time() - start_time) * 1000)
-
         # 超时
         phase_names = [p.name for p, _ in phase_sigs]
         raise CombatRecognitionTimeout(
