@@ -13,9 +13,8 @@ import time
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.combat import CombatResult, run_combat, CombatMode, CombatPlan, NodeDecision
-from autowsgr.infra import ExerciseConfig
 from autowsgr.ops.navigate import goto_page
-from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode
+from autowsgr.types import ConditionFlag, Formation, PageName, RepairMode, ShipDamageState
 from autowsgr.ui import BattlePreparationPage, RepairStrategy, MapPage, MapPanel
 from autowsgr.emulator import AndroidController
 from autowsgr.context import GameContext
@@ -85,12 +84,12 @@ class ExerciseRunner:
         map_page = MapPage(self._ctx)
         map_page.select_exercise_rival(rival)
         map_page.enter_exercise_battle()
-        self._prepare_for_battle()
-        return self._do_combat()
+        ship_stats = self._prepare_for_battle()
+        return self._do_combat(ship_stats)
 
     # ── 出征准备 ──
 
-    def _prepare_for_battle(self) -> None:
+    def _prepare_for_battle(self) -> list[ShipDamageState]:
         """在出征准备页面执行舰队选择和修理。"""
         time.sleep(1.0)
         page = BattlePreparationPage(self._ctx)
@@ -99,13 +98,18 @@ class ExerciseRunner:
         page.select_fleet(self._fleet_id)
         time.sleep(0.5)
 
+        screen = self._ctrl.screenshot()
+        damage = page.detect_ship_damage(screen)
+        ship_stats = [damage.get(i, ShipDamageState.NORMAL) for i in range(6)]
+
         # 出征
         page.start_battle()
         time.sleep(1.0)
+        return ship_stats
 
     # ── 战斗 ──
 
-    def _do_combat(self) -> CombatResult:
+    def _do_combat(self, ship_stats: list[ShipDamageState]) -> CombatResult:
         """构建 CombatPlan 并执行战斗。"""
         _log.debug("[OPS] 演习战斗开始")
         plan = CombatPlan(
@@ -120,6 +124,7 @@ class ExerciseRunner:
         result = run_combat(
             self._ctx,
             plan,
+            ship_stats=ship_stats,
         )
         _log.debug("[OPS] 演习战斗结束")
         return result
