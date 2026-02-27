@@ -13,7 +13,14 @@ from .state import CombatPhase
 from autowsgr.infra import get_logger
 from autowsgr.context import GameContext
 from autowsgr.image_resources import TemplateKey
-from autowsgr.vision import CompositePixelSignature, ImageChecker, PixelChecker, PixelSignature
+from autowsgr.vision import (
+    CompositePixelSignature,
+    ImageChecker,
+    MatchStrategy,
+    PixelChecker,
+    PixelRule,
+    PixelSignature,
+)
 
 _log = get_logger("combat.recognition")
 
@@ -57,6 +64,20 @@ def _get_event_map_signatures() -> CompositePixelSignature:
     )
 
 
+_CHOOSE_FORMATION_SIGNATURE = PixelSignature(
+    name="choose_formation",
+    strategy=MatchStrategy.ALL,
+    rules=[
+        PixelRule.of(0.9413, 0.2011, (227, 227, 227), tolerance=30.0),
+        PixelRule.of(0.9375, 0.3644, (227, 227, 227), tolerance=30.0),
+        PixelRule.of(0.9569, 0.5278, (227, 227, 227), tolerance=30.0),
+        PixelRule.of(0.5050, 0.5678, (24, 101, 181), tolerance=30.0),
+        PixelRule.of(0.5019, 0.9478, (26, 103, 183), tolerance=30.0),
+        PixelRule.of(0.8531, 0.9367, (32, 134, 219), tolerance=30.0),
+    ],
+)
+
+
 PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
     CombatPhase.PROCEED: PhaseSignature(
         template_key=TemplateKey.PROCEED,
@@ -80,8 +101,9 @@ PHASE_SIGNATURES: dict[CombatPhase, PhaseSignature] = {
         default_timeout=22.5,
     ),
     CombatPhase.FORMATION: PhaseSignature(
-        template_key=TemplateKey.FORMATION,
+        template_key=None,
         default_timeout=22.5,
+        pixel_signature=_CHOOSE_FORMATION_SIGNATURE,
     ),
     CombatPhase.MISSILE_ANIMATION: PhaseSignature(
         template_key=TemplateKey.MISSILE_ANIMATION,

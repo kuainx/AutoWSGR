@@ -233,14 +233,19 @@ class BuildPage:
             超时仍在建造页面。
         """
         from autowsgr.ui.sidebar_page import SidebarPage
+        from autowsgr.ui.main_page import MainPage
 
         _log.info("[UI] 建造页面 → 返回侧边栏")
+
+        def _checker(screen: np.ndarray) -> bool:
+            return SidebarPage.is_current_page(screen) or MainPage.is_current_page(screen)
+
         click_and_wait_for_page(
             self._ctrl,
             click_coord=CLICK_BACK,
-            checker=SidebarPage.is_current_page,
+            checker=_checker,
             source=PageName.BUILD,
-            target=PageName.SIDEBAR,
+            target=f"{PageName.SIDEBAR}/{PageName.MAIN}",
         )
 
     # ── 建造操作 ──────────────────────────────────────────────────────────

@@ -67,41 +67,50 @@ def identify_current_page(ctx: GameContext) -> str | None:
 def _goto_page(ctx: GameContext, target: str) -> None:
     """从当前页面导航到目标页面。
 
+    采用逐步重规划策略 (Step-by-Step Re-planning):
     1. 识别当前页面
     2. BFS 查找路径
-    3. 逐边调用 ``edge.action(ctx)``（截图验证由页面控制器内部完成）
+    3. 执行路径的第一步
+    4. 循环回到 1，直到到达目标
+
+    这允许处理不确定的导航动作 (如: build -> sidebar | main)。
 
     Raises
     ------
     NavigationError
-        无法识别当前页面或找不到路径。
+        无法识别当前页面、找不到路径或步数超限。
     """
-    current = identify_current_page(ctx)
-    if current is None:
-        raise NavigationError(
-            f"无法识别当前页面，无法导航到 '{target}'"
-        )
+    MAX_STEPS = 20
+    
+    for step in range(MAX_STEPS):
+        # 1. 识别
+        current = identify_current_page(ctx)
+        if current is None:
+            raise NavigationError(f"无法识别当前页面，导航中止 (目标: {target})")
 
-    if current == target:
-        _log.info("[OPS] 已在目标页面: {}", target)
-        return
+        # 2. 检查
+        if current == target:
+            _log.info("[OPS] 已在目标页面: {}", target)
+            return
 
-    path = find_path(current, target)
-    if path is None:
-        raise NavigationError(
-            f"无法找到从 '{current}' 到 '{target}' 的路径"
-        )
+        # 3. 寻路
+        path = find_path(current, target)
+        if path is None:
+            raise NavigationError(f"无法找到从 '{current}' 到 '{target}' 的路径")
+        
+        if not path: # Should be covered by current == target, but safe check
+             _log.info("[OPS] 已在目标页面: {}", target)
+             return
 
-    _log.debug("[OPS] 导航: {} → {} (共 {} 步)", current, target, len(path))
-
-    for i, edge in enumerate(path):
+        # 4. 执行一步
+        edge = path[0]
         _log.debug(
-            "[OPS]   步骤 {}/{}: {} → {} ({})",
-            i + 1, len(path), edge.source, edge.target, edge.description,
+            "[OPS] 步骤 {} (总限 {}): {} → {} ({})",
+            step + 1, MAX_STEPS, edge.source, edge.target, edge.description,
         )
         edge.action(ctx)
-
-    _log.info("[OPS] 已到达: {}", target)
+    
+    raise NavigationError(f"导航步数超限 ({MAX_STEPS})，目标: {target}")
 
 
 def goto_page(ctx: GameContext, target: str) -> None:

@@ -4,6 +4,7 @@
 
 - 通过 Emulator 模块可以连接到模拟器
 - 提供了 `save_image` 函数来保存调试截图
+  - **注意**: `save_image` 会自动在文件名后追加时间戳 (如 `debug_123456_789.png`)。在后续使用命令行工具 (如 `copy`) 操作该文件时，**必须**先检查输出日志或使用 `ls` 确认实际生成的文件名，不要直接使用代码中指定的 base name，否则会导致 "File not found" 错误。
 - 使用 numpy 提供的函数来处理图像
 - 调试完成后，将用到的测试图片保存到 `test_pkg` 中的有关目录，对被调试的函数建立测试防止后期回归
 
@@ -55,6 +56,15 @@ python tools/debug_screenshot.py --check-page decisive_battle
 ### 回归测试约定
 
 1. 将调试用到的截图保存到 `test_pkg/<模块名>/` (如 `test_pkg/decisive_ocr/`)
+   - 复制时请重命名为有意义的名称 (去除时间戳)，方便后续维护。
 2. 编写 pytest 测试文件 `test_pkg/<模块名>/test_xxx.py`
 3. OCR 相关测试使用 `@pytest.fixture(scope="module")` 共享 OCR 引擎实例避免重复初始化
 4. 测试应覆盖修复后的正确路径; 可选添加诊断测试记录修复前的错误行为
+
+### 视觉识别进阶
+
+对于更复杂的视觉识别逻辑，特别是涉及 `PixelRules` 和 `ImageMatcher` 的使用，请参阅 [视觉识别系统指南](VisualIdentity.md)。
+
+### 补充
+
+1. 调试遇到 bug 尝试并解决后，补充有意义的信息到本文档防止下次再犯。

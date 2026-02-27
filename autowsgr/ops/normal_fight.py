@@ -141,7 +141,7 @@ class NormalFightRunner:
 
     def _prepare_for_battle(self) -> list[ShipDamageState]:
         """出征准备: 舰队选择、修理、检测血量。
-
+        
         Returns
         -------
         list[int]
