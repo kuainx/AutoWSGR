@@ -1,6 +1,9 @@
 """出征准备 — 舰队编成更换。
 
 提供按舰船名称更换编队的组合动作。
+
+TODO: 优化为使用快速编队逻辑
+TODO: 对 choose_ship_page 建模
 """
 
 from __future__ import annotations
@@ -49,6 +52,10 @@ class FleetChangeMixin(BaseBattlePreparation):
         """
         if fleet_id == 1:
             raise ValueError("不支持更换 1 队舰船编成")
+        
+        if fleet_id and self.get_selected_fleet(self._ctrl.screenshot()) != fleet_id:
+            self.select_fleet(fleet_id)
+            time.sleep(0.5)
 
         _log.info("[UI] 更换 {} 队编成: {}", fleet_id, ship_names)
 
