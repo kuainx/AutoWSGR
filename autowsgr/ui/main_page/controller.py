@@ -1,4 +1,6 @@
-"""主页面 (母港界面) 控制器。"""
+"""主页面 (母港界面) 控制器。
+TODO: 从 sidebar_page 打开的浮层暂时无法正常关闭, 但可以走错误恢复流程恢复
+"""
 
 from __future__ import annotations
 

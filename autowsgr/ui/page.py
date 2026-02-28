@@ -46,7 +46,6 @@ import numpy as np
 from autowsgr.infra.logger import get_logger
 
 from autowsgr.emulator import AndroidController
-from autowsgr.ui.main_page.overlays import detect_overlay, dismiss_overlay  # noqa: F401
 from autowsgr.vision import ImageChecker
 
 _log = get_logger("ui")
@@ -138,27 +137,6 @@ def get_registered_pages() -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# 内部工具
-# ---------------------------------------------------------------------------
-
-
-def _handle_overlay_if_present(
-    ctrl: AndroidController,
-    screen: np.ndarray,
-) -> bool:
-    """检测并尝试消除浮层。
-
-    Returns True 表示执行了消除动作（调用方应跳过 sleep 立即重截图）。
-    Raises NetworkError 表示遇到无法自动消除的浮层。
-    """
-    overlay = detect_overlay(screen)
-    if overlay is None:
-        return False
-    dismiss_overlay(ctrl, overlay)   # NetworkError 向上抛
-    return True
-
-
-# ---------------------------------------------------------------------------
 # 底层验证
 # ---------------------------------------------------------------------------
 
@@ -191,10 +169,6 @@ def wait_for_page(
     while True:
         attempt += 1
         screen = ctrl.screenshot()
-
-        if handle_overlays and _handle_overlay_if_present(ctrl, screen):
-            _log.debug("[UI] 等待 #{}: 消除浮层，立即重截图", attempt)
-            continue
 
         if checker(screen):
             _log.debug("[UI] 已到达: {} → {} (第 {} 次截图)", source or "?", target or "?", attempt)
@@ -242,10 +216,6 @@ def wait_leave_page(
     while True:
         attempt += 1
         screen = ctrl.screenshot()
-
-        if handle_overlays and _handle_overlay_if_present(ctrl, screen):
-            _log.debug("[UI] 等待离开 #{}: 消除浮层，立即重截图", attempt)
-            continue
 
         if not checker(screen):
             current = get_current_page(screen)
