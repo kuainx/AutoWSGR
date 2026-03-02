@@ -1,6 +1,6 @@
 """最小示例 — 刷战役 (困难航母)。
 
-执行 3 次困难航母战役，复纵阵型，开启夜战。
+执行 3 次困难航母战役。
 """
 
 from autowsgr.scheduler import launch

@@ -1,7 +1,6 @@
-"""最小示例 — 常规作战 (7-4 千伪)。
+"""最小示例 — 修改舰队。
 
-使用内置策略 ``7-4千伪`` 执行 3 次常规作战。
-策略文件自动从 ``autowsgr/data/plan/normal_fight/`` 解析，无需指定完整路径。
+修改第 2 舰队的舰船配置。
 """
 
 from autowsgr.scheduler import launch
