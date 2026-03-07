@@ -28,7 +28,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from autowsgr.context import GameContext
-from autowsgr.emulator import ADBController
+from autowsgr.emulator import AndroidController, ScrcpyController
 from autowsgr.infra import ConfigManager, UserConfig
 from autowsgr.infra.logger import get_logger, setup_logger
 from autowsgr.vision import EasyOCREngine, OCREngine
@@ -61,7 +61,7 @@ class Launcher:
     def __init__(self, config_path: str | Path | None = None) -> None:
         self._config_path = Path(config_path) if config_path else None
         self._config: UserConfig | None = None
-        self._ctrl: ADBController | None = None
+        self._ctrl: AndroidController | None = None
         self._ocr: OCREngine | None = None
 
     # ── 配置 ──
@@ -104,17 +104,20 @@ class Launcher:
 
     # ── 设备连接 ──
 
-    def connect(self) -> ADBController:
-        """创建并连接 ADBController。
+    def connect(self) -> AndroidController:
+        """创建并连接设备控制器。
+
+        默认使用 ScrcpyController（基于 scrcpy 协议截图），
+        备选 ADBController（基于 Airtest，需安装 ``autowsgr[airtest]``）。
 
         Returns
         -------
-        ADBController
+        AndroidController
             已建立连接的设备控制器。
         """
         cfg = self.config
         _log.info('[Launcher] 连接设备 (serial={})', cfg.emulator.serial or 'auto')
-        self._ctrl = ADBController(
+        self._ctrl = ScrcpyController(
             serial=cfg.emulator.serial,
             config=cfg.emulator,
         )
@@ -122,7 +125,7 @@ class Launcher:
         return self._ctrl
 
     @property
-    def ctrl(self) -> ADBController:
+    def ctrl(self) -> AndroidController:
         if self._ctrl is None:
             raise RuntimeError('设备未连接，请先调用 connect()')
         return self._ctrl
@@ -179,7 +182,7 @@ class Launcher:
 
     # ── 一步到位 ──
 
-    def launch(self) -> GameContext:
+    def launch(self, ensure_game: bool = True) -> GameContext:
         """一步完成: 加载配置 → 连接 → 构造上下文 → 启动游戏。
 
         Returns
@@ -190,7 +193,8 @@ class Launcher:
         self.load_config()
         self.connect()
         ctx = self.build_context()
-        self.ensure_ready(ctx)
+        if ensure_game:
+            self.ensure_ready(ctx)
         _log.info('[Launcher] 启动完成，游戏已就绪')
         return ctx
 
@@ -200,7 +204,7 @@ class Launcher:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def launch(config_path: str | Path | None = None) -> GameContext:
+def launch(config_path: str | Path | None = None, ensure_game: bool = True) -> GameContext:
     """一站式启动入口。
 
     加载配置 → 连接模拟器 → 启动游戏 → 返回就绪的 :class:`GameContext`。
@@ -228,4 +232,4 @@ def launch(config_path: str | Path | None = None) -> GameContext:
         # 自动检测 usersettings.yaml 或使用默认值
         ctx = launch()
     """
-    return Launcher(config_path).launch()
+    return Launcher(config_path).launch(ensure_game=ensure_game)

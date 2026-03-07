@@ -4,7 +4,7 @@
 
 1. **设备控制** (`AndroidController` / `ADBController`)：
    截图、点击、滑动、按键、应用管理等纯设备操作。
-   所有触控坐标使用相对值 (0.0–1.0)。
+   所有触控坐标使用相对值 (0.0-1.0)。
 
 2. **进程管理** (`EmulatorProcessManager` / `create_emulator_manager`)：
    在宿主操作系统上启动、停止、检测模拟器进程。
@@ -14,6 +14,7 @@ from .controller import (
     ADBController,
     AndroidController,
     DeviceInfo,
+    ScrcpyController,
 )
 from .detector import (
     EmulatorCandidate,
@@ -31,19 +32,17 @@ from .os_control import (
 
 
 __all__ = [
-    # controller
-    'AndroidController',
     'ADBController',
+    'AndroidController',
     'DeviceInfo',
-    # detector
     'EmulatorCandidate',
+    'EmulatorProcessManager',
+    'LinuxEmulatorManager',
+    'MacEmulatorManager',
+    'ScrcpyController',
+    'WindowsEmulatorManager',
+    'create_emulator_manager',
     'detect_emulators',
     'prompt_user_select',
     'resolve_serial',
-    # os_control
-    'EmulatorProcessManager',
-    'WindowsEmulatorManager',
-    'MacEmulatorManager',
-    'LinuxEmulatorManager',
-    'create_emulator_manager',
 ]

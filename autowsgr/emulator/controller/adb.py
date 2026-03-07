@@ -1,13 +1,4 @@
-"""Android 设备控制器 — 模拟器层核心。
-
-提供纯粹的设备操作能力（截图、点击、滑动、按键、应用管理），
-**不做**任何图像识别、页面判定或游戏逻辑。
-
-所有触控坐标使用 **相对值** (0.0–1.0)：
-
-- 左上角 = (0.0, 0.0)
-- 右下角趋近 (1.0, 1.0)
-- 内部自动根据实际分辨率转换为像素坐标
+"""ADB 设备控制器 — 基于 Airtest / ADB 的具体实现。
 
 使用方式::
 
@@ -25,8 +16,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import cv2
@@ -37,7 +26,8 @@ from airtest.core.error import AdbError, DeviceConnectionError
 from autowsgr.infra import EmulatorConfig, EmulatorConnectionError
 from autowsgr.infra.logger import caller_info, get_logger
 
-from .detector import _find_adb, detect_emulators, prompt_user_select, resolve_serial
+from ..detector import _find_adb, detect_emulators, prompt_user_select, resolve_serial
+from .protocol import AndroidController, DeviceInfo
 
 
 if TYPE_CHECKING:
@@ -106,172 +96,6 @@ def _kill_adb_process(adb_path: str | None = None) -> None:
         _log.debug('[Emulator] adb start-server 失败（连接时会自动启动）: {}', exc)
 
 
-@dataclass(frozen=True, slots=True)
-class DeviceInfo:
-    """已连接设备的基本信息。
-
-    Attributes
-    ----------
-    serial:
-        ADB serial 地址。
-    resolution:
-        设备屏幕分辨率 ``(width, height)``。
-    """
-
-    serial: str
-    resolution: tuple[int, int]
-
-
-class AndroidController(ABC):
-    """Android 设备控制器抽象基类。
-
-    仅负责设备操作，不做任何图像识别。
-    子类实现具体连接方式（ADB / Minitouch 等）。
-    """
-
-    # ── 连接管理 ──
-
-    @abstractmethod
-    def connect(self) -> DeviceInfo:
-        """连接设备，返回设备信息。
-
-        Raises
-        ------
-        EmulatorConnectionError
-            连接失败时抛出。
-        """
-        ...
-
-    @abstractmethod
-    def disconnect(self) -> None:
-        """断开设备连接。"""
-        ...
-
-    @property
-    @abstractmethod
-    def resolution(self) -> tuple[int, int]:
-        """设备屏幕分辨率 ``(width, height)``。"""
-        ...
-
-    # ── 截图 ──
-
-    @abstractmethod
-    def screenshot(self) -> np.ndarray:
-        """截取当前屏幕，返回 RGB uint8 数组 ``(H, W, 3)``。
-
-        Raises
-        ------
-        EmulatorConnectionError
-            截图超时或设备无响应。
-        """
-        ...
-
-    # ── 触控 ──
-
-    @abstractmethod
-    def click(self, x: float, y: float) -> None:
-        """点击屏幕。
-
-        Parameters
-        ----------
-        x, y:
-            相对坐标 (0.0–1.0)。
-        """
-        ...
-
-    @abstractmethod
-    def swipe(
-        self,
-        x1: float,
-        y1: float,
-        x2: float,
-        y2: float,
-        duration: float = 0.5,
-    ) -> None:
-        """滑动。
-
-        Parameters
-        ----------
-        x1, y1:
-            起始相对坐标。
-        x2, y2:
-            终止相对坐标。
-        duration:
-            滑动持续时间（秒）。
-        """
-        ...
-
-    @abstractmethod
-    def long_tap(self, x: float, y: float, duration: float = 1.0) -> None:
-        """长按。
-
-        Parameters
-        ----------
-        x, y:
-            相对坐标。
-        duration:
-            按住时间（秒）。
-        """
-        ...
-
-    # ── 按键 ──
-
-    @abstractmethod
-    def key_event(self, key_code: int) -> None:
-        """发送 Android KeyEvent。
-
-        Parameters
-        ----------
-        key_code:
-            Android KeyEvent 键值（如 3 = HOME, 4 = BACK）。
-        """
-        ...
-
-    @abstractmethod
-    def text(self, content: str) -> None:
-        """输入文本。
-
-        Parameters
-        ----------
-        content:
-            要输入的文本。
-        """
-        ...
-
-    # ── 应用管理 ──
-
-    @abstractmethod
-    def start_app(self, package: str) -> None:
-        """启动 Android 应用。
-
-        Parameters
-        ----------
-        package:
-            应用包名。
-        """
-        ...
-
-    @abstractmethod
-    def stop_app(self, package: str) -> None:
-        """停止 Android 应用。"""
-        ...
-
-    @abstractmethod
-    def is_app_running(self, package: str) -> bool:
-        """检查应用是否在前台运行。"""
-        ...
-
-    # ── Shell ──
-
-    @abstractmethod
-    def shell(self, cmd: str) -> str:
-        """执行 ADB shell 命令并返回 stdout。"""
-        ...
-
-
-# ── ADB 实现 ──
-
-
 class ADBController(AndroidController):
     """基于 Airtest / ADB 的 Android 设备控制器。
 
@@ -321,12 +145,7 @@ class ADBController(AndroidController):
                 resolved = prompt_user_select(candidates)
         self._serial = resolved or None
 
-        # 使用 javacap 截图（minicap 在 Android 12+ x86_64 模拟器上不可用）
-        uri = (
-            f'Android:///{resolved}?cap_method=javacap'
-            if resolved
-            else 'Android:///?cap_method=javacap'
-        )
+        uri = f'Android:///{resolved}' if resolved else 'Android:///'
 
         self._connect_with_retry(uri)
         assert self._device is not None  # _try_connect 成功后保证非 None
@@ -369,6 +188,9 @@ class ADBController(AndroidController):
         except Exception as exc:
             _log.warning('[Emulator] 分辨率校验截图失败，使用 display_info 值: {}', exc)
 
+        # ── 禁止 ADBCAP 降级：性能过低（~3 fps），无法满足自动化需求 ──
+        self._reject_adbcap()
+
         _log.info('[Emulator] 已连接设备: {} ({}x{})', self._serial or 'auto', *self._resolution)
         return DeviceInfo(
             serial=self._serial or 'auto',
@@ -376,6 +198,23 @@ class ADBController(AndroidController):
         )
 
     # ── 内部连接辅助 ──
+
+    def _reject_adbcap(self) -> None:
+        """检测截图方式，若降级到 ADBCAP 则直接报错终止。"""
+        proxy = getattr(self._device, '_screen_proxy', None)
+        if proxy is None:
+            return
+        method = getattr(proxy, 'method_name', '')
+        if method == 'ADBCAP':
+            raise EmulatorConnectionError(
+                'MINICAP 和 JAVACAP 均不可用，已被降级到 ADBCAP (~3 fps)。\n'
+                'AutoWSGR 要求高性能截图，拒绝以 ADBCAP 模式运行。\n'
+                '排查方法：\n'
+                '  1) 尝试使用 Android 9/11 版本的模拟器（minicap 兼容性更好）\n'
+                '  2) 换用 MuMu 等其他模拟器（javacap 兼容性可能更好）\n'
+                '  3) pip install --upgrade airtest 更新 Airtest'
+            )
+        _log.info('[Emulator] 截图方式: {}', method)
 
     def _try_connect(self, uri: str, *, kill_first: bool = False) -> None:
         """尝试建立设备连接（单次，不重试）。

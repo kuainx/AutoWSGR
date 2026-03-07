@@ -359,6 +359,7 @@ def setup_logger(
         'airtest.core.android.rotation',
         'airtest.utils.nbsp',
         'pocoui',
+        'adbutils',
     ):
         logging.getLogger(_noisy).setLevel(logging.WARNING)
 
@@ -373,7 +374,7 @@ def save_image(
     Parameters
     ----------
     image:
-        RGB uint8 数组 (H×W×3)。
+        RGB uint8 数组 (HxWx3)。
     tag:
         文件名前缀（不含扩展名）。
     img_dir:

@@ -41,15 +41,15 @@ import sys
 import time
 from pathlib import Path
 
+from loguru import logger
+
+from autowsgr.emulator import ADBController, AndroidController, ScrcpyController
+
 
 # ── 将项目根目录加入 sys.path，兼容直接运行 ──
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-
-from loguru import logger
-
-from autowsgr.emulator import ADBController
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -58,7 +58,7 @@ from autowsgr.emulator import ADBController
 
 
 def _percentile(data: list[float], p: float) -> float:
-    """计算第 p 百分位（0–100）。"""
+    """计算第 p 百分位（0-100）。"""
     if not data:
         return float('nan')
     sorted_data = sorted(data)
@@ -116,7 +116,7 @@ def _progress_bar(done: int, total: int, width: int = 30) -> str:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def bench_connect(ctrl: ADBController) -> dict:
+def bench_connect(ctrl: AndroidController) -> dict:
     """测量 connect() 耗时（只做一次）。"""
     print('\n▶ 连接设备 …', end=' ', flush=True)
     t0 = time.monotonic()
@@ -131,7 +131,7 @@ def bench_connect(ctrl: ADBController) -> dict:
     }
 
 
-def bench_screenshot(ctrl: ADBController, n: int = 20, warmup: int = 2) -> dict:
+def bench_screenshot(ctrl: AndroidController, n: int = 20, warmup: int = 2) -> dict:
     """连续截图压力测试。
 
     Parameters
@@ -163,7 +163,7 @@ def bench_screenshot(ctrl: ADBController, n: int = 20, warmup: int = 2) -> dict:
     return {'screenshot': s}
 
 
-def bench_click(ctrl: ADBController, n: int = 30, warmup: int = 3) -> dict:
+def bench_click(ctrl: AndroidController, n: int = 30, warmup: int = 3) -> dict:
     """点击延迟测试（全程点击屏幕中心）。
 
     注意：``click()`` 目前通过 ``adb shell input tap`` 实现，
@@ -189,7 +189,7 @@ def bench_click(ctrl: ADBController, n: int = 30, warmup: int = 3) -> dict:
     return {'click': s}
 
 
-def bench_swipe(ctrl: ADBController, n: int = 10, warmup: int = 2) -> dict:
+def bench_swipe(ctrl: AndroidController, n: int = 10, warmup: int = 2) -> dict:
     """滑动延迟测试（左→右短滑，duration=0.3s）。"""
     x1, y1, x2, y2, dur = 0.3, 0.5, 0.7, 0.5, 0.3
     print(f'\n▶ 滑动延迟  (左→右，duration={dur}s，预热 {warmup} 次 + 正式 {n} 次)')
@@ -211,7 +211,7 @@ def bench_swipe(ctrl: ADBController, n: int = 10, warmup: int = 2) -> dict:
     return {'swipe': s}
 
 
-def bench_shell_rtt(ctrl: ADBController, n: int = 20, warmup: int = 3) -> dict:
+def bench_shell_rtt(ctrl: AndroidController, n: int = 20, warmup: int = 3) -> dict:
     """裸 shell 往返时间（``adb shell echo ok``），作为通信基准下界。"""
     print(f'\n▶ Shell RTT  (adb shell echo ok，预热 {warmup} 次 + 正式 {n} 次)')
     for _ in range(warmup):
@@ -232,7 +232,7 @@ def bench_shell_rtt(ctrl: ADBController, n: int = 20, warmup: int = 3) -> dict:
     return {'shell_rtt': s}
 
 
-def bench_screenshot_burst(ctrl: ADBController, duration: float = 5.0) -> dict:
+def bench_screenshot_burst(ctrl: AndroidController, duration: float = 5.0) -> dict:
     """在固定时间内尽可能多地连续截图，测量持续吞吐量。
 
     Parameters
@@ -325,6 +325,12 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument('--json', metavar='FILE', default=None, help='将结果输出到 JSON 文件')
     p.add_argument('--log-level', default='WARNING', help='日志级别（DEBUG / INFO / WARNING）')
+    p.add_argument(
+        '--backend',
+        default='scrcpy',
+        choices=['scrcpy', 'adb'],
+        help='截图后端: scrcpy (默认) 或 adb (Airtest)',
+    )
     return p.parse_args()
 
 
@@ -346,7 +352,12 @@ def main() -> None:
     skip = set(args.skip or [])
     results: dict = {}
 
-    ctrl = ADBController(serial=args.serial)
+    if args.backend == 'scrcpy':
+        ctrl: AndroidController = ScrcpyController(serial=args.serial)
+        print('  后端: ScrcpyController')
+    else:
+        ctrl = ADBController(serial=args.serial)
+        print('  后端: ADBController (Airtest)')
 
     # ── 连接 ──
     connect_result = bench_connect(ctrl)

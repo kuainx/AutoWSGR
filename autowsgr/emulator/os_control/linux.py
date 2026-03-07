@@ -5,16 +5,15 @@ from __future__ import annotations
 import shlex
 import subprocess
 
-from airtest.core.android.adb import ADB
-
-from autowsgr.infra.logger import get_logger
-
-
-_log = get_logger('emulator')
+from autowsgr.emulator.detector import _find_adb
 from autowsgr.infra import EmulatorConfig, EmulatorError, EmulatorNotFoundError
+from autowsgr.infra.logger import get_logger
 from autowsgr.types import OSType
 
 from .base import EmulatorProcessManager
+
+
+_log = get_logger('emulator')
 
 
 class LinuxEmulatorManager(EmulatorProcessManager):
@@ -88,14 +87,14 @@ class LinuxEmulatorManager(EmulatorProcessManager):
     def _adb_devices() -> list[str]:
         """列出通过 ADB 连接的设备。"""
         try:
-            adb = ADB().get_adb_path()
+            adb = _find_adb()
             result = subprocess.run(
                 [adb, 'devices'],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-        except (ImportError, OSError, subprocess.CalledProcessError) as exc:
+        except (OSError, subprocess.CalledProcessError) as exc:
             _log.debug('[OS-Linux] ADB 设备列表获取失败: {}', exc)
             return []
 
