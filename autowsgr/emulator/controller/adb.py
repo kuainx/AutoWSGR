@@ -433,7 +433,7 @@ class ADBController(AndroidController):
     def is_app_running(self, package: str) -> bool:
         try:
             dev = self._require_device()
-            ps_output = dev.shell('ps')
+            ps_output = dev.shell('ps -A')
         except (AdbError, DeviceConnectionError, EmulatorConnectionError) as exc:
             _log.debug(
                 "[Emulator] is_app_running('{}') → False (设备异常: {})  {}",
