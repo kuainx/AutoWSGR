@@ -21,7 +21,7 @@ node_args:
     proceed_stop: [2, 2, 2, 2, 2, 2]
   F:
     enemy_rules:
-      - [SAP != 1, retreat]
+      - [AP != 1, retreat]
     formation: 5
     night: True
     proceed: False

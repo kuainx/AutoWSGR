@@ -11,7 +11,7 @@ repair_mode: 1 #维修策略：1为中破就修，2为大破就修
 node_defaults:
   # 索敌成功阶段
   enemy_rules:
-    - [SAP != 1, retreat]
+    - [AP != 1, retreat]
   # 阵型选择阶段
   SL_when_spot_enemy_fails: True # 索敌失败时是否SL
   formation: 4 # 正常情况阵型选择，1-5

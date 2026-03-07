@@ -12,7 +12,7 @@ repair_mode: 1   #1中破修，2大破修
 # NodeLevel
 node_defaults:
   enemy_rules:
-    - [SAP != 1, detour]
+    - [AP != 1, detour]
   formation: 2 # 正常情况阵型选择, 1-5
   # 夜战选择阶段
   night: False # 是否夜战
@@ -24,5 +24,5 @@ node_defaults:
 node_args:
   M:
     enemy_rules:
-    - [SAP != 1, detour]
+    - [AP != 1, detour]
     proceed: False # 结束后是否继续

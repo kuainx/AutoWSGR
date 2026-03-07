@@ -4,6 +4,7 @@ logs/
 
 # 测试图片包
 test_pkg/
+dev/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
