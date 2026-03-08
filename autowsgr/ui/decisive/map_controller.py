@@ -39,6 +39,7 @@ from autowsgr.ui.decisive.overlay import (
     is_decisive_map_page,
 )
 from autowsgr.ui.decisive.preparation import DecisiveBattlePreparationPage
+from autowsgr.ui.utils.ship_list import recognize_ships_in_list as _recognize_ships
 from autowsgr.vision import (
     ImageChecker,
     MatchStrategy,
@@ -183,7 +184,7 @@ class DecisiveMapController:
         Returns
         -------
         float | None
-            舰标中心 X 占图像宽度比例 (0‒1)；检测失败返回 ``None``。
+            舰标中心 X 占图像宽度比例 (0-1)；检测失败返回 ``None``。
         """
         hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(
@@ -379,7 +380,7 @@ class DecisiveMapController:
 
         # DLL locate + 逐行 OCR 扫描
         screen = self._ctrl.screenshot()
-        available = _fleet_ocr.recognize_ships_in_list(self._ocr, screen)
+        available = _recognize_ships(self._ocr, screen)
 
         # 编队中的舰船也计入可用集合
         all_ships = set(available)
