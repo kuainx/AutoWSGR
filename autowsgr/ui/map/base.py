@@ -42,7 +42,7 @@ from autowsgr.ui.tabbed_page import (
     identify_page_type,
     make_tab_checker,
 )
-from autowsgr.ui.utils import click_and_wait_for_page
+from autowsgr.ui.utils import NavigationError, click_and_wait_for_page
 from autowsgr.vision import OCREngine, PixelChecker
 
 
@@ -185,6 +185,9 @@ class BaseMapPage:
             target=PageName.MAIN,
         )
 
+    _PANEL_SWITCH_MAX_RETRIES = 3
+    _PANEL_SWITCH_RETRY_DELAY = 1.0
+
     def switch_panel(self, panel: MapPanel) -> None:
         """切换到指定面板标签并验证到达。"""
         current = self.get_active_panel(self._ctrl.screenshot())
@@ -194,13 +197,44 @@ class BaseMapPage:
             panel.value,
         )
         target_idx = PANEL_TO_INDEX[panel]
-        click_and_wait_for_page(
-            self._ctrl,
-            click_coord=CLICK_PANEL[panel],
-            checker=make_tab_checker(TabbedPageType.MAP, target_idx),
-            source=f'地图-{current.value if current else "?"}',
-            target=f'地图-{panel.value}',
-        )
+        source = f'地图-{current.value if current else "?"}'
+        target = f'地图-{panel.value}'
+        last_err: NavigationError | None = None
+
+        for attempt in range(1, self._PANEL_SWITCH_MAX_RETRIES + 1):
+            if attempt > 1:
+                _log.warning(
+                    '[UI] 面板切换重试 {}/{}: {} -> {} (等 {:.1f}s)',
+                    attempt,
+                    self._PANEL_SWITCH_MAX_RETRIES,
+                    source,
+                    target,
+                    self._PANEL_SWITCH_RETRY_DELAY,
+                )
+                time.sleep(self._PANEL_SWITCH_RETRY_DELAY)
+
+            try:
+                click_and_wait_for_page(
+                    self._ctrl,
+                    click_coord=CLICK_PANEL[panel],
+                    checker=make_tab_checker(TabbedPageType.MAP, target_idx),
+                    source=source,
+                    target=target,
+                )
+                return
+            except NavigationError as e:
+                last_err = e
+                _log.warning(
+                    '[UI] 面板切换失败 ({}/{}): {} -> {}',
+                    attempt,
+                    self._PANEL_SWITCH_MAX_RETRIES,
+                    source,
+                    target,
+                )
+
+        raise NavigationError(
+            f'面板切换失败 (已重试 {self._PANEL_SWITCH_MAX_RETRIES} 次): {source} -> {target}'
+        ) from last_err
 
     def ensure_panel(self, panel: MapPanel) -> None:
         """确保当前处于指定面板，若不是则切换。"""

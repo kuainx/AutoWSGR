@@ -5,11 +5,6 @@
 
 ---
 
-## 🔴 P0 — 核心功能缺失（影响正常运行）
-
-| # | 位置 | 描述 |
-|---|------|------|
-| 1 | [`autowsgr/combat/engine.py#L356`](../autowsgr/combat/engine.py#L356) | **舰队血量检测未接入**：`_detect_ship_stats()` 当前返回旧值，需接入 `BattlePreparationPage.detect_ship_damage` 的像素检测逻辑 |
 
 ## 🟡 P1 — 功能增强（已可运行但不够完善）
 
@@ -17,22 +12,7 @@
 |---|------|------|
 | 5 | [`autowsgr/combat/handlers.py#L349`](../autowsgr/combat/handlers.py#L349) | **战果结算可靠性**：`_handle_result()` 需增强可靠性（等待/重试机制） |
 | 6 | [`autowsgr/combat/engine.py#L361`](../autowsgr/combat/engine.py#L361) | **掉落舰船 OCR 识别**：`_get_ship_drop()` 当前返回 `None`，需接入 OCR 识别掉落舰船名 |
-| 7 | [`autowsgr/ops/decisive/_controller.py#L233`](../autowsgr/ops/decisive/_controller.py#L233) | **决战副官技能检查**：`_handle_map_ready()` 中未检查副官技能 |
-| 8 | [`autowsgr/ops/decisive/_controller.py#L239`](../autowsgr/ops/decisive/_controller.py#L239) | **决战前进点 OCR 识别**：选择前进点时未 OCR 识别可选节点名（如 A1, A2），影响智能决策 |
-| 9 | [`autowsgr/ops/decisive/_logic.py#L234`](../autowsgr/ops/decisive/_logic.py#L234) | **决战前进选择策略**：`get_advance_choice()` 当前固定返回 0，需根据地图数据和关键节点信息做更智能的选择 |
 
-## 🟢 P2 — 坐标校准 & UI 精化
-
-| # | 位置 | 描述 |
-|---|------|------|
-| 10 | [`autowsgr/ui/build_page.py#L89`](../autowsgr/ui/build_page.py#L89) | **建造页面标签坐标**：切换标签的点击坐标为估计值，待实际截图确认 |
-| 11 | [`autowsgr/ui/navigation.py#L225`](../autowsgr/ui/navigation.py#L225) | **导航图边坐标**：部分导航边坐标为估计值，需在实际游戏中截图校准 |
-
-## 🔵 P3 — 代码质量 & 工程化
-
-| # | 位置 | 描述 |
-|---|------|------|
-| 12 | [`pyproject.toml#L100-L104`](../pyproject.toml#L100-L104) | **Ruff 规则临时豁免**：`ANN001/ANN201/ANN202`（类型注解）和 `E722/BLE001/B904/TRY*`（异常处理）规则暂时 ignore，需逐步补齐后移除 |
 
 ---
 
@@ -42,7 +22,6 @@
 
 | 位置 | 描述 |
 |------|------|
-| `autowsgr_legacy/configs.py#L181` | OCR 后端：暂时仅 easyocr 可用 |
 | `autowsgr_legacy/configs.py#L191-L193` | 浴室数 / 修理位置数可自动获取 |
 | `autowsgr_legacy/configs.py#L386` | 检查逻辑待验证 |
 | `autowsgr_legacy/timer/timer.py#L278` | 重新登录逻辑留空 |
