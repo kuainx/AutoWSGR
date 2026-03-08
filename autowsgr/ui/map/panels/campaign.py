@@ -18,7 +18,7 @@ from autowsgr.ui.map.data import (
     SHIP_COUNT_CROP,
     MapPanel,
 )
-from autowsgr.ui.page import wait_for_page
+from autowsgr.ui.utils import wait_for_page
 from autowsgr.vision import PixelChecker
 
 
@@ -72,7 +72,7 @@ class CampaignPanelMixin(BaseMapPage):
         Parameters
         ----------
         map_index:
-            战役编号 (1–5: 航母/潜艇/驱逐/巡洋/战列)。
+            战役编号 (1-5: 航母/潜艇/驱逐/巡洋/战列)。
         difficulty:
             难度 ``"easy"`` 或 ``"hard"``。
         campaign_name:
@@ -88,7 +88,7 @@ class CampaignPanelMixin(BaseMapPage):
         from autowsgr.ui.battle.preparation import BattlePreparationPage
 
         if map_index not in CAMPAIGN_POSITIONS:
-            raise ValueError(f'战役编号必须为 1–5，收到: {map_index}')
+            raise ValueError(f'战役编号必须为 1-5，收到: {map_index}')
         if difficulty not in ('easy', 'hard'):
             raise ValueError(f'难度必须为 easy 或 hard，收到: {difficulty}')
 

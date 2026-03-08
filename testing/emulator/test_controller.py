@@ -87,7 +87,7 @@ class TestADBControllerCoordinates:
         ctrl._device.shell.assert_called_once_with('input swipe 480 270 480 270 2000')
 
     def test_high_resolution(self):
-        """1920×1080 分辨率下的转换。"""
+        """1920x1080 分辨率下的转换。"""
         c = ADBController(serial='test')
         c._resolution = (1920, 1080)
         c._device = MagicMock()

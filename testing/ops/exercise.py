@@ -5,7 +5,7 @@
     python testing/ops/exercise.py
     python testing/ops/exercise.py 127.0.0.1:16384
 
-    # 指定舰队和对手 (对手编号 1–5，不传则挑战所有可用对手)
+    # 指定舰队和对手 (对手编号 1-5，不传则挑战所有可用对手)
     python testing/ops/exercise.py 127.0.0.1:16384 --fleet 2 --rival 3
 
 无页面前置要求 — ExerciseRunner 内部通过 goto_page() 自动导航到演习面板。
@@ -56,7 +56,7 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         metavar='N',
-        help='指定对手编号 1–5；不传则挑战所有可用对手',
+        help='指定对手编号 1-5；不传则挑战所有可用对手',
     )
     return parser.parse_args()
 
@@ -82,7 +82,7 @@ def main() -> None:
         print(f'    {s}')
     print()
     if args.rival is not None and not (1 <= args.rival <= 5):
-        print(f'  [ERROR] --rival 必须在 1–5 之间，收到: {args.rival}')
+        print(f'  [ERROR] --rival 必须在 1-5 之间，收到: {args.rival}')
         sys.exit(1)
     input('  按 Enter 开始运行...')
     print()

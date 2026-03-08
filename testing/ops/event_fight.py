@@ -4,7 +4,7 @@
 
 用法::
 
-    # 自动检测设备，默认打 H3 × 1 次
+    # 自动检测设备，默认打 H3 x 1 次
     python testing/ops/event_fight.py
 
     # 指定设备 serial

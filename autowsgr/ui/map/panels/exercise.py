@@ -4,8 +4,8 @@
 重构为新架构下的独立 Mixin。
 
 演习面板共有 **5 个对手**，屏幕一次显示 4 个:
-- 上滑至顶部 (``up``): 显示对手 1–4，对手 5 需要下滑才可见。
-- 下滑至底部 (``down``): 显示对手 2–5，对手 1 需要上滑才可见。
+- 上滑至顶部 (``up``): 显示对手 1-4，对手 5 需要下滑才可见。
+- 下滑至底部 (``down``): 显示对手 2-5，对手 1 需要上滑才可见。
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from autowsgr.ui.map.data import (
     EXERCISE_SWIPE_TO_BOTTOM,
     EXERCISE_SWIPE_TO_TOP,
 )
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page
 from autowsgr.vision import PixelChecker
 
 
@@ -54,7 +54,7 @@ class ExerciseRivalStatus:
     ----------
     rivals:
         长度为 5 的列表, ``True`` = 可挑战 (蓝色按钮), ``False`` = 已挑战。
-        索引 0–4 对应对手 1–5。
+        索引 0-4 对应对手 1-5。
     """
 
     rivals: list[bool] = field(default_factory=lambda: [False] * 5)
@@ -120,7 +120,7 @@ class ExercisePanelMixin(BaseMapPage):
         time.sleep(EXERCISE_SWIPE_DELAY)
 
     def _check_challenge_at(self, screen: np.ndarray, slot: int) -> bool:
-        """检测屏幕上第 ``slot`` (0–3) 个可见位置的挑战按钮颜色。
+        """检测屏幕上第 ``slot`` (0-3) 个可见位置的挑战按钮颜色。
 
         Returns
         -------
@@ -145,7 +145,7 @@ class ExercisePanelMixin(BaseMapPage):
 
         **流程** (参考 legacy ``get_exercise_stats``):
         1. 上滑确保列表在顶部。
-        2. 截图，检测屏幕 4 个位置 (对手 1–4)。
+        2. 截图，检测屏幕 4 个位置 (对手 1-4)。
         3. 下滑到底部。
         4. 截图，检测屏幕第 4 个位置 (此时为对手 5)。
 
@@ -162,12 +162,12 @@ class ExercisePanelMixin(BaseMapPage):
             self._exercise_swipe_to_top()
             screen = self._ctrl.screenshot()
 
-        # 2. 读取对手 1–4
+        # 2. 读取对手 1-4
         for i in range(4):
             status.rivals[i] = self._check_challenge_at(screen, i)
 
         _log.debug(
-            '[UI] 演习对手 1–4 状态: {}',
+            '[UI] 演习对手 1-4 状态: {}',
             ['Y' if s else 'N' for s in status.rivals[:4]],
         )
 
@@ -189,7 +189,7 @@ class ExercisePanelMixin(BaseMapPage):
         """在演习面板中点击选择指定对手。
 
         **滚动逻辑**:
-        - 对手 1–4: 上滑到顶部后，点击对应可见位置 (0–3)。
+        - 对手 1-4: 上滑到顶部后，点击对应可见位置 (0-3)。
         - 对手 5: 下滑到底部后，点击第 4 个可见位置 (3)。
 
         选择后会进入「对手信息」页面，可查看阵容或开始战斗。
@@ -197,25 +197,25 @@ class ExercisePanelMixin(BaseMapPage):
         Parameters
         ----------
         rival_index:
-            对手序号 (1–5, 1-based)。
+            对手序号 (1-5, 1-based)。
 
         Raises
         ------
         ValueError
-            对手序号不在 1–5 范围内。
+            对手序号不在 1-5 范围内。
         """
         if not 1 <= rival_index <= 5:
-            raise ValueError(f'对手序号必须为 1–5，收到: {rival_index}')
+            raise ValueError(f'对手序号必须为 1-5，收到: {rival_index}')
 
         _log.info('[UI] 演习 → 选择第 {} 个对手', rival_index)
 
         if rival_index <= 4:
-            # 对手 1–4: 确保在顶部
+            # 对手 1-4: 确保在顶部
             screen = self._ctrl.screenshot()
             if not self._exercise_is_at_top(screen):
                 self._exercise_swipe_to_top()
 
-            slot = rival_index - 1  # 可见位置 0–3
+            slot = rival_index - 1  # 可见位置 0-3
             x, y = EXERCISE_CHALLENGE_PROBES[slot]
             self._ctrl.click(x, y)
         else:
@@ -304,7 +304,7 @@ class ExercisePanelMixin(BaseMapPage):
         Parameters
         ----------
         rival_index:
-            对手序号 (1–5)。
+            对手序号 (1-5)。
         """
         self.select_exercise_rival(rival_index)
         time.sleep(0.5)

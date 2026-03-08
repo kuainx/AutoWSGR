@@ -8,7 +8,7 @@ from autowsgr.vision import ImageTemplate
 
 
 def solid_screen(r: int, g: int, b: int, h: int = 540, w: int = 960) -> np.ndarray:
-    """创建纯色截图 (H×W×3, RGB uint8)。"""
+    """创建纯色截图 (HxWx3, RGB uint8)。"""
     screen = np.zeros((h, w, 3), dtype=np.uint8)
     screen[:, :] = [r, g, b]
     return screen

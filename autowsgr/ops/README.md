@@ -51,7 +51,7 @@ python testing/ops/normal_fight.py --plan examples/plans/normal_fight/7-46SS-all
 ### campaign 测试 ✅
 
 ```bash
-python testing/ops/campaign.py                              # 困难驱逐 ×1
+python testing/ops/campaign.py                              # 困难驱逐 x1
 python testing/ops/campaign.py 127.0.0.1:16384 困难航母 3  # 指定战役和次数
 python testing/ops/campaign.py "" 简单驱逐 2
 ```

@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 from autowsgr.image_resources import Templates
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.ui.tabbed_page import TabbedPageType, identify_page_type
+from autowsgr.ui.utils import click_and_wait_for_page
 from autowsgr.vision import ImageChecker
 
 
@@ -71,7 +71,7 @@ class MissionPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         return identify_page_type(screen) == TabbedPageType.MISSION
 

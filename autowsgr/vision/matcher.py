@@ -52,7 +52,7 @@ _log = get_logger('vision.pixel')
 class PixelChecker:
     """像素特征检测引擎 — 视觉层核心 API。
 
-    所有方法接收 numpy 数组形式的截图 (H×W×3, RGB uint8)，
+    所有方法接收 numpy 数组形式的截图 (HxWx3, RGB uint8)，
     坐标一律使用相对值（左上角为 0.0，右下角趋近 1.0），
     内部自动转换为像素索引，与截图分辨率无关。
     """
@@ -66,7 +66,7 @@ class PixelChecker:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         x, y:
             像素的相对坐标（左上角为 0.0，右下角趋近 1.0）。
         """
@@ -123,7 +123,7 @@ class PixelChecker:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         signature:
             要检查的像素签名（单个或组合）。
         with_details:

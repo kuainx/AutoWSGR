@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page
 from autowsgr.vision import (
     MatchStrategy,
     PixelRule,
@@ -92,7 +92,7 @@ class FriendPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         from autowsgr.ui.tabbed_page import TabbedPageType, identify_page_type
 

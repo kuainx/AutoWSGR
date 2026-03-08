@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 _log = get_logger('ui')
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 点击坐标 (960×540 基准)
+# 点击坐标 (960x540 基准)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 CLICK_SEARCH_BOX: tuple[float, float] = (700 / 960, 30 / 540)
@@ -94,12 +95,19 @@ class ChooseShipPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         result = PixelChecker.check_signature(screen, PAGE_SIGNATURE)
         return result.matched
 
     # ── 操作 ──────────────────────────────────────────────────────────────
+    def wait_search_box(self):
+        while True:
+            screen = self._ctrl.screenshot()
+            if PixelChecker.check_signature(screen, PAGE_SIGNATURE).matched:
+                break
+            _log.debug('[UI] 等待选船页面出现，继续轮询…')
+            time.sleep(0.5)
 
     def click_search_box(self) -> None:
         """点击搜索框，准备输入舰船名。"""
@@ -133,3 +141,30 @@ class ChooseShipPage:
         """点击「移除」按钮，移除当前槽位的舰船。"""
         _log.info('[UI] 选船 → 移除舰船')
         self._ctrl.click(*CLICK_REMOVE_SHIP)
+
+    def change_single_ship(self, name: str | None) -> None:
+        """更换/移除当前槽位的舰船。"""
+        if name is None:
+            self.click_remove()
+            time.sleep(0.8)
+            return
+
+        self.click_search_box()
+        # TODO: 等搜索框出现
+        time.sleep(0.5)
+        self.input_ship_name(name)
+        time.sleep(0.3)
+        self.dismiss_keyboard()
+        time.sleep(0.8)
+
+        screen = self._ctrl.screenshot()
+        if self._ocr is None:
+            _log.warning('[UI] 未提供 OCR 引擎，无法验证舰船名称')
+        else:
+            save_image(screen, 'debug_choose_ship.png')
+            ship_name = self._ocr.recognize_ship_name(screen, [name])
+            if ship_name != name:
+                _log.warning("[UI] 未精确匹配 '{}', OCR 识别: '{}'", name, ship_name)
+
+        choose_page.click_first_result()
+        time.sleep(1.0)

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Literal
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page, wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page, wait_for_page
 from autowsgr.vision import (
     Color,
     CompositePixelSignature,

@@ -343,8 +343,8 @@ class TestMultiResolutionScaling:
     """测试 per-template source_resolution 适配逻辑。"""
 
     def test_default_resolution_no_scaling_on_960x540(self):
-        """默认 source_resolution=(960,540) 在 960×540 截图上不缩放。"""
-        screen = solid_screen(200, 200, 200)  # 960×540
+        """默认 source_resolution=(960,540) 在 960x540 截图上不缩放。"""
+        screen = solid_screen(200, 200, 200)  # 960x540
         tmpl = make_template(seed=80, h=30, w=40, name='default_res')
         screen = embed_template_in_screen(screen, tmpl, x=100, y=100)
 
@@ -353,13 +353,13 @@ class TestMultiResolutionScaling:
         assert detail.confidence > 0.9
 
     def test_1080p_template_scaled_to_540p_screen(self):
-        """source_resolution=(1920,1080) 的模板在 960×540 截图上应自动缩小。"""
+        """source_resolution=(1920,1080) 的模板在 960x540 截图上应自动缩小。"""
         import numpy as np
 
-        # 创建 960×540 截图
+        # 创建 960x540 截图
         screen = solid_screen(200, 200, 200, h=540, w=960)
 
-        # 模板采集自 1080p: 60×80 像素 → 在 540p 下应缩放为 30×40
+        # 模板采集自 1080p: 60x80 像素 → 在 540p 下应缩放为 30x40
         rng = np.random.RandomState(81)
         big_img = rng.randint(0, 256, (60, 80, 3), dtype=np.uint8)
         from autowsgr.vision import ImageTemplate
@@ -384,13 +384,13 @@ class TestMultiResolutionScaling:
         assert detail.confidence > 0.85
 
     def test_540p_template_scaled_to_1080p_screen(self):
-        """source_resolution=(960,540) 的模板在 1920×1080 截图上应自动放大。"""
+        """source_resolution=(960,540) 的模板在 1920x1080 截图上应自动放大。"""
         import numpy as np
 
-        # 创建 1920×1080 截图
+        # 创建 1920x1080 截图
         screen = solid_screen(200, 200, 200, h=1080, w=1920)
 
-        # 模板采集自 540p: 30×40 像素 → 在 1080p 下应缩放为 60×80
+        # 模板采集自 540p: 30x40 像素 → 在 1080p 下应缩放为 60x80
         rng = np.random.RandomState(82)
         small_img = rng.randint(0, 256, (30, 40, 3), dtype=np.uint8)
         from autowsgr.vision import ImageTemplate
@@ -418,10 +418,10 @@ class TestMultiResolutionScaling:
 
         from autowsgr.vision import ImageTemplate
 
-        # 1280×720 截图
+        # 1280x720 截图
         screen = solid_screen(200, 200, 200, h=720, w=1280)
 
-        # 模板 A: 采集自 960×540 (30×40) → 在 720p 下缩放为 40×53
+        # 模板 A: 采集自 960x540 (30x40) → 在 720p 下缩放为 40x53
         rng_a = np.random.RandomState(83)
         img_a = rng_a.randint(0, 256, (30, 40, 3), dtype=np.uint8)
         tmpl_a = ImageTemplate(
@@ -439,7 +439,7 @@ class TestMultiResolutionScaling:
         sa_h, sa_w = scaled_a.shape[:2]
         screen[50 : 50 + sa_h, 100 : 100 + sa_w] = scaled_a
 
-        # 模板 B: 采集自 1920×1080 (60×80) → 在 720p 下缩放为 40×53
+        # 模板 B: 采集自 1920x1080 (60x80) → 在 720p 下缩放为 40x53
         rng_b = np.random.RandomState(84)
         img_b = rng_b.randint(0, 256, (60, 80, 3), dtype=np.uint8)
         tmpl_b = ImageTemplate(
@@ -470,7 +470,7 @@ class TestMultiResolutionScaling:
 
         tmpl_img = np.zeros((60, 80, 3), dtype=np.uint8)
 
-        # source_resolution=(1920,1080), screen=960×540 → 缩放到 40×30
+        # source_resolution=(1920,1080), screen=960x540 → 缩放到 40x30
         scaled = ImageChecker._scale_template_if_needed(
             tmpl_img,
             960,
@@ -479,7 +479,7 @@ class TestMultiResolutionScaling:
         )
         assert scaled.shape == (30, 40, 3)
 
-        # source_resolution=(960,540), screen=960×540 → 不缩放
+        # source_resolution=(960,540), screen=960x540 → 不缩放
         same = ImageChecker._scale_template_if_needed(
             tmpl_img,
             960,

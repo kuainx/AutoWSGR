@@ -34,7 +34,7 @@ class Color:
     Parameters
     ----------
     r, g, b:
-        红、绿、蓝通道值，范围 0–255。
+        红、绿、蓝通道值，范围 0-255。
     """
 
     r: int
@@ -312,5 +312,5 @@ class PixelMatchResult:
 
     @property
     def ratio(self) -> float:
-        """匹配比例 (0.0 – 1.0)。"""
+        """匹配比例 (0.0 - 1.0)。"""
         return self.matched_count / self.total_count if self.total_count > 0 else 0.0

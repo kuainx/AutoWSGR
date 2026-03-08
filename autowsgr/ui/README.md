@@ -70,7 +70,7 @@ class MapPage(SortiePanelMixin, CampaignPanelMixin, DecisivePanelMixin,
     def ensure_panel(self, panel: MapPanel) -> None:
         """确保处于指定面板，若不是则自动切换。"""
     def navigate_to_chapter(self, target: int) -> int | None:
-        """通过 OCR 导航到指定章节 (1–9)。"""
+        """通过 OCR 导航到指定章节 (1-9)。"""
     def go_back(self) -> None:
         """返回主页面。"""
 
@@ -90,7 +90,7 @@ class MapPage(SortiePanelMixin, CampaignPanelMixin, DecisivePanelMixin,
     def get_exercise_rival_status(self) -> ExerciseRivalStatus:
         """检测 5 个演习对手的可挑战状态。"""
     def select_exercise_rival(self, rival_index: int) -> None:
-        """点击选择指定对手 (1–5)。"""
+        """点击选择指定对手 (1-5)。"""
     def enter_exercise_battle(self) -> None:
         """在对手信息页开始战斗，进入出征准备页面。"""
     def challenge_rival(self, rival_index: int) -> None:
@@ -99,7 +99,7 @@ class MapPage(SortiePanelMixin, CampaignPanelMixin, DecisivePanelMixin,
     # 远征面板
     @staticmethod
     def find_ready_expedition_slot(screen) -> int | None:
-        """检测第一个已完成远征的槽位 (0–3)。"""
+        """检测第一个已完成远征的槽位 (0-3)。"""
     def collect_expedition(self) -> int:
         """收取所有已完成远征，返回收取数量。"""
 
@@ -122,7 +122,7 @@ class BattlePreparationPage(DetectionMixin, SupplyMixin, RepairMixin,
     def is_current_page(screen) -> bool: ...
     @staticmethod
     def get_selected_fleet(screen) -> int | None:
-        """获取当前选中的舰队编号 (1–4)。"""
+        """获取当前选中的舰队编号 (1-4)。"""
     @staticmethod
     def get_active_panel(screen) -> Panel | None:
         """获取当前激活的底部面板 (综合战力/快速补给/快速修理/装备预览)。"""
@@ -136,7 +136,7 @@ class BattlePreparationPage(DetectionMixin, SupplyMixin, RepairMixin,
     def start_battle(self) -> None:
         """点击「开始出征」。"""
     def select_fleet(self, fleet: int) -> None:
-        """选择舰队 (1–4)。"""
+        """选择舰队 (1-4)。"""
     def select_panel(self, panel: Panel) -> None:
         """切换底部面板标签。"""
 

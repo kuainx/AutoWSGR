@@ -52,7 +52,7 @@ _log = get_logger('ui.decisive')
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # 出征准备页下方舰船名称标签横条的 Y 范围（相对坐标，与分辨率无关）。
-# 实测 1280×720 截图：舰船名字中心 y ≈ 447，故取 y ∈ [435, 462]
+# 实测 1280x720 截图：舰船名字中心 y ≈ 447，故取 y ∈ [435, 462]
 # → relative Y ∈ (435/720, 462/720) ≈ (0.604, 0.642)
 _NAME_STRIP_Y1: float = 435 / 720
 _NAME_STRIP_Y2: float = 462 / 720
@@ -113,13 +113,13 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
     def detect_fleet(self, screen: np.ndarray | None = None) -> list[str | None]:
         """OCR 识别出征准备页面当前 6 个槽位的舰船名。
 
-        读取屏幕底部舰船名称横条 (Y ≈ 0.80–0.85) 中的各块文字，
-        按 X 坐标对应到槽位 0–5。
+        读取屏幕底部舰船名称横条 (Y ≈ 0.80-0.85) 中的各块文字，
+        按 X 坐标对应到槽位 0-5。
 
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)；``None`` 时自动截图。
+            截图 (HxWx3, RGB)；``None`` 时自动截图。
 
         Returns
         -------
@@ -211,9 +211,9 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
         Parameters
         ----------
         fleet_id:
-            舰队编号 (2–4)；``None`` 代表不指定舰队。1 队不支持更换。
+            舰队编号 (2-4)；``None`` 代表不指定舰队。1 队不支持更换。
         ship_names:
-            目标舰船名列表 (按槽位 0–5 顺序)；``None``/``""`` 表示留空。
+            目标舰船名列表 (按槽位 0-5 顺序)；``None``/``""`` 表示留空。
 
         Returns
         -------
@@ -355,9 +355,9 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
         Parameters
         ----------
         src:
-            源槽位 (0–5)。
+            源槽位 (0-5)。
         dst:
-            目标槽位 (0–5)。
+            目标槽位 (0-5)。
         current:
             **变参**: 当前 6 槽位舰船名，就地更新以反映移动后状态。
         """
@@ -394,7 +394,7 @@ class DecisiveBattlePreparationPage(BattlePreparationPage):
         Parameters
         ----------
         slot:
-            槽位编号 (0–5)。
+            槽位编号 (0-5)。
         name:
             目标舰船名；``None`` 表示移除该槽位舰船。
         slot_occupied:

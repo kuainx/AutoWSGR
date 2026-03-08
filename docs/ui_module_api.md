@@ -125,7 +125,7 @@ class TabbedPageType(enum.Enum):
 | 函数 | 签名 | 说明 |
 |------|------|------|
 | `is_tabbed_page` | `(screen) → bool` | 判断是否为标签页（1 蓝 + 其余暗） |
-| `get_active_tab_index` | `(screen) → int \| None` | 获取激活标签索引 (0–4) |
+| `get_active_tab_index` | `(screen) → int \| None` | 获取激活标签索引 (0-4) |
 | `identify_page_type` | `(screen) → TabbedPageType \| None` | 通过标签栏模板匹配识别页面类型 |
 | `make_tab_checker` | `(page_type, tab_index) → Callable` | 创建同时验证页面类型和标签索引的 checker |
 | `make_page_checker` | `(page_type) → Callable` | 创建仅验证页面类型的 checker |
@@ -239,7 +239,7 @@ class TabbedPageType(enum.Enum):
 | 方法 | 类型 | 说明 |
 |------|------|------|
 | `is_current_page(screen)` | `staticmethod → bool` | 判断是否为出征准备页面 |
-| `get_selected_fleet(screen)` | `staticmethod → int \| None` | 获取选中舰队编号 (1–4) |
+| `get_selected_fleet(screen)` | `staticmethod → int \| None` | 获取选中舰队编号 (1-4) |
 | `get_active_panel(screen)` | `staticmethod → Panel \| None` | 获取激活的底部面板 |
 | `is_auto_supply_enabled(screen)` | `staticmethod → bool` | 检测自动补给是否开启 |
 
@@ -254,7 +254,7 @@ class TabbedPageType(enum.Enum):
 | 方法 | 说明 |
 |------|------|
 | `start_battle()` | 点击「开始出征」 |
-| `select_fleet(fleet: int)` | 选择舰队 (1–4) |
+| `select_fleet(fleet: int)` | 选择舰队 (1-4) |
 | `select_panel(panel: Panel)` | 切换底部面板（综合战力/快速补给/快速修理/装备预览） |
 | `quick_supply()` | 切换到快速补给面板 |
 | `quick_repair()` | 切换到快速修理面板 |
@@ -382,7 +382,7 @@ class TabbedPageType(enum.Enum):
 
 | 方法 | 说明 |
 |------|------|
-| `start_build(slot: int)` | 点击指定槽位开始建造 (1–4) |
+| `start_build(slot: int)` | 点击指定槽位开始建造 (1-4) |
 | `fast_build(slot: int)` | 快速完成指定槽位 |
 | `collect_build(slot: int)` | 取出已完成槽位的舰船 |
 | `dismiss_build_animation()` | 跳过建造获取动画 |
@@ -445,7 +445,7 @@ class TabbedPageType(enum.Enum):
 |------|------|------|
 | `is_current_page(screen)` | `staticmethod → bool` | 判断是否为决战总览页（像素签名） |
 | `recognize_stage(screen, chapter)` | 实例方法 `→ list[DecisiveEntryStatus]` | 识别指定章节各小关的通关状态 |
-| `recognize_chapter(screen) → int \| None` | 实例方法 | OCR 识别当前章节编号 (4–6) |
+| `recognize_chapter(screen) → int \| None` | 实例方法 | OCR 识别当前章节编号 (4-6) |
 
 #### 导航
 
@@ -562,7 +562,7 @@ if path:
 ### 等待指定页面
 
 ```python
-from autowsgr.ui.page import wait_for_page
+from autowsgr.ui.utils import wait_for_page
 from autowsgr.ui.build_page import BuildPage
 
 screen = wait_for_page(ctrl, BuildPage.is_current_page, target="建造页")
@@ -581,7 +581,7 @@ screen = wait_for_page(ctrl, checker, target="地图-远征")
 ### 确认弹窗
 
 ```python
-from autowsgr.ui.page import confirm_operation
+from autowsgr.ui.utils import confirm_operation
 
 found = confirm_operation(ctrl, must_confirm=True, timeout=5.0)
 ```

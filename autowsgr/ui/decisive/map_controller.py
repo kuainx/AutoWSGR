@@ -463,7 +463,7 @@ class DecisiveMapController:
     def confirm_stage_clear(self) -> list[str]:
         """小关通关后确认弹窗并收集掉落舰船。"""
         from autowsgr.image_resources import Templates
-        from autowsgr.ui.page import confirm_operation
+        from autowsgr.ui.utils import confirm_operation
 
         confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
         confirm_operation(self._ctrl, must_confirm=True, timeout=5.0)
@@ -547,9 +547,9 @@ class DecisiveMapController:
         Parameters
         ----------
         fleet_id:
-            舰队编号 (2–4)；``None`` 代表不指定舰队。1 队不支持更换。
+            舰队编号 (2-4)；``None`` 代表不指定舰队。1 队不支持更换。
         ship_names:
-            目标舰船名列表 (按槽位 0–5)；``None``/``""`` 表示该位留空。
+            目标舰船名列表 (按槽位 0-5)；``None``/``""`` 表示该位留空。
         """
         _log.info('[地图控制器] 进入准备页换船: {} 队 → {}', fleet_id, ship_names)
         page = DecisiveBattlePreparationPage(self._ctx, self._config, self._ocr)

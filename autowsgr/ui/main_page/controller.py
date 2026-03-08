@@ -183,7 +183,7 @@ class MainPage:
 
     def _navigate_standard(self, target: Target) -> None:
         """通用单步导航 — 点击坐标 + 等待目标页面签名。"""
-        from autowsgr.ui.page import click_and_wait_for_page
+        from autowsgr.ui.utils import click_and_wait_for_page
 
         coord = NavCoord[target.name]
         _log.info('[UI] 主页面 → {}', target.value)

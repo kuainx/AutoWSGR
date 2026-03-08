@@ -122,7 +122,7 @@ class ROI:
         Parameters
         ----------
         screen:
-            原始图像 (H×W×3)。
+            原始图像 (HxWx3)。
 
         Returns
         -------

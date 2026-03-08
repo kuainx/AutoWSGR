@@ -39,11 +39,11 @@ class FleetInfo:
     """舰队详细信息。"""
 
     fleet_id: int | None = None
-    """舰队编号 (1–4)，``None`` 表示未指定。"""
+    """舰队编号 (1-4)，``None`` 表示未指定。"""
     ship_levels: dict[int, int | None] = field(default_factory=dict)
-    """槽位号 (0–5) → 等级，无法识别或无舰船则为 ``None``。"""
+    """槽位号 (0-5) → 等级，无法识别或无舰船则为 ``None``。"""
     ship_damage: dict[int, ShipDamageState] = field(default_factory=dict)
-    """槽位号 (0–5) → 血量状态。"""
+    """槽位号 (0-5) → 血量状态。"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -67,7 +67,7 @@ class DetectionMixin(BaseBattlePreparation):
         Returns
         -------
         dict[int, ShipDamageState]
-            槽位号 (0–5) → 血量状态。
+            槽位号 (0-5) → 血量状态。
         """
         result: dict[int, ShipDamageState] = {}
         for slot, (x, y) in BLOOD_BAR_PROBE.items():
@@ -97,7 +97,7 @@ class DetectionMixin(BaseBattlePreparation):
         Returns
         -------
         dict[int, int | None]
-            槽位号 (0–5) → 等级。无法识别或无舰船则为 ``None``。
+            槽位号 (0-5) → 等级。无法识别或无舰船则为 ``None``。
         """
         levels: dict[int, int | None] = {}
         ocr = self._ocr
@@ -152,7 +152,7 @@ class DetectionMixin(BaseBattlePreparation):
         Parameters
         ----------
         fleet_id:
-            目标舰队编号 (1–4)。为 ``None`` 则不切换舰队。
+            目标舰队编号 (1-4)。为 ``None`` 则不切换舰队。
 
         Returns
         -------

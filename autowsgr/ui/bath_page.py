@@ -88,7 +88,7 @@ CHOOSE_REPAIR_OVERLAY_SIGNATURE = PixelSignature(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 点击坐标 (相对坐标 0.0–1.0, 参考分辨率 960×540)
+# 点击坐标 (相对坐标 0.0-1.0, 参考分辨率 960x540)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 CLICK_BACK: tuple[float, float] = (0.022, 0.058)
@@ -191,7 +191,7 @@ class BathPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         # 先检查基础浴室签名
         if PixelChecker.check_signature(screen, PAGE_SIGNATURE).matched:
@@ -208,7 +208,7 @@ class BathPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         return PixelChecker.check_signature(
             screen,
@@ -227,7 +227,7 @@ class BathPage:
         NavigationError
             超时 overlay 未出现。
         """
-        from autowsgr.ui.page import wait_for_page
+        from autowsgr.ui.utils import wait_for_page
 
         _log.info('[UI] 浴室 → 打开选择修理 overlay')
         if not self.has_choose_repair_overlay(self._ctrl.screenshot()):
@@ -247,7 +247,7 @@ class BathPage:
         NavigationError
             超时 overlay 未关闭。
         """
-        from autowsgr.ui.page import wait_for_page
+        from autowsgr.ui.utils import wait_for_page
 
         _log.info('[UI] 关闭选择修理 overlay')
         self._ctrl.click(*CLICK_CLOSE_OVERLAY)
@@ -274,7 +274,7 @@ class BathPage:
         NavigationError
             超时 overlay 未关闭。
         """
-        from autowsgr.ui.page import NavigationError
+        from autowsgr.ui.utils import NavigationError
 
         _log.info('[UI] 选择修理 → 点击第一个舰船')
 
@@ -307,7 +307,7 @@ class BathPage:
         NotImplementedError
             OCR 识别功能尚未实现。
         """
-        from autowsgr.ui.page import NavigationError
+        from autowsgr.ui.utils import NavigationError
 
         screen = self._ctrl.screenshot()
         if not BathPage.has_choose_repair_overlay(screen):
@@ -369,7 +369,7 @@ class BathPage:
 
         点击一个舰船进行修理后，游戏会自动关闭 overlay 并返回浴室页面。
         """
-        from autowsgr.ui.page import wait_for_page
+        from autowsgr.ui.utils import wait_for_page
 
         wait_for_page(
             self._ctrl,
@@ -394,7 +394,7 @@ class BathPage:
         NavigationError
             超时未完成回退。
         """
-        from autowsgr.ui.page import wait_leave_page
+        from autowsgr.ui.utils import wait_leave_page
 
         screen = self._ctrl.screenshot()
         if BathPage.has_choose_repair_overlay(screen):

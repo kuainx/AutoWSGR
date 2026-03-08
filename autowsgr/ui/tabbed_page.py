@@ -12,10 +12,10 @@
 --------
 
 1. **标签栏探测** — 5 个固定位置，恰好 1 个蓝色 + 其余暗色
-   → 确认为标签页，蓝色索引 = 激活标签 (0–4)
+   → 确认为标签页，蓝色索引 = 激活标签 (0-4)
 
 2. **模板匹配** — 对标签栏区域 (顶部 7.5%、左侧 63%) 进行自适应
-   二值化，缩放到标准尺寸 (600×40) 后与 5 个参考模板逐一比较，
+   二值化，缩放到标准尺寸 (600x40) 后与 5 个参考模板逐一比较，
    取覆盖度 (coverage) 最高者为页面类型。
 
 模板匹配原理
@@ -54,7 +54,7 @@
     screen = ctrl.screenshot()
 
     if is_tabbed_page(screen):
-        idx = get_active_tab_index(screen)        # 0–4
+        idx = get_active_tab_index(screen)        # 0-4
         page = identify_page_type(screen)          # MAP / BUILD / FRIEND / ...
 
     # 用于 click_and_wait_for_page 的 checker
@@ -160,7 +160,7 @@ _ADAPTIVE_C: int = -5
 def _load_templates() -> dict[TabbedPageType, np.ndarray]:
     """从 ``autowsgr/ui/templates/`` 加载 5 个参考模板。
 
-    模板为二值 PNG (0/255)，尺寸 600×40。
+    模板为二值 PNG (0/255)，尺寸 600x40。
 
     Returns
     -------
@@ -203,17 +203,17 @@ def _binarize_tabbar(screen: np.ndarray) -> np.ndarray:
     1. 裁剪顶部 7.5%、左侧 63% (标签栏区域)
     2. 转灰度
     3. 自适应阈值二值化 (高斯, blockSize=21, C=-5)
-    4. 缩放到 600×40 (最近邻插值)
+    4. 缩放到 600x40 (最近邻插值)
 
     Parameters
     ----------
     screen:
-        截图 (H×W×3, RGB 或 BGR 均可用于灰度转换)。
+        截图 (HxWx3, RGB 或 BGR 均可用于灰度转换)。
 
     Returns
     -------
     np.ndarray
-        布尔数组 (600×40)，True = 白色像素。
+        布尔数组 (600x40)，True = 白色像素。
     """
     h, w = screen.shape[:2]
     crop = screen[0 : int(h * _CROP_Y), 0 : int(w * _CROP_X)]
@@ -262,7 +262,7 @@ def _match_page_type(screen: np.ndarray) -> TabbedPageType | None:
     Parameters
     ----------
     screen:
-        截图 (H×W×3)。
+        截图 (HxWx3)。
 
     Returns
     -------
@@ -297,7 +297,7 @@ def is_tabbed_page(screen: np.ndarray) -> bool:
     Parameters
     ----------
     screen:
-        截图 (H×W×3, RGB)。
+        截图 (HxWx3, RGB)。
     """
     blue_count = 0
     dark_count = 0
@@ -319,17 +319,17 @@ def is_tabbed_page(screen: np.ndarray) -> bool:
 
 
 def get_active_tab_index(screen: np.ndarray) -> int | None:
-    """获取当前激活标签的索引 (0–4)。
+    """获取当前激活标签的索引 (0-4)。
 
     Parameters
     ----------
     screen:
-        截图 (H×W×3, RGB)。
+        截图 (HxWx3, RGB)。
 
     Returns
     -------
     int | None
-        蓝色探测点的索引 (0–4)，未找到返回 ``None``。
+        蓝色探测点的索引 (0-4)，未找到返回 ``None``。
     """
     for i, (x, y) in enumerate(TAB_PROBES):
         if PixelChecker.get_pixel(screen, x, y).near(TAB_BLUE, TAB_BLUE_TOLERANCE):
@@ -348,7 +348,7 @@ def identify_page_type(screen: np.ndarray) -> TabbedPageType | None:
     Parameters
     ----------
     screen:
-        截图 (H×W×3, RGB)。
+        截图 (HxWx3, RGB)。
 
     Returns
     -------
@@ -376,7 +376,7 @@ def make_tab_checker(
     page_type:
         期望的页面类型。
     tab_index:
-        期望的激活标签索引 (0–4)。
+        期望的激活标签索引 (0-4)。
     """
 
     def _check(screen: np.ndarray) -> bool:

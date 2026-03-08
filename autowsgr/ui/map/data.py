@@ -27,9 +27,9 @@ class MapIdentity:
     Attributes
     ----------
     chapter:
-        章节号 (1–9)。
+        章节号 (1-9)。
     map_num:
-        关卡号 (如 1–6)。
+        关卡号 (如 1-6)。
     name:
         地图名称，如 ``"南大洋群岛"``。
     raw_text:
@@ -212,7 +212,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         "9-5南大洋群岛"    "9-5/南大洋群岛"
         "9 - 5 南大洋群岛" "9-5"
 
-    常规海域的章节号和关卡号均为 **1 位数字** (1–9, 1–6)。
+    常规海域的章节号和关卡号均为 **1 位数字** (1-9, 1-6)。
     若 OCR 将地图名首字误拼到数字后 (如 ``"9-51南大洋群岛"``),
     则通过 :data:`MAP_DATABASE` 校正。
 
@@ -227,7 +227,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         解析成功返回地图信息，失败返回 ``None``。
     """
     # ── 第 1 步: 严格单位数匹配 ──
-    m = re.search(r'(\d)\s*[-–—]\s*(\d)\s*[/／]?\s*(.*)', text)
+    m = re.search(r'(\d)\s*[--—]\s*(\d)\s*[/／]?\s*(.*)', text)
     if m:
         chapter = int(m.group(1))
         map_num = int(m.group(2))
@@ -255,7 +255,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         )
 
     # ── 第 2 步: 多位数匹配 + 校正 ──
-    m = re.search(r'(\d+)\s*[-–—]\s*(\d+)\s*[/／]?\s*(.*)', text)
+    m = re.search(r'(\d+)\s*[--—]\s*(\d+)\s*[/／]?\s*(.*)', text)
     if not m:
         return None
 
@@ -339,7 +339,7 @@ MAP_NODE_POSITIONS: dict[int, tuple[float, float]] = {
     4: (0.500, 0.650),
     5: (0.500, 0.800),
 }
-"""出征面板中各地图节点的点击位置 (1–5, 从上到下)。"""
+"""出征面板中各地图节点的点击位置 (1-5, 从上到下)。"""
 
 # ── 演习坐标 ──
 

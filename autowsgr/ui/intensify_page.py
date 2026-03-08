@@ -21,13 +21,13 @@ from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.ui.tabbed_page import (
     TabbedPageType,
     get_active_tab_index,
     identify_page_type,
     make_tab_checker,
 )
+from autowsgr.ui.utils import click_and_wait_for_page
 
 
 if TYPE_CHECKING:
@@ -107,7 +107,7 @@ class IntensifyPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         return identify_page_type(screen) == TabbedPageType.INTENSIFY
 
@@ -118,7 +118,7 @@ class IntensifyPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
 
         Returns
         -------

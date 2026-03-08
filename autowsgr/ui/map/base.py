@@ -34,13 +34,13 @@ from autowsgr.ui.map.data import (
     MapPanel,
     parse_map_title,
 )
-from autowsgr.ui.page import click_and_wait_for_page
 from autowsgr.ui.tabbed_page import (
     TabbedPageType,
     get_active_tab_index,
     identify_page_type,
     make_tab_checker,
 )
+from autowsgr.ui.utils import click_and_wait_for_page
 from autowsgr.vision import OCREngine, PixelChecker
 
 
@@ -252,10 +252,10 @@ class BaseMapPage:
         Parameters
         ----------
         target:
-            目标章节编号 (1–9)。
+            目标章节编号 (1-9)。
         """
         if not 1 <= target <= TOTAL_CHAPTERS:
-            raise ValueError(f'章节编号必须为 1–{TOTAL_CHAPTERS}，收到: {target}')
+            raise ValueError(f'章节编号必须为 1-{TOTAL_CHAPTERS}，收到: {target}')
         if self._ocr is None:
             raise RuntimeError('需要 OCR 引擎才能导航到指定章节')
 

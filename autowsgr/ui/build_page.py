@@ -12,7 +12,7 @@
     切换标签不会离开此页面组，只是改变内容区域。
 
 坐标体系:
-    所有坐标为相对值 (0.0–1.0)。
+    所有坐标为相对值 (0.0-1.0)。
 
 使用方式::
 
@@ -169,7 +169,7 @@ class BuildPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         return identify_page_type(screen) == TabbedPageType.BUILD
 
@@ -180,7 +180,7 @@ class BuildPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
 
         Returns
         -------
@@ -254,15 +254,15 @@ class BuildPage:
     # ── 建造操作 ──────────────────────────────────────────────────────────
 
     def click_slot(self, slot: int) -> None:
-        """点击建造槽位 (1–4)。
+        """点击建造槽位 (1-4)。
 
         Parameters
         ----------
         slot:
-            槽位编号 (1–4)。
+            槽位编号 (1-4)。
         """
         if not 1 <= slot <= 4:
-            raise ValueError(f'建造槽位必须为 1–4，收到: {slot}')
+            raise ValueError(f'建造槽位必须为 1-4，收到: {slot}')
         _log.info('[UI] 建造页面 → 点击槽位 {}', slot)
         self._ctrl.click(*BUILD_SLOT_POSITIONS[slot - 1])
         time.sleep(0.5)
@@ -275,7 +275,7 @@ class BuildPage:
         Parameters
         ----------
         slot:
-            槽位编号 (1–4)。
+            槽位编号 (1-4)。
         """
         _log.info('[UI] 建造页面 → 收取槽位 {}', slot)
         self.click_slot(slot)
@@ -289,7 +289,7 @@ class BuildPage:
         Parameters
         ----------
         slot:
-            槽位编号 (1–4)。
+            槽位编号 (1-4)。
         """
         _log.info('[UI] 建造页面 → 快速建造槽位 {}', slot)
         self.click_slot(slot)

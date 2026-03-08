@@ -16,12 +16,12 @@ if TYPE_CHECKING:
 class Fleet:
     """一支舰队（最多 6 艘舰船）。
 
-    游戏共 4 支舰队 (fleet_id 1–4)。
+    游戏共 4 支舰队 (fleet_id 1-4)。
     第 3 舰队需通关 1-3，第 4 舰队需通关 2-3 后解锁。
     """
 
     fleet_id: int = 1
-    """舰队编号 (1–4)。"""
+    """舰队编号 (1-4)。"""
     ships: list[Ship] = field(default_factory=list)
     """舰队成员（索引 0 为旗舰）。"""
 

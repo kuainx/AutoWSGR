@@ -186,7 +186,7 @@ class DecisiveLogic:
         Returns
         -------
         list[str]
-            长度 7 的列表：索引 0 留空，1–6 为各位置舰船名。
+            长度 7 的列表：索引 0 留空，1-6 为各位置舰船名。
         """
         ships = self.state.ships
         best: list[str] = ['']

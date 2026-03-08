@@ -24,7 +24,7 @@ from autowsgr.ui.battle.constants import (
     PANEL_ACTIVE,
     STATE_TOLERANCE,
 )
-from autowsgr.ui.page import click_and_wait_leave_page
+from autowsgr.ui.utils import click_and_wait_leave_page
 from autowsgr.vision import (
     MatchStrategy,
     PixelChecker,
@@ -136,7 +136,7 @@ class BaseBattlePreparation:
 
     @staticmethod
     def get_selected_fleet(screen: np.ndarray) -> int | None:
-        """获取当前选中的舰队编号 (1–4)。"""
+        """获取当前选中的舰队编号 (1-4)。"""
         for fleet_id, (x, y) in FLEET_PROBE.items():
             pixel = PixelChecker.get_pixel(screen, x, y)
             if pixel.near(FLEET_ACTIVE, STATE_TOLERANCE):
@@ -181,9 +181,9 @@ class BaseBattlePreparation:
     # ── 动作 — 舰队 / 面板选择 ───────────────────────────────────────────
 
     def select_fleet(self, fleet: int) -> None:
-        """选择舰队 (1–4)。"""
+        """选择舰队 (1-4)。"""
         if fleet not in CLICK_FLEET:
-            raise ValueError(f'舰队编号必须为 1–4，收到: {fleet}')
+            raise ValueError(f'舰队编号必须为 1-4，收到: {fleet}')
         _log.debug('[UI] 出征准备 → 选择 {}队', fleet)
         self._ctrl.click(*CLICK_FLEET[fleet])
 
@@ -203,9 +203,9 @@ class BaseBattlePreparation:
     # ── 动作 — 舰船槽位 ─────────────────────────────────────────────────
 
     def click_ship_slot(self, slot: int) -> None:
-        """点击指定舰船槽位 (0–5)。"""
+        """点击指定舰船槽位 (0-5)。"""
         if slot not in CLICK_SHIP_SLOT:
-            raise ValueError(f'舰船槽位必须为 0–5，收到: {slot}')
+            raise ValueError(f'舰船槽位必须为 0-5，收到: {slot}')
         _log.debug('[UI] 出征准备 → 点击舰船位 {}', slot)
         self._ctrl.click(*CLICK_SHIP_SLOT[slot])
 

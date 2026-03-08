@@ -221,7 +221,7 @@ class TestSelectFleet:
 
     def test_invalid_fleet_raises(self, page):
         pg, ctrl = page
-        with pytest.raises(ValueError, match='1–4'):
+        with pytest.raises(ValueError, match='1-4'):
             pg.select_fleet(5)
 
     def test_fleet_zero_raises(self, page):

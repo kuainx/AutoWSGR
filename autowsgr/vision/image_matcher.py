@@ -51,7 +51,7 @@ class ImageChecker:
     与 :class:`~autowsgr.vision.matcher.PixelChecker` 平行的 API，
     提供模板匹配相关的所有操作。
 
-    所有方法接收 numpy 数组形式的截图 (H×W×3, RGB uint8)，
+    所有方法接收 numpy 数组形式的截图 (HxWx3, RGB uint8)，
     坐标一律使用相对值（左上角为 0.0，右下角趋近 1.0），
     不执行任何设备操作（截图由上层提供）。
 
@@ -76,7 +76,7 @@ class ImageChecker:
         Parameters
         ----------
         template_img:
-            模板图像 (H×W×3 或 H×W, uint8)。
+            模板图像 (HxWx3 或 HxW, uint8)。
         screen_w, screen_h:
             截图的宽度和高度 (像素)。
         source_resolution:

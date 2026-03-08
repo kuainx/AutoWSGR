@@ -81,7 +81,7 @@ class ExerciseRunner:
         """选择一个可挑战的对手。"""
         self._enter_exercise_page()
         if rival < 1 or rival > 5:
-            raise ValueError(f'无效的对手索引: {rival} (应在 1–5 之间)')
+            raise ValueError(f'无效的对手索引: {rival} (应在 1-5 之间)')
         _log.info('[OPS] 选择对手 {}', rival)
         map_page = MapPage(self._ctx)
         map_page.select_exercise_rival(rival)

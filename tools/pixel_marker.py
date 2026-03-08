@@ -57,7 +57,7 @@ if TYPE_CHECKING:
 class MarkedPoint:
     """标注的单个像素点。"""
 
-    # 相对坐标 (0.0–1.0)
+    # 相对坐标 (0.0-1.0)
     rx: float
     ry: float
     # 绝对像素坐标

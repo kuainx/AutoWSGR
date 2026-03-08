@@ -17,7 +17,7 @@ launcher = Launcher('usersettings.yaml')
 launcher.load_config()
 launcher.connect()
 ctx = launcher.build_context()
-screen = ctx.ctrl.screenshot()     # numpy RGB (H×W×3)
+screen = ctx.ctrl.screenshot()     # numpy RGB (HxWx3)
 
 from autowsgr.infra.logger import save_image
 save_image(screen, 'debug', img_dir=Path('logs/debug'))

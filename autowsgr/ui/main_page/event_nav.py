@@ -138,7 +138,7 @@ def navigate_to_event(
     NavigationError
         超过最大重试次数仍未到达活动地图页面。
     """
-    from autowsgr.ui.page import NavigationError
+    from autowsgr.ui.utils import NavigationError
 
     from .controller import _get_target_checker
 

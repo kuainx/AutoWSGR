@@ -102,12 +102,14 @@ OverlayType = OverlayKind
 # ── 注册所有页面识别器 ──
 from autowsgr.types import PageName
 from autowsgr.ui.page import (
-    NavConfig,
-    NavigationError,
-    click_and_wait_for_page,
     get_current_page,
     get_registered_pages,
     register_page,
+)
+from autowsgr.ui.utils import (
+    NavConfig,
+    NavigationError,
+    click_and_wait_for_page,
     wait_for_page,
     wait_leave_page,
 )

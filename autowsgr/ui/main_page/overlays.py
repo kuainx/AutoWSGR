@@ -83,7 +83,7 @@ def dismiss_news(ctrl: AndroidController, screen: np.ndarray | None = None) -> N
 
 def dismiss_sign(ctrl: AndroidController) -> None:
     """关闭每日签到浮层。"""
-    from autowsgr.ui.page import confirm_operation
+    from autowsgr.ui.utils import confirm_operation
 
     _log.info('[UI] 每日签到: 关闭')
     ctrl.click(*DismissCoord.SIGN_CONFIRM.xy)

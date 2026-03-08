@@ -121,7 +121,7 @@ _SIG_BY_TYPE: dict[DecisiveOverlay, PixelSignature] = dict(OVERLAY_SIGNATURES)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 坐标常量 (相对坐标 0.0–1.0, 参考分辨率 960×540)
+# 坐标常量 (相对坐标 0.0-1.0, 参考分辨率 960x540)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── 决战地图页通用 ──
@@ -213,7 +213,7 @@ def detect_decisive_overlay(screen: np.ndarray) -> DecisiveOverlay | None:
     Parameters
     ----------
     screen:
-        截图 (H×W×3, RGB)。
+        截图 (HxWx3, RGB)。
 
     Returns
     -------

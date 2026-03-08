@@ -18,7 +18,7 @@ _log = get_logger('decisive')
 
 # 数据来源: autowsgr_legacy/data/map/decisive_battle/enemy_spec.yaml
 # map_end[chapter][stage] → 该小关最后一个节点字母
-# chapter 索引 0 为占位; 有效章节 1–6; stage 索引 0 为占位, 有效小关 1–3。
+# chapter 索引 0 为占位; 有效章节 1-6; stage 索引 0 为占位, 有效小关 1-3。
 _MAP_END: list[str] = [
     '',  # 0: 占位
     ' FHH',  # chapter 1: stage1=F, stage2=H, stage3=H
@@ -59,9 +59,9 @@ class MapData:
         Parameters
         ----------
         chapter:
-            章节编号 (1–6)。
+            章节编号 (1-6)。
         stage:
-            小关编号 (1–3)。
+            小关编号 (1-3)。
 
         Returns
         -------
@@ -80,9 +80,9 @@ class MapData:
         Parameters
         ----------
         chapter:
-            章节编号 (1–6)。
+            章节编号 (1-6)。
         stage:
-            小关编号 (1–3)。
+            小关编号 (1-3)。
         node:
             当前节点字母 (如 ``'A'``, ``'H'``)。
         """
@@ -95,9 +95,9 @@ class MapData:
         Parameters
         ----------
         chapter:
-            章节编号 (4–6)。
+            章节编号 (4-6)。
         stage:
-            小关编号 (1–3)。
+            小关编号 (1-3)。
 
         Returns
         -------

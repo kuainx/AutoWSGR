@@ -2,7 +2,7 @@
 
 用法::
 
-    # 默认: Ex5 H5 三连夜战 ×30, 远征间隔 15min
+    # 默认: Ex5 H5 三连夜战 x30, 远征间隔 15min
     python testing/ops/scheduler.py
 
     # 指定设备和次数

@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.ui.navigation import find_path
-from autowsgr.ui.page import NavigationError, get_current_page
+from autowsgr.ui.page import get_current_page
+from autowsgr.ui.utils import NavigationError
 
 
 if TYPE_CHECKING:

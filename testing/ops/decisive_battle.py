@@ -5,7 +5,7 @@
     python testing/ops/decisive_battle.py
     python testing/ops/decisive_battle.py 127.0.0.1:16384
 
-    # 指定章节 (4–6) 和出击次数
+    # 指定章节 (4-6) 和出击次数
     python testing/ops/decisive_battle.py 127.0.0.1:16384 --chapter 6 --times 1
 
     # 完整示例 (章节 6, 出击 2 次, 自定义舰船编组)

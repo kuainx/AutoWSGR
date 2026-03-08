@@ -14,7 +14,7 @@ from autowsgr.ui.map.data import (
     CLICK_MAP_PREV,
     MapPanel,
 )
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page
 
 
 _log = get_logger('ui')
@@ -29,9 +29,9 @@ class SortiePanelMixin(BaseMapPage):
         Parameters
         ----------
         chapter:
-            目标章节编号 (1–9) 或事件地图标识字符串。
+            目标章节编号 (1-9) 或事件地图标识字符串。
         map_num:
-            目标地图节点编号 (1–6) 或事件地图标识字符串。
+            目标地图节点编号 (1-6) 或事件地图标识字符串。
 
         Raises
         ------
@@ -54,10 +54,10 @@ class SortiePanelMixin(BaseMapPage):
             if max_maps == 0:
                 raise ValueError(f'章节 {chapter} 不在已知地图数据中')
             if isinstance(map_num, int) and not 1 <= map_num <= max_maps:
-                raise ValueError(f'章节 {chapter} 的地图编号必须为 1–{max_maps}，收到: {map_num}')
+                raise ValueError(f'章节 {chapter} 的地图编号必须为 1-{max_maps}，收到: {map_num}')
             result = self.navigate_to_chapter(chapter)
             if result is None:
-                from autowsgr.ui.page import NavigationError
+                from autowsgr.ui.utils import NavigationError
 
                 raise NavigationError(f'无法导航到第 {chapter} 章')
 

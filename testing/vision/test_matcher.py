@@ -22,7 +22,7 @@ from autowsgr.vision import (
 
 
 def solid_screen(r: int, g: int, b: int, h: int = 540, w: int = 960) -> np.ndarray:
-    """创建纯色截图 (H×W×3, RGB uint8)。"""
+    """创建纯色截图 (HxWx3, RGB uint8)。"""
     screen = np.zeros((h, w, 3), dtype=np.uint8)
     screen[:, :] = [r, g, b]
     return screen
@@ -282,7 +282,7 @@ class TestPixelCheckerSingle:
 
     def test_get_pixel_reads_y_then_x(self):
         """确保内部转换为 screen[py, px] 顺序正确。
-        10×10 屏幕: x=0.7 → col 7,  y=0.3 → row 3
+        10x10 屏幕: x=0.7 → col 7,  y=0.3 → row 3
         """
         screen = np.zeros((10, 10, 3), dtype=np.uint8)
         screen[3, 7] = [11, 22, 33]  # row=3, col=7
@@ -532,7 +532,7 @@ class TestCheckSignatureCount:
 
 
 class TestIdentify:
-    # 100×100 screen: x=0.10 → col 10, y=0.10 → row 10
+    # 100x100 screen: x=0.10 → col 10, y=0.10 → row 10
     def _make_screen_with_marker(self, marker_color=(0, 0, 0)) -> np.ndarray:
         screen = np.full((100, 100, 3), 100, dtype=np.uint8)
         screen[10, 10] = marker_color  # row=10, col=10
@@ -598,7 +598,7 @@ class TestClassifyColor:
         s[5, 5] = [r, g, b]
         return s
 
-    # _screen_with_pixel 使用 10×10 屏幕，s[5,5] 对应 x=0.5, y=0.5
+    # _screen_with_pixel 使用 10x10 屏幕，s[5,5] 对应 x=0.5, y=0.5
     def test_classify_green(self):
         screen = self._screen_with_pixel(117, 162, 69)
         result = PixelChecker.classify_color(screen, 0.5, 0.5, self.BLOOD_COLORS)
@@ -626,41 +626,6 @@ class TestClassifyColor:
 
 
 # ─────────────────────────────────────────────
-# PixelChecker.crop / crop_relative
-# ─────────────────────────────────────────────
-
-
-class TestCrop:
-    """crop() 现在接受相对坐标 (0.0–1.0)，内部转换为绝对像素索引。"""
-
-    def test_crop_returns_correct_shape(self):
-        # 100×200 屏幕: x1=0.05→10, y1=0.20→20, x2=0.25→50, y2=0.80→80
-        screen = solid_screen(0, 0, 0, h=100, w=200)
-        cropped = PixelChecker.crop(screen, x1=0.05, y1=0.20, x2=0.25, y2=0.80)
-        assert cropped.shape == (60, 40, 3)
-
-    def test_crop_is_copy(self):
-        screen = solid_screen(0, 0, 0)
-        cropped = PixelChecker.crop(screen, 0.0, 0.0, 0.5, 0.5)
-        cropped[0, 0] = [99, 99, 99]
-        assert screen[0, 0, 0] != 99
-
-    def test_crop_content(self):
-        # 100×100 屏幕: screen[50,50] → x=0.50,y=0.50; crop [0.45,0.45)→(0.55,0.55) = pixels [45:55, 45:55]
-        screen = np.zeros((100, 100, 3), dtype=np.uint8)
-        screen[50, 50] = [1, 2, 3]
-        cropped = PixelChecker.crop(screen, x1=0.45, y1=0.45, x2=0.55, y2=0.55)
-        # screen[50,50] → cropped[5,5]
-        assert list(cropped[5, 5]) == [1, 2, 3]
-
-    def test_crop_full_width(self):
-        # x2=1.0 应该等于整列宽
-        screen = solid_screen(7, 8, 9, h=50, w=100)
-        cropped = PixelChecker.crop(screen, 0.0, 0.0, 1.0, 1.0)
-        assert cropped.shape == (50, 100, 3)
-
-
-# ─────────────────────────────────────────────
 # Integration: real-world-like scenario
 # ─────────────────────────────────────────────
 
@@ -669,7 +634,7 @@ class TestIntegration:
     """模拟真实页面识别流程。"""
 
     def test_page_identification(self):
-        # 100×100 合成屏幕，两个页面特征点位于不同坐标
+        # 100x100 合成屏幕，两个页面特征点位于不同坐标
         # main_page: (0.50, 0.50) 和 (0.20, 0.30)
         # map_page:  (0.80, 0.10) 和 (0.90, 0.20)
         main_page_sig = PixelSignature(

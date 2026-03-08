@@ -139,7 +139,7 @@ AutoWSGRError
 - `ADBController` (具体实现) — 通过 ADB 控制安卓模拟器：
   - `connect() / disconnect()` — 建立/断开 ADB 连接
   - `screenshot()` — 截图（返回 `np.ndarray`）
-  - `click(x, y)` — 点击（使用 0.0–1.0 相对坐标）
+  - `click(x, y)` — 点击（使用 0.0-1.0 相对坐标）
   - `swipe(x1, y1, x2, y2)` — 滑动
   - `press_key(key)` — 按键（Home / Back 等）
   - `start_app() / stop_app()` — 启动/停止游戏应用
@@ -549,7 +549,7 @@ page = identify_current_page(ctrl)               # ops/navigate.py
 |---|---|---|
 | 架构 | 单体 `Timer` 类承担所有职责 | 分层解耦（infra / vision / emulator / ui / combat / ops） |
 | 配置 | 松散 dict | Pydantic v2 强类型校验 |
-| 坐标系 | 像素绝对坐标 | 0.0–1.0 相对坐标 |
+| 坐标系 | 像素绝对坐标 | 0.0-1.0 相对坐标 |
 | 战斗驱动 | 轮询 + 条件分支 if/elif | 显式状态机（`CombatPhase` + 转移图） |
 | 图像资源 | 散落各处 | 集中于 `image_resources/` 注册 |
 | 模拟器检测 | 手动指定 | `emulator/detector.py` 自动检测 |

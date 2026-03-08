@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import DecisiveEntryStatus, PageName
-from autowsgr.ui.page import click_and_wait_for_page, confirm_operation
+from autowsgr.ui.utils import click_and_wait_for_page, confirm_operation
 from autowsgr.vision import (
     Color,
     ImageChecker,
@@ -58,7 +58,7 @@ PAGE_SIGNATURE = PixelSignature(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 坐标常量 (相对坐标 0.0–1.0, 参考分辨率 960×540)
+# 坐标常量 (相对坐标 0.0-1.0, 参考分辨率 960x540)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 CLICK_BACK: tuple[float, float] = (0.022, 0.058)
@@ -167,7 +167,7 @@ class DecisiveBattlePage:
 
     @staticmethod
     def recognize_stage(screen: np.ndarray, chapter: int) -> int:
-        """识别当前决战章节的小关进度 (0–3)。
+        """识别当前决战章节的小关进度 (0-3)。
 
         检查每个小关位置像素颜色，白色 (250,244,253) 为已通过。
         返回当前正在进行的小关编号; 3 表示全部通过。
@@ -262,7 +262,7 @@ class DecisiveBattlePage:
         Parameters
         ----------
         target:
-            目标章节编号 (MIN_CHAPTER – MAX_CHAPTER)。
+            目标章节编号 (MIN_CHAPTER - MAX_CHAPTER)。
 
         Raises
         ------
@@ -273,10 +273,10 @@ class DecisiveBattlePage:
         NavigationError
             超过最大尝试次数仍未到达。
         """
-        from autowsgr.ui.page import NavigationError
+        from autowsgr.ui.utils import NavigationError
 
         if not MIN_CHAPTER <= target <= MAX_CHAPTER:
-            raise ValueError(f'决战章节编号必须为 {MIN_CHAPTER}–{MAX_CHAPTER}，收到: {target}')
+            raise ValueError(f'决战章节编号必须为 {MIN_CHAPTER}-{MAX_CHAPTER}，收到: {target}')
         if self._ocr is None:
             raise RuntimeError('navigate_to_chapter 需要 OCR 引擎')
 

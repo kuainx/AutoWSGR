@@ -240,7 +240,7 @@ class DecisiveBattleConfig(BaseModel):
     @classmethod
     def _validate_chapter(cls, v: int) -> int:
         if not 1 <= v <= 6:
-            raise ValueError('决战章节必须为 1–6 之间的整数')
+            raise ValueError('决战章节必须为 1-6 之间的整数')
         return v
 
 
@@ -453,7 +453,7 @@ class DecisiveConfig:
     Parameters
     ----------
     chapter:
-        目标章节 (4–6)。
+        目标章节 (4-6)。
     level1:
         一级优先舰船 (核心编队成员)。
     level2:

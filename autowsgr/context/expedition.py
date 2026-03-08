@@ -23,9 +23,9 @@ class Expedition:
     """
 
     chapter: int = 0
-    """远征章节 (1–9)。"""
+    """远征章节 (1-9)。"""
     node: int = 0
-    """远征节点 (1–4)。"""
+    """远征节点 (1-4)。"""
     fleet: Fleet | None = None
     """执行远征的舰队；``None`` 表示该槽位空闲。"""
     start_time: float | None = None

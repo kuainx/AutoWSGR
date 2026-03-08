@@ -30,7 +30,7 @@ def load_template(
         模板名称。默认使用文件名（不含扩展名）。
     source_resolution:
         模板采集时的屏幕分辨率 (width, height)，默认 ``(960, 540)``。
-        当模板图片并非在 960×540 下截取时，需指定实际采集分辨率，
+        当模板图片并非在 960x540 下截取时，需指定实际采集分辨率，
         匹配引擎会据此自动缩放模板以适配当前截图分辨率。
     """
     return ImageTemplate.from_file(
@@ -48,10 +48,10 @@ class LazyTemplate:
     用法::
 
         class MyTemplates:
-            # 默认 960×540 分辨率模板
+            # 默认 960x540 分辨率模板
             BTN = LazyTemplate("ui/btn_540p.png", "button")
 
-            # 指定模板采集自 1920×1080 分辨率
+            # 指定模板采集自 1920x1080 分辨率
             HD_BTN = LazyTemplate("ui/btn_hd_1080p.png", "button_hd",
                                   source_resolution=(1920, 1080))
     """

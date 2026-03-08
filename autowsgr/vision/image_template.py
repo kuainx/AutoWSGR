@@ -42,7 +42,7 @@ class ImageTemplate:
     name:
         模板名称（用于日志和调试）。
     image:
-        模板图像数据 (H×W×3, RGB, uint8)。
+        模板图像数据 (HxWx3, RGB, uint8)。
     source:
         模板来源描述（文件路径或 "ndarray"）。
     """
@@ -116,7 +116,7 @@ class ImageTemplate:
         Parameters
         ----------
         image:
-            模板图像数据 (H×W×3)。
+            模板图像数据 (HxWx3)。
         name:
             模板名称。
         is_bgr:
@@ -165,7 +165,7 @@ class ImageMatchDetail:
     template_name:
         匹配到的模板名称。
     confidence:
-        最佳匹配的置信度 (0.0–1.0)。
+        最佳匹配的置信度 (0.0-1.0)。
     center:
         匹配区域中心的 **相对坐标** (x, y)，范围 [0.0, 1.0]。
         已从 ROI 局部坐标转换回全图坐标。
@@ -231,7 +231,7 @@ class ImageRule:
     roi:
         搜索区域，默认全屏。
     confidence:
-        匹配置信度阈值 (0.0–1.0)。
+        匹配置信度阈值 (0.0-1.0)。
     method:
         OpenCV 模板匹配方法，默认 ``cv2.TM_CCOEFF_NORMED``。
 

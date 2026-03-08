@@ -4,7 +4,7 @@
 
 用法::
 
-    # 自动检测设备，困难驱逐 ×1
+    # 自动检测设备，困难驱逐 x1
     python testing/ops/campaign.py
 
     # 指定设备 serial

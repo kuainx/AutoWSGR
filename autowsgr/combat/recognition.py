@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 常量 — 扫描区域 (960×540 绝对像素, L/T/R/B)
+# 常量 — 扫描区域 (960x540 绝对像素, L/T/R/B)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # 移植自 autowsgr_legacy/constants/positions.py TYPE_SCAN_AREA
@@ -38,7 +38,7 @@ _SCAN_AREA_EXERCISE: list[tuple[int, int, int, int]] = [
     (690, 312, 722, 328),
     (793, 312, 825, 328),
 ]
-"""演习界面的 6 个舰类图标扫描区域 (960×540)。"""
+"""演习界面的 6 个舰类图标扫描区域 (960x540)。"""
 
 _SCAN_AREA_FIGHT: list[tuple[int, int, int, int]] = [
     (39, 156, 71, 172),
@@ -48,7 +48,7 @@ _SCAN_AREA_FIGHT: list[tuple[int, int, int, int]] = [
     (39, 334, 71, 350),
     (322, 334, 354, 350),
 ]
-"""索敌成功界面的 6 个舰类图标扫描区域 (960×540, 2 列×3 行)。"""
+"""索敌成功界面的 6 个舰类图标扫描区域 (960x540, 2 列x3 行)。"""
 
 _SCAN_AREAS: dict[str, list[tuple[int, int, int, int]]] = {
     'exercise': _SCAN_AREA_EXERCISE,
@@ -87,7 +87,7 @@ RESULT_BLOOD_BAR_PROBE: dict[int, tuple[float, float]] = {
     4: (60 / 960, 442 / 540),
     5: (60 / 960, 517 / 540),
 }
-"""战斗结算页 6 个舰船血条探测点 (0-indexed)。归一化坐标：原始绝对坐标 (60, y) 基于 960×540。"""
+"""战斗结算页 6 个舰船血条探测点 (0-indexed)。归一化坐标：原始绝对坐标 (60, y) 基于 960x540。"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@ def recognize_enemy_ships(
 
     复用旧代码稳定的 C++ DLL 方案:
 
-    1. 将截图缩放到 960×540 并转灰度
+    1. 将截图缩放到 960x540 并转灰度
     2. 按 ``TYPE_SCAN_AREA`` 裁切 6 张舰类图标缩略图
     3. 送入 ``ApiDll.recognize_enemy()`` 获得类型字符串
     4. 统计各类型数量
@@ -113,7 +113,7 @@ def recognize_enemy_ships(
     Parameters
     ----------
     screen:
-        当前截图 (H×W×3, RGB/BGR)。
+        当前截图 (HxWx3, RGB/BGR)。
     mode:
         识别模式: ``"fight"`` (索敌成功, 默认) 或 ``"exercise"`` (演习)。
     dll:
@@ -132,7 +132,7 @@ def recognize_enemy_ships(
     if areas is None:
         raise ValueError(f'不支持的模式: {mode!r}，可选: {list(_SCAN_AREAS)}')
 
-    # 转换为 960×540 灰度
+    # 转换为 960x540 灰度
     img = Image.fromarray(screen).convert('L')
     img = img.resize((960, 540))
     img_arr = np.array(img)
@@ -177,7 +177,7 @@ def recognize_enemy_formation(
     Parameters
     ----------
     screen:
-        当前截图 (H×W×3)。
+        当前截图 (HxWx3)。
     ocr:
         OCR 引擎实例。
 

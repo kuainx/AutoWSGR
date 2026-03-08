@@ -101,7 +101,7 @@
 | L113 | `Cook.NO_TIMES` | `restaurant_image/no_times.PNG` | 次数已尽弹窗 |
 | L120 | `GameUI.REWARD_COLLECT_ALL` | `game_ui/15.PNG` | 一键领取按钮 |
 | L123 | `GameUI.REWARD_COLLECT` | `game_ui/12.PNG` | 单个领取按钮 |
-| L130-135 | `Confirm.CONFIRM_1~6` | `confirm_image/1~6.PNG` | 确认弹窗 ×6 |
+| L130-135 | `Confirm.CONFIRM_1~6` | `confirm_image/1~6.PNG` | 确认弹窗 x6 |
 | L154 | `Build.SHIP_START` | `build_image/ship/start.PNG` | 舰船建造开始 |
 | L157 | `Build.SHIP_COMPLETE` | `build_image/ship/complete.PNG` | 舰船建造完成 |
 | L162 | `Build.SHIP_FAST` | `build_image/ship/fast.PNG` | 快速建造 |
@@ -113,12 +113,12 @@
 | L190 | `Build.RESOURCE` | `build_image/resource.PNG` | 资源选择页 |
 | L197 | `Fight.NIGHT_BATTLE` | `fight_image/6.PNG` | 夜战确认 |
 | L200 | `Fight.RESULT_PAGE` | `fight_image/14.PNG` | 战果页 |
-| L213-219 | `FightResult.SS/S/A/B/C/D/LOOT` | `fight_result/*.PNG` | 评级模板 ×7 |
-| L230-233 | `ChooseShip.PAGE_1~4` | `choose_ship_image/1~4.PNG` | 选船页标签 ×4 |
+| L213-219 | `FightResult.SS/S/A/B/C/D/LOOT` | `fight_result/*.PNG` | 评级模板 x7 |
+| L230-233 | `ChooseShip.PAGE_1~4` | `choose_ship_image/1~4.PNG` | 选船页标签 x4 |
 | L239 | `Symbol.GET_SHIP` | `symbol_image/8.PNG` | 获取舰船标志 |
 | L242 | `Symbol.GET_ITEM` | `symbol_image/13.PNG` | 获取道具标志 |
-| L253 | `BackButton.all()` | `back_buttons/1~8.PNG` | 返回按钮 ×8 |
-| L260-272 | `Error.*` | `error_image/bad_network*.PNG` 等 | 错误模板 ×5 |
+| L253 | `BackButton.all()` | `back_buttons/1~8.PNG` | 返回按钮 x8 |
+| L260-272 | `Error.*` | `error_image/bad_network*.PNG` 等 | 错误模板 x5 |
 
 #### `autowsgr/ops/build.py` — 建造操作
 
@@ -174,7 +174,7 @@
 | L106 | `MAP_PAGE` | `identify_images.map_page` | `identify_images/map_page.PNG` | 地图页 |
 | L110 | `BATTLE_PAGE` | `identify_images.battle_page` | `identify_images/battle_page.PNG` | 战役页 |
 | L114 | `EXERCISE_PAGE` | `identify_images.exercise_page` | `identify_images/exercise_page*.png` | 演习页 |
-| L133-140 | 评级 | `fight_result[SS/S/A/B/C/D]` | `fight_result/*.PNG` | 战果等级 ×6 |
+| L133-140 | 评级 | `fight_result[SS/S/A/B/C/D]` | `fight_result/*.PNG` | 战果等级 x6 |
 
 #### `autowsgr/combat/handlers.py` — 状态处理器
 
@@ -506,7 +506,7 @@
 | `identify_images/map_page.PNG` | 战斗结束后返回地图识别 |
 | `identify_images/battle_page.PNG` | 战役结束后返回战役页识别 |
 | `identify_images/exercise_page1.png` | 演习结束后返回演习页识别 |
-| `fight_result/SS.PNG` ... `LOOT.PNG` | 战果等级评定（×7） |
+| `fight_result/SS.PNG` ... `LOOT.PNG` | 战果等级评定（x7） |
 
 ### 9.2 建造系统（`ops/build.py`）
 
@@ -534,8 +534,8 @@
 
 | 文件 | 用途 |
 |------|------|
-| `confirm_image/1.PNG` ... `6.PNG` | 各类确认弹窗（×6） |
-| `back_buttons/1.PNG` ... `8.PNG` | 返回按钮变体（×8） |
+| `confirm_image/1.PNG` ... `6.PNG` | 各类确认弹窗（x6） |
+| `back_buttons/1.PNG` ... `8.PNG` | 返回按钮变体（x8） |
 | `game_ui/12.PNG` | 单个任务领取按钮 |
 | `game_ui/15.PNG` | 一键全部领取按钮 |
 
@@ -553,7 +553,7 @@
 
 | 文件 | 用途 |
 |------|------|
-| `choose_ship_image/1.PNG` ... `4.PNG` | 选船页面标签（×4） |
+| `choose_ship_image/1.PNG` ... `4.PNG` | 选船页面标签（x4） |
 
 ### 9.7 新版专属模板（`autowsgr/ui/templates/`）
 
@@ -571,7 +571,7 @@
 
 | 分类 | 数量 | 说明 |
 |------|------|------|
-| **新版必须保留** | **~55 个** | 9.1–9.7 所列全部 |
-| **已被更好方式替代，可删除** | **~50 个** | 第 8.1–8.3 节（PixelSig + OCR + TabbedPage） |
+| **新版必须保留** | **~55 个** | 9.1-9.7 所列全部 |
+| **已被更好方式替代，可删除** | **~50 个** | 第 8.1-8.3 节（PixelSig + OCR + TabbedPage） |
 | **功能未移植，暂时无用** | **~180 个** | 第 8.4 节（待实现时重新评估） |
 | **新版专属（新建）** | **5 个** | `autowsgr/ui/templates/` |

@@ -44,7 +44,7 @@ class OCRResult:
     text:
         识别出的文本。
     confidence:
-        置信度 (0.0–1.0)。
+        置信度 (0.0-1.0)。
     bbox:
         文本区域边界框 (x1, y1, x2, y2)，可能为 None。
     """

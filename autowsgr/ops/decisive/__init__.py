@@ -3,7 +3,7 @@
 本包是 **决战** 玩法的完整过程控制器，衔接在
 :class:`~autowsgr.ui.decisive_battle_page.DecisiveBattlePage`
 （决战总览页 UI）与 :mod:`~autowsgr.combat.engine`（战斗引擎）之间，
-负责管理决战三小关 × 多节点的推进流程、弹窗 overlay 处理、
+负责管理决战三小关 x 多节点的推进流程、弹窗 overlay 处理、
 战备舰队选择以及单次战斗调度。
 
 决战页面结构

@@ -16,9 +16,9 @@ class DecisiveState:
     Attributes
     ----------
     chapter:
-        章节 (4–6)。
+        章节 (4-6)。
     stage:
-        当前小关 (1–3), 0 表示尚未开始。
+        当前小关 (1-3), 0 表示尚未开始。
     node:
         当前节点字母 ('A', 'B', ...)。
     phase:
@@ -28,7 +28,7 @@ class DecisiveState:
     ships:
         已获取的全部舰船名集合。
     fleet:
-        当前编队舰船列表 (索引 0 留空, 1–6 为位置)。
+        当前编队舰船列表 (索引 0 留空, 1-6 为位置)。
     ship_stats:
         舰船血量状态。
     """

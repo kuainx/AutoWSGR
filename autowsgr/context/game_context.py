@@ -66,7 +66,7 @@ class GameContext:
     resources: Resources = field(default_factory=Resources)
     """当前资源。"""
     fleets: list[Fleet] = field(default_factory=_default_fleets)
-    """四支舰队 (fleet_id 1–4)。"""
+    """四支舰队 (fleet_id 1-4)。"""
     expeditions: ExpeditionQueue = field(default_factory=ExpeditionQueue)
     """远征队列。"""
     build_queue: BuildQueue = field(default_factory=BuildQueue)
@@ -89,7 +89,7 @@ class GameContext:
     # ── 便捷访问 ──
 
     def fleet(self, fleet_id: int) -> Fleet:
-        """按编号 (1–4) 获取舰队。"""
+        """按编号 (1-4) 获取舰队。"""
         if not 1 <= fleet_id <= len(self.fleets):
-            raise ValueError(f'fleet_id 应在 1–{len(self.fleets)} 范围内，收到 {fleet_id}')
+            raise ValueError(f'fleet_id 应在 1-{len(self.fleets)} 范围内，收到 {fleet_id}')
         return self.fleets[fleet_id - 1]

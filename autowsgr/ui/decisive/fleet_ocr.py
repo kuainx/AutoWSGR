@@ -168,14 +168,14 @@ _LEGACY_LIST_WIDTH: int = 1048
 def _to_legacy_format(screen: np.ndarray) -> tuple[np.ndarray, float, float]:
     """将 V2 截图转为 DLL 所需的 legacy 格式。
 
-    DLL 内部基于 1280×720 BGR 图像校准，V2 ``screenshot()``
+    DLL 内部基于 1280x720 BGR 图像校准，V2 ``screenshot()``
     返回模拟器原生分辨率的 RGB 图像，需做两步转换。
 
     Returns
     -------
     tuple[np.ndarray, float, float]
         ``(bgr_720p, scale_y, scale_x)``
-        —— bgr_720p: 1280×720 BGR 图像
+        —— bgr_720p: 1280x720 BGR 图像
         —— scale_y / scale_x: legacy 坐标 → 原始坐标的缩放比
     """
     h, w = screen.shape[:2]
@@ -197,7 +197,7 @@ def locate_ship_rows(
 
     对齐 legacy ``recognize_ship``:
 
-    1. resize + RGB→BGR 转为 1280×720 BGR（DLL 校准基准）
+    1. resize + RGB→BGR 转为 1280x720 BGR（DLL 校准基准）
     2. 裁剪左侧 1048px（与 legacy `screen[:, :1048]` 一致）
     3. ``dll.locate()`` 定位行区域
     4. 将行坐标映射回原始分辨率，在原图上裁剪并 OCR
@@ -221,7 +221,7 @@ def locate_ship_rows(
 
     h, w = screen.shape[:2]
 
-    # 转为 legacy 格式 (1280×720, BGR)
+    # 转为 legacy 格式 (1280x720, BGR)
     bgr_720p, scale_y, scale_x = _to_legacy_format(screen)
     list_720p = bgr_720p[:, :_LEGACY_LIST_WIDTH]  # legacy 裁剪宽度
 

@@ -134,7 +134,7 @@ class TestParseMapTitle:
 
 class TestMapDatabase:
     def test_all_chapters_present(self):
-        """数据库包含 1–9 章。"""
+        """数据库包含 1-9 章。"""
         chapters = {ch for ch, _ in MAP_DATABASE}
         assert chapters == set(range(1, 10))
 
@@ -166,9 +166,9 @@ class TestNavigateToChapter:
         ctrl = MagicMock(spec=AndroidController)
         ocr = MagicMock()
         pg = MapPage(ctrl, ocr=ocr)
-        with pytest.raises(ValueError, match='1–9'):
+        with pytest.raises(ValueError, match='1-9'):
             pg.navigate_to_chapter(0)
-        with pytest.raises(ValueError, match='1–9'):
+        with pytest.raises(ValueError, match='1-9'):
             pg.navigate_to_chapter(10)
 
     def test_no_ocr_raises(self):

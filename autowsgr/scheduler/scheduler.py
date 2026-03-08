@@ -150,7 +150,7 @@ class TaskScheduler:
         """添加一个战斗任务。支持链式调用。"""
         self._tasks.append(task)
         _log.info(
-            '[Scheduler] 添加任务: {} ×{}',
+            '[Scheduler] 添加任务: {} x{}',
             task.name,
             task.times,
         )
@@ -183,7 +183,7 @@ class TaskScheduler:
 
         for i, task in enumerate(self._tasks):
             _log.info(
-                '[Scheduler] ── 任务 {}/{}: {} ×{} ──',
+                '[Scheduler] ── 任务 {}/{}: {} x{} ──',
                 i + 1,
                 len(self._tasks),
                 task.name,

@@ -89,7 +89,7 @@ class StartScreenPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         return PixelChecker.check_signature(screen, PAGE_SIGNATURE).matched
 

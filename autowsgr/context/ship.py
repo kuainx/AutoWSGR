@@ -42,7 +42,7 @@ class Ship:
 
     @property
     def health_ratio(self) -> float:
-        """当前耐久比例 (0.0–1.0)；*max_health* 未知时返回 1.0。"""
+        """当前耐久比例 (0.0-1.0)；*max_health* 未知时返回 1.0。"""
         if self.max_health <= 0:
             return 1.0
         return self.health / self.max_health

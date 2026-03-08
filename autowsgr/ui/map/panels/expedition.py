@@ -13,7 +13,7 @@ from autowsgr.ui.map.data import (
     EXPEDITION_SLOT_PROBES,
     EXPEDITION_SLOT_TOLERANCE,
 )
-from autowsgr.ui.page import confirm_operation, wait_for_page
+from autowsgr.ui.utils import confirm_operation, wait_for_page
 from autowsgr.vision import ImageChecker, PixelChecker
 
 
@@ -32,12 +32,12 @@ class ExpeditionPanelMixin(BaseMapPage):
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
 
         Returns
         -------
         int | None
-            就绪槽位索引 (0–3)，无就绪则返回 ``None``。
+            就绪槽位索引 (0-3)，无就绪则返回 ``None``。
         """
         for i, (px, py) in enumerate(EXPEDITION_SLOT_PROBES):
             actual = PixelChecker.get_pixel(screen, px, py)
@@ -89,7 +89,7 @@ class ExpeditionPanelMixin(BaseMapPage):
                         _log.debug('[UI] 远征收取: 通知消失，结束')
                         break
                 else:
-                    from autowsgr.ui.page import NavigationError
+                    from autowsgr.ui.utils import NavigationError
 
                     raise NavigationError('远征收取超时: 通知仍在但 10s 内未检测到就绪槽位')
 

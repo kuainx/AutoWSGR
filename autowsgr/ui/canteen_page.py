@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from autowsgr.image_resources import Templates
 from autowsgr.infra.logger import get_logger
-from autowsgr.ui.page import click_and_wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page
 from autowsgr.vision import (
     ImageChecker,
     MatchStrategy,
@@ -72,7 +72,7 @@ CLICK_RECIPE: dict[int, tuple[float, float]] = {
     2: (0.4375, 0.2593),
     3: (0.5792, 0.4019),
 }
-"""菜谱点击坐标 (1–3)。
+"""菜谱点击坐标 (1-3)。
 
 换算自旧代码: (318, 276), (420, 140), (556, 217) ÷ (960, 540)。
 """
@@ -127,7 +127,7 @@ class CanteenPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         result = PixelChecker.check_signature(screen, PAGE_SIGNATURE)
         return result.matched
@@ -161,15 +161,15 @@ class CanteenPage:
         Parameters
         ----------
         position:
-            菜谱编号 (1–3)。
+            菜谱编号 (1-3)。
 
         Raises
         ------
         ValueError
-            编号不在 1–3 范围内。
+            编号不在 1-3 范围内。
         """
         if position not in CLICK_RECIPE:
-            raise ValueError(f'菜谱编号必须为 1–3，收到: {position}')
+            raise ValueError(f'菜谱编号必须为 1-3，收到: {position}')
         _log.info('[UI] 食堂 → 选择菜谱 {}', position)
         self._ctrl.click(*CLICK_RECIPE[position])
 
@@ -208,7 +208,7 @@ class CanteenPage:
         Parameters
         ----------
         position:
-            菜谱编号 (1–3)。
+            菜谱编号 (1-3)。
         force_cook:
             当有菜正在生效时是否继续做菜。
 

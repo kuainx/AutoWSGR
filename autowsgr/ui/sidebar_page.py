@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
-from autowsgr.ui.page import click_and_wait_for_page, wait_for_page
+from autowsgr.ui.utils import click_and_wait_for_page, wait_for_page
 from autowsgr.vision import (
     Color,
     PixelChecker,
@@ -153,7 +153,7 @@ class SidebarPage:
         Parameters
         ----------
         screen:
-            截图 (H×W×3, RGB)。
+            截图 (HxWx3, RGB)。
         """
         blue_count = 0
         for x, y in MENU_PROBES:
@@ -221,7 +221,7 @@ class SidebarPage:
         流程: 点击侧边栏项 → 等待弹出 → 点击子选项 → 验证到达目标页面。
         整个流程带重试。
         """
-        from autowsgr.ui.page import DEFAULT_NAV_CONFIG, NavigationError
+        from autowsgr.ui.utils import DEFAULT_NAV_CONFIG, NavigationError
 
         config = DEFAULT_NAV_CONFIG
         last_err: NavigationError | None = None

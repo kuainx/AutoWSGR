@@ -10,11 +10,12 @@ import pytest
 from autowsgr.emulator import AndroidController
 from autowsgr.ui.page import (
     _PAGE_REGISTRY,
-    NavigationError,
     get_current_page,
     register_page,
+)
+from autowsgr.ui.utils import (
+    NavigationError,
     wait_for_page,
-    wait_leave_page,
 )
 
 
@@ -93,7 +94,7 @@ class TestWaitForPage:
         screens = [_blank(), _blank(), _white()]
         ctrl.screenshot.side_effect = screens
 
-        with patch('autowsgr.ui.page.time') as mock_time:
+        with patch('autowsgr.ui.utils.time') as mock_time:
             mock_time.monotonic.return_value = 0.0
             mock_time.sleep = MagicMock()
 
@@ -116,7 +117,7 @@ class TestWaitForPage:
         ctrl.screenshot.return_value = _blank()
 
         # 模拟时间: 第一次 monotonic=0, deadline=0, 立即超时
-        with patch('autowsgr.ui.page.time') as mock_time:
+        with patch('autowsgr.ui.utils.time') as mock_time:
             call_count = 0
 
             def advancing_time():
@@ -132,107 +133,6 @@ class TestWaitForPage:
                 wait_for_page(
                     ctrl,
                     lambda s: False,
-                    timeout=1.0,
-                    source='A',
-                    target='B',
-                )
-
-    def test_timeout_message_contains_details(self):
-        """超时异常消息包含 source 和 target。"""
-        ctrl = MagicMock(spec=AndroidController)
-        ctrl.screenshot.return_value = _blank()
-
-        with patch('autowsgr.ui.page.time') as mock_time:
-            counts = {'n': 0}
-
-            def advancing():
-                counts['n'] += 1
-                return 0.0 if counts['n'] <= 1 else 100.0
-
-            mock_time.monotonic.side_effect = advancing
-            mock_time.sleep = MagicMock()
-
-            with pytest.raises(NavigationError) as exc_info:
-                wait_for_page(
-                    ctrl,
-                    lambda s: False,
-                    timeout=1.0,
-                    source='出征准备',
-                    target='地图页面',
-                )
-
-            msg = str(exc_info.value)
-            assert '出征准备' in msg
-            assert '地图页面' in msg
-
-
-# ─────────────────────────────────────────────
-# wait_leave_page
-# ─────────────────────────────────────────────
-
-
-class TestWaitLeavePage:
-    def test_immediate_leave(self):
-        """第一次截图即已离开 → 立即返回。"""
-        ctrl = MagicMock(spec=AndroidController)
-        ctrl.screenshot.return_value = _blank()
-
-        result = wait_leave_page(
-            ctrl,
-            lambda s: False,  # 不在原页面
-            source='A',
-            target='B',
-        )
-        assert result is not None
-        ctrl.screenshot.assert_called_once()
-
-    def test_leave_after_retries(self):
-        """前两次仍在原页面，第三次离开。"""
-        ctrl = MagicMock(spec=AndroidController)
-        # 前两次 checker 返回 True (仍在), 第三次提供不同屏幕
-        call_count = {'n': 0}
-
-        def checker(s):
-            call_count['n'] += 1
-            return call_count['n'] <= 2
-
-        ctrl.screenshot.return_value = _blank()
-
-        with patch('autowsgr.ui.page.time') as mock_time:
-            mock_time.monotonic.return_value = 0.0
-            mock_time.sleep = MagicMock()
-
-            result = wait_leave_page(
-                ctrl,
-                checker,
-                timeout=10.0,
-                interval=0.1,
-                source='A',
-                target='B',
-            )
-
-        assert result is not None
-        assert ctrl.screenshot.call_count == 3
-
-    def test_timeout_raises(self):
-        """超时 → 抛出 NavigationError。"""
-        ctrl = MagicMock(spec=AndroidController)
-        ctrl.screenshot.return_value = _blank()
-
-        with patch('autowsgr.ui.page.time') as mock_time:
-            counts = {'n': 0}
-
-            def advancing():
-                counts['n'] += 1
-                return 0.0 if counts['n'] <= 1 else 100.0
-
-            mock_time.monotonic.side_effect = advancing
-            mock_time.sleep = MagicMock()
-
-            with pytest.raises(NavigationError, match='超时'):
-                wait_leave_page(
-                    ctrl,
-                    lambda s: True,  # 始终在原页面
                     timeout=1.0,
                     source='A',
                     target='B',

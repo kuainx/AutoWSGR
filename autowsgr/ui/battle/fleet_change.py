@@ -45,10 +45,10 @@ class FleetChangeMixin(BaseBattlePreparation):
         Parameters
         ----------
         fleet_id:
-            舰队编号 (2–4)。1 队不支持更换。
+            舰队编号 (2-4)。1 队不支持更换。
             ``None`` 代表不指定舰队，仅更换舰船。
         ship_names:
-            舰船名列表 (按槽位 0–5)。``None`` 或 ``""`` 表示该位留空。
+            舰船名列表 (按槽位 0-5)。``None`` 或 ``""`` 表示该位留空。
 
         Returns
         -------
@@ -105,29 +105,8 @@ class FleetChangeMixin(BaseBattlePreparation):
             return
 
         self.click_ship_slot(slot)
+        wait_
         time.sleep(1.0)
-
+        # TODO: 等出现
         choose_page = ChooseShipPage(self._ctx)
-
-        if name is None:
-            choose_page.click_remove()
-            time.sleep(0.8)
-            return
-
-        choose_page.click_search_box()
-        time.sleep(0.5)
-        choose_page.input_ship_name(name)
-        time.sleep(0.3)
-        choose_page.dismiss_keyboard()
-        time.sleep(0.8)
-
-        screen = self._ctrl.screenshot()
-        if self._ocr is None:
-            _log.warning('[UI] 未提供 OCR 引擎，无法验证舰船名称')
-        else:
-            ship_name = self._ocr.recognize_ship_name(screen, [name])
-            if ship_name != name:
-                _log.warning("[UI] 未精确匹配 '{}', OCR 识别: '{}'", name, ship_name)
-
-        choose_page.click_first_result()
-        time.sleep(1.0)
+        choose_page.change_single_ship(name)
