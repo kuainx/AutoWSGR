@@ -277,7 +277,7 @@ class DecisiveMapController:
         """OCR 识别战备舰队获取界面的可选项。"""
         if screen is None:
             screen = self._ctrl.screenshot()
-        return _fleet_ocr.recognize_fleet_options(self._ocr, self._config, screen)
+        return _fleet_ocr.recognize_fleet_options(self._ocr, screen)
 
     def detect_last_offer_name(
         self,
@@ -286,7 +286,7 @@ class DecisiveMapController:
         """读取战备舰队最后一张卡的名称，用于首节点判定修正。"""
         if screen is None:
             screen = self._ctrl.screenshot()
-        return _fleet_ocr.detect_last_offer_name(self._ocr, self._config, screen)
+        return _fleet_ocr.detect_last_offer_name(self._ocr, screen)
 
     def buy_fleet_option(self, click_position: tuple[float, float]) -> None:
         """点击购买一个舰船/技能卡。"""
@@ -339,7 +339,7 @@ class DecisiveMapController:
 
     def use_skill(self) -> list[str]:
         """在地图页使用一次副官技能并返回识别到的舰船。"""
-        return _fleet_ocr.use_skill(self._ctrl, self._ocr, self._config)
+        return _fleet_ocr.use_skill(self._ctrl, self._ocr)
 
     def check_fleet(
         self,

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import ShipDamageState
 
+from ..utils import wait_for_page
 from .base import BaseBattlePreparation
 
 
@@ -99,14 +100,16 @@ class FleetChangeMixin(BaseBattlePreparation):
         slot_occupied: bool = True,
     ) -> None:
         """更换/移除指定位置的单艘舰船。"""
-        from autowsgr.ui.choose_ship_page import ChooseShipPage
+        from ..choose_ship_page import ChooseShipPage
 
         if name is None and not slot_occupied:
             return
 
         self.click_ship_slot(slot)
-        wait_
-        time.sleep(1.0)
-        # TODO: 等出现
+        wait_for_page(
+            self._ctrl,
+            ChooseShipPage.is_current_page,
+            timeout=5.0,
+        )
         choose_page = ChooseShipPage(self._ctx)
         choose_page.change_single_ship(name)

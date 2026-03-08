@@ -24,6 +24,9 @@ from autowsgr.vision import (
     PixelSignature,
 )
 
+from .utils import wait_for_page, wait_leave_page
+from .utils.ship_list import locate_ship_rows
+
 
 if TYPE_CHECKING:
     import numpy as np
@@ -49,6 +52,11 @@ CLICK_REMOVE_SHIP: tuple[float, float] = (83 / 960, 167 / 540)
 CLICK_FIRST_RESULT: tuple[float, float] = (183 / 960, 167 / 540)
 """搜索结果列表中的第一个结果。"""
 
+#: 选船列表滚动参数
+_SCROLL_FROM_Y: float = 0.55
+_SCROLL_TO_Y: float = 0.30
+_OCR_MAX_ATTEMPTS: int = 3
+
 PAGE_SIGNATURE = PixelSignature(
     name='skill_used',
     strategy=MatchStrategy.ALL,
@@ -58,6 +66,16 @@ PAGE_SIGNATURE = PixelSignature(
         PixelRule.of(0.8578, 0.5306, (57, 57, 57), tolerance=30.0),
         PixelRule.of(0.8594, 0.6736, (54, 54, 54), tolerance=30.0),
         PixelRule.of(0.8656, 0.8014, (35, 57, 81), tolerance=30.0),
+    ],
+)
+
+INPUT_SIGNATURE = PixelSignature(
+    name='choose_ship_input',
+    strategy=MatchStrategy.ALL,
+    rules=[
+        PixelRule.of(0.3109, 0.9417, (253, 253, 253), tolerance=30.0),
+        PixelRule.of(0.4437, 0.9417, (253, 253, 253), tolerance=30.0),
+        PixelRule.of(0.5883, 0.9347, (253, 253, 253), tolerance=30.0),
     ],
 )
 
@@ -100,19 +118,19 @@ class ChooseShipPage:
         result = PixelChecker.check_signature(screen, PAGE_SIGNATURE)
         return result.matched
 
-    # ── 操作 ──────────────────────────────────────────────────────────────
-    def wait_search_box(self):
-        while True:
-            screen = self._ctrl.screenshot()
-            if PixelChecker.check_signature(screen, PAGE_SIGNATURE).matched:
-                break
-            _log.debug('[UI] 等待选船页面出现，继续轮询…')
-            time.sleep(0.5)
+    def _wait_leave_current_page(self, timeout: float = 5.0):
+        wait_leave_page(self._ctrl, self.is_current_page, timeout=timeout)
 
-    def click_search_box(self) -> None:
+    # ── 操作 ──────────────────────────────────────────────────────────────
+    def ensure_search_box(self) -> None:
         """点击搜索框，准备输入舰船名。"""
         _log.info('[UI] 选船 → 打开搜索框')
         self._ctrl.click(*CLICK_SEARCH_BOX)
+        wait_for_page(
+            self._ctrl,
+            lambda screen: PixelChecker.check_signature(screen, INPUT_SIGNATURE).matched,
+            timeout=5.0,
+        )
 
     def input_ship_name(self, name: str) -> None:
         """在搜索框中输入舰船名。
@@ -127,10 +145,15 @@ class ChooseShipPage:
         _log.info("[UI] 选船 → 输入舰船名 '{}'", name)
         self._ctrl.text(name)
 
-    def dismiss_keyboard(self) -> None:
+    def ensure_dismiss_keyboard(self) -> None:
         """点击空白区域关闭软键盘。"""
         _log.info('[UI] 选船 → 关闭键盘')
         self._ctrl.click(*CLICK_DISMISS_KEYBOARD)
+        wait_leave_page(
+            self._ctrl,
+            lambda screen: PixelChecker.check_signature(screen, INPUT_SIGNATURE).matched,
+            timeout=5.0,
+        )
 
     def click_first_result(self) -> None:
         """点击搜索结果中的第一个舰船。"""
@@ -143,28 +166,78 @@ class ChooseShipPage:
         self._ctrl.click(*CLICK_REMOVE_SHIP)
 
     def change_single_ship(self, name: str | None) -> None:
-        """更换/移除当前槽位的舰船。"""
+        """更换/移除当前槽位的舰船。
+
+        使用 DLL 行定位 + OCR 在选船列表中查找目标舰船并点击。
+        最多重试 ``_OCR_MAX_ATTEMPTS`` 次, 每次失败后向上滚动列表。
+
+        Parameters
+        ----------
+        name:
+            目标舰船名; ``None`` 表示移除当前槽位舰船。
+        """
         if name is None:
             self.click_remove()
-            time.sleep(0.8)
+            self._wait_leave_current_page()
             return
 
-        self.click_search_box()
-        # TODO: 等搜索框出现
-        time.sleep(0.5)
+        if self._ctx.ocr is None:
+            _log.warning('[UI] 未提供 OCR 引擎, 无法识别选船列表')
+            return
+        self.ensure_search_box()
         self.input_ship_name(name)
-        time.sleep(0.3)
-        self.dismiss_keyboard()
-        time.sleep(0.8)
+        self.ensure_dismiss_keyboard()
+        found = self._click_ship_in_list(name)
+        if not found:
+            _log.error("[UI] 未在选船列表中找到 '{}'", name)
+            raise RuntimeError(f"未找到目标舰船 '{name}'")
 
-        screen = self._ctrl.screenshot()
-        if self._ocr is None:
-            _log.warning('[UI] 未提供 OCR 引擎，无法验证舰船名称')
-        else:
-            save_image(screen, 'debug_choose_ship.png')
-            ship_name = self._ocr.recognize_ship_name(screen, [name])
-            if ship_name != name:
-                _log.warning("[UI] 未精确匹配 '{}', OCR 识别: '{}'", name, ship_name)
+        self._wait_leave_current_page()
 
-        choose_page.click_first_result()
-        time.sleep(1.0)
+    def _click_ship_in_list(self, name: str) -> bool:
+        """在选船列表页使用 DLL 定位 + OCR 识别舰船名并点击目标。
+
+        最多重试 ``_OCR_MAX_ATTEMPTS`` 次, 每次失败后向上滚动列表。
+
+        Parameters
+        ----------
+        name:
+            目标舰船名 (精确名称)。
+
+        Returns
+        -------
+        bool
+            ``True`` 表示已成功点击目标; ``False`` 表示全程未找到。
+        """
+        assert self._ctx.ocr is not None
+
+        for attempt in range(_OCR_MAX_ATTEMPTS):
+            screen = self._ctrl.screenshot()
+            hits = locate_ship_rows(self._ctx.ocr, screen)
+
+            for matched, cx, cy in hits:
+                if matched != name:
+                    continue
+                _log.info(
+                    "[UI] 选船 DLL+OCR -> '{}' (第 {}/{} 次), 点击 ({:.3f}, {:.3f})",
+                    name,
+                    attempt + 1,
+                    _OCR_MAX_ATTEMPTS,
+                    cx,
+                    cy,
+                )
+                time.sleep(1.0)
+                self._ctrl.click(cx, cy)
+                return True
+
+            _log.warning(
+                "[UI] 选船列表未匹配到 '{}' (第 {}/{} 次), 向上滚动",
+                name,
+                attempt + 1,
+                _OCR_MAX_ATTEMPTS,
+            )
+            if attempt < _OCR_MAX_ATTEMPTS - 1:
+                self._ctrl.swipe(0.4, _SCROLL_FROM_Y, 0.4, _SCROLL_TO_Y, duration=0.4)
+                time.sleep(0.5)
+
+        return False

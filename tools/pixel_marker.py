@@ -45,7 +45,7 @@ sys.path.insert(0, str(_ROOT))
 if TYPE_CHECKING:
     import numpy as np
 
-    from autowsgr.emulator import ADBController
+    from autowsgr.emulator import ScrcpyController
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -160,7 +160,7 @@ class PixelMarkerApp:
         image_path: str | None = None,
     ) -> None:
         self._serial = serial
-        self._controller: ADBController | None = None
+        self._controller: ScrcpyController | None = None
         self._connected = False
 
         # 原始截图 (RGB, full resolution)
@@ -369,16 +369,15 @@ class PixelMarkerApp:
                 return False
 
         try:
-            from autowsgr.emulator import ADBController
+            from autowsgr.emulator import ScrcpyController
             from autowsgr.infra import setup_logger
 
-            # 只输出错误及以上等级（避免 airtest 噪音）
             setup_logger(level='ERROR')
 
             self._status_var.set(f'正在连接 {serial} ...')
             self._root.update()
 
-            ctrl = ADBController(serial=serial, screenshot_timeout=15.0)
+            ctrl = ScrcpyController(serial=serial, screenshot_timeout=15.0)
             info = ctrl.connect()
             self._controller = ctrl
             self._connected = True
