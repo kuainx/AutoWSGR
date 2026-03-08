@@ -220,6 +220,7 @@ class PhaseHandlersMixin:
         # 执行迂回
         if want_detour:
             clicked = click_image(self._device, TemplateKey.BYPASS, 2.5)
+            time.sleep(1.5)
             if clicked:
                 _log.info('[Combat] 执行迂回')
             else:
