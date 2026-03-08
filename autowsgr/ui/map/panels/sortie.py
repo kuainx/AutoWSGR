@@ -10,8 +10,6 @@ from autowsgr.ui.map.base import BaseMapPage
 from autowsgr.ui.map.data import (
     CHAPTER_MAP_COUNTS,
     CLICK_ENTER_SORTIE,
-    CLICK_MAP_NEXT,
-    CLICK_MAP_PREV,
     MapPanel,
 )
 from autowsgr.ui.utils import click_and_wait_for_page
@@ -62,22 +60,7 @@ class SortiePanelMixin(BaseMapPage):
                 raise NavigationError(f'无法导航到第 {chapter} 章')
 
         # 3. 切换到指定地图节点
-        if isinstance(map_num, int) and self._ocr is not None:
-            screen = self._ctrl.screenshot()
-            info = self.recognize_map(screen, self._ocr)
-            if info is not None:
-                current_map = info.map_num
-                if current_map != map_num:
-                    delta = map_num - current_map
-                    if delta > 0:
-                        for _ in range(delta):
-                            self._ctrl.click(*CLICK_MAP_NEXT)
-                            time.sleep(0.3)
-                    else:
-                        for _ in range(-delta):
-                            self._ctrl.click(*CLICK_MAP_PREV)
-                            time.sleep(0.3)
-                    time.sleep(0.5)
+        self.navigate_to_map(map_num)
 
         # 4. 点击进入出征准备
         click_and_wait_for_page(

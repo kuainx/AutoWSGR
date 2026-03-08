@@ -5,12 +5,13 @@
 继承结构::
 
     BaseBattlePreparation
-    ├── DetectionMixin      (血量 / 等级识别)
-    ├── SupplyMixin         (补给 / 支援)
-    ├── RepairMixin         (修理, 依赖 DetectionMixin)
-    └── FleetChangeMixin    (换船, 依赖 DetectionMixin)
+    ├── DetectionMixin        (血量 / 等级识别)
+    ├── SupplyMixin           (补给 / 支援)
+    ├── RepairMixin           (修理, 依赖 DetectionMixin)
+    └── FleetChangeMixin      (换船: 扫描->定点更换->调整次序)
+        └── FleetDetectMixin  (准备页舰队 OCR 检测)
             ↓
-    BattlePreparationPage   (最终控制器)
+    BattlePreparationPage     (最终控制器)
 
 数据常量见 :mod:`autowsgr.ui.battle.constants`。
 """

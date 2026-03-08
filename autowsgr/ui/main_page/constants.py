@@ -176,12 +176,10 @@ _SIGNATURES: dict[Sig, PixelSignature] = {
         name='news_overlay',
         strategy=MatchStrategy.ALL,
         rules=[
-            PixelRule.of(0.1437, 0.9065, (254, 255, 255), tolerance=40.0),
-            PixelRule.of(0.9411, 0.0685, (253, 254, 255), tolerance=40.0),
-            PixelRule.of(0.9016, 0.0704, (254, 255, 255), tolerance=40.0),
-            PixelRule.of(0.8599, 0.0685, (254, 255, 255), tolerance=40.0),
-            PixelRule.of(0.2010, 0.9046, (254, 255, 255), tolerance=40.0),
-            PixelRule.of(0.8849, 0.0574, (247, 249, 248), tolerance=40.0),
+            PixelRule.of(0.6523, 0.8292, (148, 88, 86), tolerance=30.0),
+            PixelRule.of(0.7008, 0.8306, (119, 67, 62), tolerance=30.0),
+            PixelRule.of(0.7844, 0.8278, (135, 79, 73), tolerance=30.0),
+            PixelRule.of(0.8516, 0.8278, (126, 72, 65), tolerance=30.0),
         ],
     ),
     Sig.NEWS_NOT_SHOW: PixelSignature(

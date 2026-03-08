@@ -142,12 +142,12 @@ class ChooseShipPage:
         name:
             舰船名 (中文)。
         """
-        _log.info("[UI] 选船 → 输入舰船名 '{}'", name)
+        _log.debug("[UI] 选船 → 输入舰船名 '{}'", name)
         self._ctrl.text(name)
 
     def ensure_dismiss_keyboard(self) -> None:
         """点击空白区域关闭软键盘。"""
-        _log.info('[UI] 选船 → 关闭键盘')
+        _log.debug('[UI] 选船 → 关闭键盘')
         self._ctrl.click(*CLICK_DISMISS_KEYBOARD)
         wait_leave_page(
             self._ctrl,
@@ -157,15 +157,20 @@ class ChooseShipPage:
 
     def click_first_result(self) -> None:
         """点击搜索结果中的第一个舰船。"""
-        _log.info('[UI] 选船 → 点击第一个结果')
+        _log.debug('[UI] 选船 → 点击第一个结果')
         self._ctrl.click(*CLICK_FIRST_RESULT)
 
     def click_remove(self) -> None:
         """点击「移除」按钮，移除当前槽位的舰船。"""
-        _log.info('[UI] 选船 → 移除舰船')
+        _log.debug('[UI] 选船 → 移除舰船')
         self._ctrl.click(*CLICK_REMOVE_SHIP)
 
-    def change_single_ship(self, name: str | None) -> None:
+    def change_single_ship(
+        self,
+        name: str | None,
+        *,
+        use_search: bool = True,
+    ) -> None:
         """更换/移除当前槽位的舰船。
 
         使用 DLL 行定位 + OCR 在选船列表中查找目标舰船并点击。
@@ -175,6 +180,10 @@ class ChooseShipPage:
         ----------
         name:
             目标舰船名; ``None`` 表示移除当前槽位舰船。
+        use_search:
+            是否使用搜索框输入舰船名来过滤列表。
+            常规出征为 ``True`` (默认), 决战为 ``False``
+            (决战选船界面没有搜索框)。
         """
         if name is None:
             self.click_remove()
@@ -184,9 +193,10 @@ class ChooseShipPage:
         if self._ctx.ocr is None:
             _log.warning('[UI] 未提供 OCR 引擎, 无法识别选船列表')
             return
-        self.ensure_search_box()
-        self.input_ship_name(name)
-        self.ensure_dismiss_keyboard()
+        if use_search:
+            self.ensure_search_box()
+            self.input_ship_name(name)
+            self.ensure_dismiss_keyboard()
         found = self._click_ship_in_list(name)
         if not found:
             _log.error("[UI] 未在选船列表中找到 '{}'", name)

@@ -16,6 +16,8 @@ from autowsgr.ui.map.data import (
     CHAPTER_NAV_MAX_ATTEMPTS,
     CHAPTER_SPACING,
     CLICK_BACK,
+    CLICK_MAP_NEXT,
+    CLICK_MAP_PREV,
     CLICK_PANEL,
     CLICK_SCREEN_CENTER,
     EXPEDITION_NOTIF_COLOR,
@@ -294,3 +296,21 @@ class BaseMapPage:
             target,
         )
         return None
+
+    def navigate_to_map(self, map_num: int | str) -> None:
+        map_num = int(map_num)
+        screen = self._ctrl.screenshot()
+        info = self.recognize_map(screen, self._ocr)
+        if info is not None:
+            current_map = info.map_num
+            if current_map != map_num:
+                delta = map_num - current_map
+                if delta > 0:
+                    for _ in range(delta):
+                        self._ctrl.click(*CLICK_MAP_NEXT)
+                        time.sleep(0.3)
+                else:
+                    for _ in range(-delta):
+                        self._ctrl.click(*CLICK_MAP_PREV)
+                        time.sleep(0.3)
+                time.sleep(0.5)
