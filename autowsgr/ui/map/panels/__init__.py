@@ -4,7 +4,12 @@ from autowsgr.ui.map.panels.campaign import CampaignPanelMixin
 from autowsgr.ui.map.panels.decisive import DecisivePanelMixin
 from autowsgr.ui.map.panels.exercise import ExercisePanelMixin
 from autowsgr.ui.map.panels.expedition import ExpeditionPanelMixin
-from autowsgr.ui.map.panels.sortie import LootShipCount, SortiePanelMixin
+from autowsgr.ui.map.panels.sortie import (
+    LootShipCount,
+    SortiePanelMixin,
+    recognize_loot_count,
+    recognize_ship_count,
+)
 
 
 __all__ = [
@@ -14,4 +19,6 @@ __all__ = [
     'ExpeditionPanelMixin',
     'LootShipCount',
     'SortiePanelMixin',
+    'recognize_loot_count',
+    'recognize_ship_count',
 ]

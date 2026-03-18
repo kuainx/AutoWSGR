@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass
 
@@ -14,9 +13,13 @@ from autowsgr.ui.map.data import (
     CLICK_DIFFICULTY,
     DIFFICULTY_EASY_COLOR,
     DIFFICULTY_HARD_COLOR,
-    LOOT_COUNT_CROP,
-    SHIP_COUNT_CROP,
     MapPanel,
+)
+from autowsgr.ui.map.panels.sortie import (
+    LOOT_MAX,
+    SHIP_MAX,
+    recognize_loot_count,
+    recognize_ship_count,
 )
 from autowsgr.ui.utils import wait_for_page
 from autowsgr.vision import PixelChecker
@@ -129,11 +132,11 @@ class CampaignPanelMixin(BaseMapPage):
 
         ship_count: int | None = None
         """今日已获取舰船数量。"""
-        ship_max: int | None = None
+        ship_max: int = SHIP_MAX
         """今日舰船获取上限。"""
         loot_count: int | None = None
         """今日已获取战利品数量。"""
-        loot_max: int | None = None
+        loot_max: int = LOOT_MAX
         """今日战利品获取上限。"""
 
     def _recognize_acquisition_counts(
@@ -141,8 +144,6 @@ class CampaignPanelMixin(BaseMapPage):
         screen,
     ) -> AcquisitionCounts:
         """从截图中 OCR 识别今日舰船与战利品获取数量。
-
-        读取出征面板右上角的 ``X/500`` (舰船) 和 ``X/50`` (战利品) 文本。
 
         Parameters
         ----------
@@ -152,7 +153,7 @@ class CampaignPanelMixin(BaseMapPage):
         Returns
         -------
         AcquisitionCounts
-            识别到的数量信息，无法识别的字段为 ``None``。
+            识别到的数量信息, 无法识别的字段为 ``None``。
         """
         result = self.AcquisitionCounts()
         ocr = self._ocr
@@ -160,26 +161,8 @@ class CampaignPanelMixin(BaseMapPage):
             _log.warning('[UI] 未提供 OCR 引擎，无法识别获取数量')
             return result
 
-        # ── 战利品 ──
-        loot_img = PixelChecker.crop(screen, *LOOT_COUNT_CROP)
-        loot_text = ocr.recognize_single(loot_img, allowlist='0123456789/').text.strip()
-        parsed = self._parse_fraction(loot_text)
-        if parsed is not None:
-            result.loot_count, result.loot_max = parsed
-            _log.info('[UI] 今日战利品: {}/{}', result.loot_count, result.loot_max)
-        else:
-            _log.warning("[UI] 战利品数量识别失败: '{}'", loot_text)
-
-        # ── 舰船 ──
-        ship_img = PixelChecker.crop(screen, *SHIP_COUNT_CROP)
-        ship_text = ocr.recognize_single(ship_img, allowlist='0123456789/').text.strip()
-        parsed = self._parse_fraction(ship_text)
-        if parsed is not None:
-            result.ship_count, result.ship_max = parsed
-            _log.info('[UI] 今日舰船: {}/{}', result.ship_count, result.ship_max)
-        else:
-            _log.warning("[UI] 舰船数量识别失败: '{}'", ship_text)
-
+        result.loot_count = recognize_loot_count(screen, ocr)
+        result.ship_count = recognize_ship_count(screen, ocr)
         return result
 
     def get_acquisition_counts(self) -> AcquisitionCounts:
@@ -196,26 +179,3 @@ class CampaignPanelMixin(BaseMapPage):
         time.sleep(0.5)
         screen = self._ctrl.screenshot()
         return self._recognize_acquisition_counts(screen)
-
-    @staticmethod
-    def _parse_fraction(text: str) -> tuple[int, int] | None:
-        """解析 ``"X/Y"`` 格式文本为 ``(X, Y)``。
-
-        容错处理: OCR 可能把 ``/`` 识别为 ``1`` 或其他字符，
-        对常见格式做特殊处理。
-        """
-        # 标准格式: "12/500"
-        m = re.match(r'(\d+)\s*/\s*(\d+)', text)
-        if m:
-            return int(m.group(1)), int(m.group(2))
-
-        # OCR 把 "/" 识别为 "1" 等情况: "121500" → 尝试按已知上限拆分
-        digits = re.sub(r'\D', '', text)
-        if digits:
-            # 尝试常见上限: 50 (战利品) 和 500 (舰船)
-            for max_val_str in ('500', '50'):
-                if digits.endswith(max_val_str):
-                    current = digits[: -len(max_val_str)]
-                    if current.isdigit():
-                        return int(current), int(max_val_str)
-        return None

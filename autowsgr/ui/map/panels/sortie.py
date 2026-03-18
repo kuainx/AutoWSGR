@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -32,8 +31,16 @@ from autowsgr.vision import PixelChecker
 if TYPE_CHECKING:
     import numpy as np
 
+    from autowsgr.vision import EasyOCREngine
+
 
 _log = get_logger('ui')
+
+LOOT_MAX = 50
+"""战利品 (胖次) 上限, 固定值。"""
+
+SHIP_MAX = 500
+"""舰船上限, 固定值。"""
 
 
 # ── 数据类 ──
@@ -46,47 +53,93 @@ class LootShipCount:
     Attributes
     ----------
     loot:
-        战利品 (胖次) 已获取数量，识别失败时为 ``None``。
+        战利品 (胖次) 已获取数量, 识别失败时为 ``None``。
     loot_max:
-        战利品上限 (通常 50)，识别失败时为 ``None``。
+        战利品上限, 固定 50。
     ship:
-        舰船已获取数量，识别失败时为 ``None``。
+        舰船已获取数量, 识别失败时为 ``None``。
     ship_max:
-        舰船上限 (通常 500)，识别失败时为 ``None``。
+        舰船上限, 固定 500。
     """
 
     loot: int | None = None
-    loot_max: int | None = None
+    loot_max: int = LOOT_MAX
     ship: int | None = None
-    ship_max: int | None = None
+    ship_max: int = SHIP_MAX
 
 
-# ── 内部工具 ──
+# ── 独立识别函数 ──
 
-_FRACTION_RE = re.compile(r'(\d+)\s*[/|]\s*(\d+)')
-"""匹配 "X/Y" 格式的正则 (兼容 OCR 把 / 识别为 | 的情况)。"""
-
-_KNOWN_DENOMS = (500, 50)
-"""已知分母值, 用于 OCR 将 ``/`` 误识为 ``1`` 时的回退解析 (长的优先匹配)。"""
+_OCR_ALLOWLIST = '0123456789/|'
+"""OCR 字符白名单。包含 ``/`` 和 ``|`` 使 OCR 正确识别斜线而非误读为 ``1``。"""
 
 
-def _parse_fraction(text: str) -> tuple[int, int] | None:
-    """解析 ``"123/500"`` 格式文本, 返回 ``(numerator, denominator)``。"""
-    m = _FRACTION_RE.search(text)
-    if m:
-        return int(m.group(1)), int(m.group(2))
+def _parse_numerator(text: str, max_val: int) -> int:
+    """从 ``"X/Y"`` 格式的 OCR 文本中提取分子 (``/`` 前的数字)。
 
-    # 回退: OCR 有时将 '/' 误识为 '1', 导致纯数字串如 "17150" (实为 "17/50")。
-    # 尝试去掉已知分母前的多余 '1' 来还原。
+    - 优先按 ``/`` 或 ``|`` 分割取第一段。
+    - 回退: 若无分隔符, 按已知分母剥离末尾后缀。
+    """
+    # 优先: 按 "/" 或 "|" 分割
+    for sep in ('/', '|'):
+        if sep in text:
+            left = text.split(sep, 1)[0]
+            digits = ''.join(c for c in left if c.isdigit())
+            if digits:
+                return int(digits)
+            raise ValueError(f'分子部分无数字: "{text}"')
+
+    # 回退: OCR 偶尔把 "/" 识别为 "1", 导致纯数字串如 "17150"。
+    # 已知分母为 max_val, 则后缀为 "1" + str(max_val)。
     digits = ''.join(c for c in text if c.isdigit())
-    if digits:
-        for denom in _KNOWN_DENOMS:
-            suffix = '1' + str(denom)
-            if digits.endswith(suffix) and len(digits) > len(suffix):
-                numerator = int(digits[: -len(suffix)])
-                if numerator >= 0 and numerator <= denom:
-                    return numerator, denom
+    if not digits:
+        raise ValueError(f'文本中无数字: "{text}"')
+    suffix = '1' + str(max_val)
+    if digits.endswith(suffix) and len(digits) > len(suffix):
+        return int(digits[: -len(suffix)])
+    # 无 "1" 前缀: 可能分母直接拼接
+    denom_str = str(max_val)
+    if digits.endswith(denom_str) and len(digits) > len(denom_str):
+        return int(digits[: -len(denom_str)])
     return None
+
+
+def recognize_loot_count(screen: np.ndarray, ocr: EasyOCREngine) -> int | None:
+    """识别出征面板战利品 (胖次) 已获取数量。
+
+    OCR ``X/50`` 区域并提取 ``/`` 前的数字, 上限固定为 50。
+    """
+    img = PixelChecker.crop(screen, *LOOT_COUNT_CROP)
+    text = ocr.recognize_single(img, allowlist=_OCR_ALLOWLIST).text.strip()
+    if not text:
+        _log.warning('[UI] 战利品数量 OCR 无结果')
+        return None
+    count = _parse_numerator(text, LOOT_MAX)
+    if count > 50 and str(count).endswith('1'):
+        count = int(str(count)[:-1])  # 可能 OCR 把 "/50" 识别成 "150"
+    if count is not None:
+        _log.info('[UI] 战利品数量: {}/{}', count, LOOT_MAX)
+    else:
+        _log.warning("[UI] 战利品数量 OCR 解析失败: '{}'", text)
+    return count
+
+
+def recognize_ship_count(screen: np.ndarray, ocr: EasyOCREngine) -> int | None:
+    """识别出征面板舰船已获取数量。
+
+    OCR ``X/500`` 区域并提取 ``/`` 前的数字, 上限固定为 500。
+    """
+    img = PixelChecker.crop(screen, *SHIP_COUNT_CROP)
+    text = ocr.recognize_single(img, allowlist=_OCR_ALLOWLIST).text.strip()
+    if not text:
+        _log.warning('[UI] 舰船数量 OCR 无结果')
+        return None
+    count = _parse_numerator(text, SHIP_MAX)
+    if count is not None:
+        _log.info('[UI] 舰船数量: {}/{}', count, SHIP_MAX)
+    else:
+        _log.warning("[UI] 舰船数量 OCR 解析失败: '{}'", text)
+    return count
 
 
 class SortiePanelMixin(BaseMapPage):
@@ -206,7 +259,7 @@ class SortiePanelMixin(BaseMapPage):
     ) -> LootShipCount:
         """读取出征面板右上角的已获取舰船/战利品数量。
 
-        通过 OCR 识别 ``X/Y`` 格式的数字。需要先处于出征面板。
+        通过 OCR 识别数字。需要先处于出征面板。
 
         Parameters
         ----------
@@ -218,35 +271,10 @@ class SortiePanelMixin(BaseMapPage):
         if screen is None:
             screen = self._ctrl.screenshot()
 
-        loot = loot_max = ship = ship_max = None
+        loot = recognize_loot_count(screen, self._ocr)
+        ship = recognize_ship_count(screen, self._ocr)
 
-        # -- 战利品 (胖次) --
-        loot_img = PixelChecker.crop(screen, *LOOT_COUNT_CROP)
-        loot_text = self._ocr.recognize_single(loot_img, allowlist='0123456789/|').text.strip()
-        if loot_text:
-            parsed = _parse_fraction(loot_text)
-            if parsed:
-                loot, loot_max = parsed
-                _log.info('[UI] 战利品数量: {}/{}', loot, loot_max)
-            else:
-                _log.warning("[UI] 战利品数量 OCR 解析失败: '{}'", loot_text)
-        else:
-            _log.warning('[UI] 战利品数量 OCR 无结果')
-
-        # -- 舰船 --
-        ship_img = PixelChecker.crop(screen, *SHIP_COUNT_CROP)
-        ship_text = self._ocr.recognize_single(ship_img, allowlist='0123456789/|').text.strip()
-        if ship_text:
-            parsed = _parse_fraction(ship_text)
-            if parsed:
-                ship, ship_max = parsed
-                _log.info('[UI] 舰船数量: {}/{}', ship, ship_max)
-            else:
-                _log.warning("[UI] 舰船数量 OCR 解析失败: '{}'", ship_text)
-        else:
-            _log.warning('[UI] 舰船数量 OCR 无结果')
-
-        return LootShipCount(loot=loot, loot_max=loot_max, ship=ship, ship_max=ship_max)
+        return LootShipCount(loot=loot, ship=ship)
 
     # ═══════════════════════════════════════════════════════════════════════
     # 进入出征
