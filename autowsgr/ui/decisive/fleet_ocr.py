@@ -139,10 +139,10 @@ def use_skill(
 
     screen = ctrl.screenshot()
     crop = ship_area.crop(screen)
-    result = ocr.recognize_ship_name(crop)
+    result = ocr.recognize_ship_names(crop)
     acquired: list[str] = []
     if result is not None:
-        acquired.append(result)
+        acquired.extend(result)
 
     ctrl.click(*skill_pos)  # 快进一下
     return acquired
