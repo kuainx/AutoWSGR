@@ -214,6 +214,13 @@ class DecisivePhaseHandlers(DecisiveBase):
                 self._has_chosen_fleet,
             )
 
+        # 先使用技能，再注册舰船
+        if self._state.node == 'A' and not self._map.is_skill_used():
+            gained = self._map.use_skill()
+            if gained:
+                _log.info('[决战] 使用技能获得: {}', gained)
+                self._state.ships.update(gained)
+
         # ── 恢复模式: 扫描当前舰队与可用舰船 ─────────────────────────
         # 对齐 legacy: if fleet.empty() and not is_begin(): _check_fleet()
         if self._resume_mode:
@@ -227,12 +234,6 @@ class DecisivePhaseHandlers(DecisiveBase):
                     self._state.fleet[i + 1] = name or ''
             self._sync_ship_states()
             self._resume_mode = False  # 扫描完成后退出恢复模式
-
-        if self._state.node == 'A' and not self._map.is_skill_used():
-            gained = self._map.use_skill()
-            if gained:
-                _log.info('[决战] 使用技能获得: {}', gained)
-                self._state.ships.update(gained)
 
         best_fleet = self._logic.get_best_fleet()
         if self._logic.should_retreat(best_fleet):
@@ -251,8 +252,10 @@ class DecisivePhaseHandlers(DecisiveBase):
             self._state.fleet = best_fleet
 
         strategy = (
-            RepairStrategy.NEVER if not self._config.use_quick_repair
-            else RepairStrategy.MODERATE if self._config.repair_level <= 1
+            RepairStrategy.NEVER
+            if not self._config.use_quick_repair
+            else RepairStrategy.MODERATE
+            if self._config.repair_level <= 1
             else RepairStrategy.SEVERE
         )
         page.apply_repair(strategy)

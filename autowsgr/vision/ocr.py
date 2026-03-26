@@ -297,7 +297,7 @@ class OCREngine(ABC):
                     if dist > max_threshold:
                         raise ShipNameMismatchError(text, best_candidate, dist, max_threshold)
                 _log_fn("[OCR] recognize_ship_names: '{}' 无匹配 (阈值={})，跳过", text, threshold)
-        _log_fn('[OCR] recognize_ship_names: 共识别 {} 艰: {}', len(matched), matched)
+        _log_fn('[OCR] recognize_ship_names: 共识别 {} 艘: {}', len(matched), matched)
         return matched
 
     # ── 工厂方法 ──
