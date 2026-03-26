@@ -188,7 +188,8 @@ class DecisiveLogic:
         )
 
     def check_useful_skill(self, gained: list[str]) -> bool:
-        """检查技能获得的舰船是否有用。
+        """充分利用技能, 要求地图1必须为Lv1+Lv2中的船; 其余地图至少一半的船为Lv1中的船。
+        严格利用技能, 开启时要求地图1技能不能获取+1的船;
 
         Parameters
         ----------
