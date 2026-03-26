@@ -476,6 +476,10 @@ class DecisiveConfig:
     """解装时指定的舰种列表。空列表 = 不过滤，全部解装。"""
     use_quick_repair: bool = True
     """是否启用快修（桶修），关闭后不修理受损舰船。"""
+    useful_skill: bool = True
+    """充分利用技能, 开启时要求地图1必须为Lv1+Lv2中的船; 其余地图至少一半的船为Lv1中的船"""
+    useful_skill_strict: bool = False
+    """严格利用技能, 开启时要求地图1技能不能获取+1的船; useful_skill为True时本设置才生效"""
 
 
 # ── ConfigManager ──

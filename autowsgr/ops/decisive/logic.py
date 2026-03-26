@@ -187,6 +187,32 @@ class DecisiveLogic:
             node,
         )
 
+    def check_useful_skill(self, gained: list[str]) -> bool:
+        """检查技能获得的舰船是否有用。
+
+        Parameters
+        ----------
+        gained:
+            技能获得的舰船列表
+        """
+        if len(gained) == 1:
+            ship = gained[0]
+            # 严格模式下检查重复舰船
+            if self.config.useful_skill_strict and ship in self.state.ships:
+                _log.info(
+                    '[决战] 处于严格模式，获取到重复舰船：{}, 舰队{}',
+                    ship,
+                    self.state.ships,
+                )
+                return False
+            # 检查是否在 level2 列表中
+            all_ships = self.config.level1 + self.config.level2
+            return ship in all_ships
+
+        # 多艘船：检查 level1 舰船是否占一半以上
+        useful_ships = set(gained) & set(self.config.level1)
+        return len(useful_ships) >= len(gained) / 2
+
     # ── 编队计算 ───────────────────────────────────────────────────────
 
     def get_best_fleet(self) -> list[str]:
