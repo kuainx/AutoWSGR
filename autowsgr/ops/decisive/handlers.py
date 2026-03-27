@@ -218,8 +218,12 @@ class DecisivePhaseHandlers(DecisiveBase):
         if self._state.node == 'A' and not self._map.is_skill_used():
             gained = self._map.use_skill()
             if gained:
-                _log.info('[决战] 使用技能获得: {}', gained)
+                if self._config.useful_skill and not self._logic.check_useful_skill(gained):
+                    _log.info('[决战] 技能获得: {}, 效果不佳，撤退重试', gained)
+                    self._state.phase = DecisivePhase.RETREAT
+                    return
                 self._state.ships.update(gained)
+                _log.info('[决战] 使用技能获得: {}', gained)
 
         # ── 恢复模式: 扫描当前舰队与可用舰船 ─────────────────────────
         # 对齐 legacy: if fleet.empty() and not is_begin(): _check_fleet()
