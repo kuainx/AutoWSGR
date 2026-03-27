@@ -136,5 +136,3 @@ decisive_battle:
   full_destroy: false              # 船舱满了是否解装舰船
   useful_skill: false              # 充分利用技能
   useful_skill_strict: false       # 严格利用技能 (useful_skill 为 true 时才生效)
-  useful_skill: true              # 充分利用技能, 开启时要求地图1必须为Lv1+Lv2中的船; 其余地图至少一半的船为Lv1中的船
-  useful_skill_strict: true       # 严格利用技能, 开启时要求地图1技能不能获取+1的船; useful_skill为True时本设置才生效
