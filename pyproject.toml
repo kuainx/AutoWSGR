@@ -20,7 +20,7 @@ dependencies = [
     "setuptools",
     "rich",
     "pre-commit",
-    "opencv-python",
+    "opencv-python-headless",
     "loguru",
     "keyboard",
     "easyocr>=1.7.1",
