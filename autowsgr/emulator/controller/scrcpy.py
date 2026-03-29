@@ -161,6 +161,9 @@ class ScrcpyController(AndroidController):
                     time.sleep(2.0)
 
                 if serial:
+                    # TCP 地址（如 127.0.0.1:16384）需先 adb connect
+                    if ':' in serial:
+                        adbutils.adb.connect(serial, timeout=5.0)
                     self._device = adbutils.adb.device(serial=serial)
                 else:
                     devices = adbutils.adb.device_list()
