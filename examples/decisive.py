@@ -9,6 +9,21 @@ from autowsgr.ops import DecisiveController
 from autowsgr.scheduler import launch
 
 
+"""
+U-1206
+U-96
+U-47
+鹦鹉螺
+鲃鱼
+伊-25
+
+M-296
+大青花鱼
+U-1405
+射水鱼
+"""
+
+
 # 1. 启动
 ctx = launch('usersettings.yaml')
 
@@ -16,7 +31,7 @@ ctx = launch('usersettings.yaml')
 config = DecisiveConfig(
     chapter=6,
     level1=['U-1206', 'U-96', 'U-47', '鹦鹉螺', '鲃鱼', '伊-25'],
-    level2=['M-296', '大青花鱼', 'U-1405'],
+    level2=['M-296', '大青花鱼', 'U-1405', '射水鱼'],
     flagship_priority=['U-1206'],
 )
 

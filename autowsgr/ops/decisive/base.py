@@ -54,8 +54,13 @@ class DecisiveBase:
         self._ctrl = ctx.ctrl
         self._ocr = ctx.ocr
         # 合并配置：传入的 config 覆盖 ctx.config，未指定的字段使用 ctx.config 的值
+        base = (
+            ctx.config.decisive_battle.model_dump()
+            if ctx.config.decisive_battle is not None
+            else {}
+        )
         merged_config_dict = {
-            **ctx.config.decisive_battle.model_dump(),
+            **base,
             **config.model_dump(exclude_unset=True),
         }
         merged_config = DecisiveConfig(**merged_config_dict)
