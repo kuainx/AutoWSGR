@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from autowsgr.constants import SHIPNAMES
 from autowsgr.infra.logger import get_logger
 from autowsgr.ui.battle.base import BaseBattlePreparation
-from autowsgr.vision.ocr import _fuzzy_match
+from autowsgr.vision.ocr import _fuzzy_match, apply_ship_patches
 
 
 if TYPE_CHECKING:
@@ -77,8 +77,13 @@ class FleetDetectMixin(BaseBattlePreparation):
             text = r.text.strip()
             if not text or r.bbox is None:
                 continue
+            raw_text = text
+            text = apply_ship_patches(text)
+            if text != raw_text:
+                _log.debug("[准备页] OCR raw='{}' -> patched='{}'", raw_text, text)
             matched = _fuzzy_match(text, SHIPNAMES, _SHIP_FUZZY_THRESHOLD)
             if matched is None:
+                _log.debug("[准备页] OCR '{}' -> 无匹配, 跳过", raw_text)
                 continue
             cx_rel = (r.bbox[0] + r.bbox[2]) / 2 / w
             slot = min(

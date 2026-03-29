@@ -35,6 +35,38 @@ _log = get_logger('vision.ocr')
 REPLACE_RULE: dict[str, str] = {'鲍鱼': '鲃鱼'}
 
 
+# ── 舰船名文本补丁管线 ──
+
+
+def _patch_replace_rule(text: str) -> str:
+    """精确替换已知 OCR 误识别。"""
+    return REPLACE_RULE.get(text, text)
+
+
+def _patch_submarine_prefix(text: str) -> str:
+    """修正潜艇名首字符误识别: 以 0 开头且含 3+ 位数字 -> 首字符改为 U。
+
+    常见误读: U-96 -> 096, U-1206 -> 01206 等。
+    """
+    if text.startswith('0') and sum(c.isdigit() for c in text) >= 3:
+        return 'U' + text[1:]
+    return text
+
+
+SHIP_TEXT_PATCHES = [
+    _patch_replace_rule,
+    _patch_submarine_prefix,
+]
+"""舰船名 OCR 文本补丁列表, 按序执行。每个补丁签名: str -> str。"""
+
+
+def apply_ship_patches(text: str) -> str:
+    """依次执行所有舰船名文本补丁。"""
+    for patch in SHIP_TEXT_PATCHES:
+        text = patch(text)
+    return text
+
+
 @dataclass(frozen=True, slots=True)
 class OCRResult:
     """OCR 识别结果。
@@ -222,19 +254,21 @@ class OCREngine(ABC):
         if not result.text:
             _log_fn('[OCR] recognize_ship_name: 无文本')
             return None
-        if result.text in REPLACE_RULE:
-            matched = REPLACE_RULE[result.text]
+        raw_text = result.text
+        corrected = apply_ship_patches(raw_text)
+        if corrected != raw_text:
             _log_fn(
-                "[OCR] recognize_ship_name: '{}' → '{}' (替换规则)",
-                result.text,
-                matched,
+                "[OCR] recognize_ship_name: raw='{}' -> patched='{}'",
+                raw_text,
+                corrected,
             )
-            return matched
-        matched = _fuzzy_match(result.text, candidates, threshold)
+        else:
+            _log_fn("[OCR] recognize_ship_name: raw='{}'", raw_text)
+        matched = _fuzzy_match(corrected, candidates, threshold)
         _log_fn(
-            "[OCR] recognize_ship_name: '{}' → '{}'",
-            result.text,
-            matched or '\u672a匹配',
+            "[OCR] recognize_ship_name: '{}' -> '{}'",
+            raw_text,
+            matched or '未匹配',
         )
         return matched
 
@@ -284,9 +318,21 @@ class OCREngine(ABC):
             text = r.text.strip()
             if not text:
                 continue
+            raw_text = text
+            text = apply_ship_patches(text)
+            if text != raw_text:
+                _log_fn(
+                    "[OCR] recognize_ship_names: raw='{}' -> patched='{}'",
+                    raw_text,
+                    text,
+                )
             best = _fuzzy_match(text, candidates, threshold)
             if best is not None:
-                _log_fn("[OCR] recognize_ship_names: '{}' → '{}'", text, best)
+                _log_fn(
+                    "[OCR] recognize_ship_names: '{}' -> '{}'",
+                    raw_text,
+                    best,
+                )
                 if best not in seen:
                     seen.add(best)
                     matched.append(best)
@@ -355,7 +401,7 @@ class EasyOCREngine(OCREngine):
         raw = self._reader.readtext(image, **kwargs)
         return [
             OCRResult(
-                text=REPLACE_RULE.get(text, text),
+                text=text,
                 confidence=float(conf),
                 bbox=(
                     int(box[0][0]),
@@ -380,7 +426,22 @@ def _fuzzy_match(text: str, candidates: list[str], threshold: int = 3) -> str | 
         if dist < best_dist:
             best_dist = dist
             best_name = name
-    return best_name if best_dist <= threshold else None
+    if best_name is not None and best_dist <= threshold:
+        _log.debug(
+            "[OCR] fuzzy_match: '{}' -> '{}' (distance={})",
+            text,
+            best_name,
+            best_dist,
+        )
+        return best_name
+    _log.debug(
+        "[OCR] fuzzy_match: '{}' -> 无匹配 (best='{}', distance={}, threshold={})",
+        text,
+        best_name,
+        best_dist,
+        threshold,
+    )
+    return None
 
 
 def _edit_distance(a: str, b: str) -> int:

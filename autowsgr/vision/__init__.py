@@ -38,7 +38,7 @@ from .image_template import (
     ImageTemplate,
 )
 from .matcher import PixelChecker
-from .ocr import EasyOCREngine, OCREngine, OCRResult, ShipNameMismatchError
+from .ocr import EasyOCREngine, OCREngine, OCRResult, ShipNameMismatchError, apply_ship_patches
 from .pixel import (
     Color,
     CompositePixelSignature,
@@ -75,6 +75,7 @@ __all__ = [
     'OCRResult',
     'EasyOCREngine',
     'ShipNameMismatchError',
+    'apply_ship_patches',
     # api_dll
     'ApiDll',
     'get_api_dll',
