@@ -227,7 +227,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         解析成功返回地图信息，失败返回 ``None``。
     """
     # ── 第 1 步: 严格单位数匹配 ──
-    m = re.search(r'(\d)\s*[--—]\s*(\d)\s*[/／]?\s*(.*)', text)
+    m = re.search(r'(\d)\s*[--—]\s*(\d)\s*[/]?\s*(.*)', text)
     if m:
         chapter = int(m.group(1))
         map_num = int(m.group(2))
@@ -255,7 +255,7 @@ def parse_map_title(text: str) -> MapIdentity | None:
         )
 
     # ── 第 2 步: 多位数匹配 + 校正 ──
-    m = re.search(r'(\d+)\s*[--—]\s*(\d+)\s*[/／]?\s*(.*)', text)
+    m = re.search(r'(\d+)\s*[--—]\s*(\d+)\s*[/]?\s*(.*)', text)
     if not m:
         return None
 
@@ -452,10 +452,10 @@ PANEL_LIST: list[MapPanel] = list(MapPanel)
 PANEL_TO_INDEX: dict[MapPanel, int] = {panel: i for i, panel in enumerate(PANEL_LIST)}
 
 CLICK_PANEL: dict[MapPanel, tuple[float, float]] = {
-    MapPanel.SORTIE: (0.1396, 0.0574),
-    MapPanel.EXERCISE: (0.2745, 0.0537),
-    MapPanel.EXPEDITION: (0.4042, 0.0556),
-    MapPanel.BATTLE: (0.5276, 0.0519),
-    MapPanel.DECISIVE: (0.6620, 0.0556),
+    MapPanel.SORTIE: (0.1844, 0.0514),
+    MapPanel.EXERCISE: (0.3156, 0.0500),
+    MapPanel.EXPEDITION: (0.4422, 0.0514),
+    MapPanel.BATTLE: (0.5750, 0.0458),
+    MapPanel.DECISIVE: (0.6984, 0.0514),
 }
 """面板标签点击位置。"""

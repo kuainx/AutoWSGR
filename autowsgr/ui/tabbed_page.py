@@ -103,16 +103,15 @@ class TabbedPageType(enum.Enum):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 TAB_PROBES: list[tuple[float, float]] = [
-    (0.1415, 0.0650),
-    (0.2727, 0.0650),
-    (0.4031, 0.0486),
-    (0.5352, 0.0486),
-    (0.6617, 0.0542),
+    (0.1539, 0.0472),
+    (0.2719, 0.0625),
+    (0.4039, 0.0528),
+    (0.5359, 0.0500),
+    (0.6641, 0.0500),
 ]
 """5 个固定标签栏探测点 (相对坐标)。
 
 激活标签处显示蓝色 ≈ (15, 132, 228)，其余为深色 (max < 80)。
-第 0、1 号探测点 y 下移至 0.065 以避开标签文字及 "战利品▲" 徽标遮挡区域。
 """
 
 TAB_BLUE = Color.of(15, 132, 228)
@@ -301,7 +300,7 @@ def is_tabbed_page(screen: np.ndarray) -> bool:
     """
     blue_count = 0
     dark_count = 0
-    for i, (x, y) in enumerate(TAB_PROBES):
+    for _i, (x, y) in enumerate(TAB_PROBES):
         pixel = PixelChecker.get_pixel(screen, x, y)
         is_blue = pixel.near(TAB_BLUE, TAB_BLUE_TOLERANCE)
         is_dark = max(pixel.r, pixel.g, pixel.b) < TAB_DARK_MAX
