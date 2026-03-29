@@ -36,9 +36,13 @@ import sys
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from autowsgr.context import GameContext
 
 
 try:
@@ -71,7 +75,7 @@ if TYPE_CHECKING:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class StepResult(str, Enum):
+class StepResult(StrEnum):
     """单步执行结果。"""
 
     PASS = 'pass'

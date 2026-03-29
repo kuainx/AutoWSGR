@@ -34,7 +34,7 @@ class TestEmulatorConfig:
 
 class TestDecisiveConfig:
     def test_invalid_chapter(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             DecisiveConfig(chapter=0)
 
 

@@ -47,13 +47,22 @@ python -m build
 | 检查项 | 失败原因 | 修复方式 |
 |--------|----------|----------|
 | `check-shebang-scripts-are-executable` | 有 shebang 的脚本未标记可执行 | `git add --chmod=+x <file>` |
-| `ruff-check` | 代码风格/lint 错误 | `ruff check --fix .` |
+| `ruff-check` | 代码风格/lint 错误 | `ruff check --fix .` 自动修复；无法自动修复的需手动改 |
 | `ruff-format` | 格式不规范 | `ruff format .` |
 | `trailing-whitespace` | 行尾空格 | pre-commit 自动修复后 re-add |
 | `end-of-file-fixer` | 文件末尾缺换行 | pre-commit 自动修复后 re-add |
-| `codespell` | 拼写错误 | 修正拼写或加入 `pyproject.toml [tool.codespell]` 忽略 |
+| `codespell` | 拼写错误 | 修正拼写或加入 `docs/spelling_wordlist.txt` |
 
-**如果 pre-commit 自动修了文件，需要重新 `git add` 再跑一遍。**
+#### ruff 常见错误处理策略
+
+- **E402** (import not at top): 把 `_log = get_logger(...)` 移到 import 之后
+- **UP042** (str+Enum): 改为继承 `StrEnum`
+- **RUF015** (list(...)[0]): 改用 `next(iter(...))`
+- **FURB110** (ternary if/else): 改用 `or` 运算符
+- **SIM401** (if/else → dict.get): 改用 `.get(key, default)`
+- **不适合修复的规则**: 已在 `pyproject.toml [tool.ruff.lint] ignore` 中配置忽略（如 N818, RUF022, RUF012）
+
+**如果 pre-commit 自动修了文件，需要重新 `git add` 再跑一遍（跑两遍是正常的）。**
 
 ### 3. 提交并推送
 

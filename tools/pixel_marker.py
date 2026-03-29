@@ -114,8 +114,7 @@ class SignatureConfig:
         if self.strategy == 'count':
             lines.append(f'    threshold={self.threshold},')
         lines.append('    rules=[')
-        for pt in self.points:
-            lines.append(f'        {pt.to_pixel_rule_code()},')
+        lines.extend(f'        {pt.to_pixel_rule_code()},' for pt in self.points)
         lines.append('    ],')
         lines.append(')')
         return '\n'.join(lines)
@@ -633,12 +632,13 @@ class PixelMarkerApp:
         self._status_var.set(f'已删除 {len(indices)} 个标注点')
 
     def _on_clear_points(self) -> None:
-        if self._config.points:
-            if messagebox.askyesno('确认', f'确定清空全部 {len(self._config.points)} 个标注点？'):
-                self._config.points.clear()
-                self._redraw_markers()
-                self._refresh_tree()
-                self._status_var.set('已清空所有标注点')
+        if self._config.points and messagebox.askyesno(
+            '确认', f'确定清空全部 {len(self._config.points)} 个标注点？'
+        ):
+            self._config.points.clear()
+            self._redraw_markers()
+            self._refresh_tree()
+            self._status_var.set('已清空所有标注点')
 
     # ── 导出 ─────────────────────────────────────────────────────────────
 

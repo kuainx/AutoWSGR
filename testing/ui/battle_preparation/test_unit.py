@@ -220,12 +220,12 @@ class TestSelectFleet:
         ctrl.click.assert_called_once_with(*CLICK_FLEET[fleet])
 
     def test_invalid_fleet_raises(self, page):
-        pg, ctrl = page
+        pg, _ctrl = page
         with pytest.raises(ValueError, match='1-4'):
             pg.select_fleet(5)
 
     def test_fleet_zero_raises(self, page):
-        pg, ctrl = page
+        pg, _ctrl = page
         with pytest.raises(ValueError):
             pg.select_fleet(0)
 

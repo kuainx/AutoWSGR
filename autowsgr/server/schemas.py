@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     """任务类型。"""
 
     NORMAL_FIGHT = 'normal_fight'
@@ -23,7 +23,7 @@ class TaskType(str, Enum):
     DECISIVE = 'decisive'
 
 
-class TaskStatusEnum(str, Enum):
+class TaskStatusEnum(StrEnum):
     """任务状态。"""
 
     IDLE = 'idle'
@@ -33,7 +33,7 @@ class TaskStatusEnum(str, Enum):
     STOPPED = 'stopped'
 
 
-class LogLevel(str, Enum):
+class LogLevel(StrEnum):
     """日志级别。"""
 
     DEBUG = 'DEBUG'

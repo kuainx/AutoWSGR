@@ -13,10 +13,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from autowsgr.infra.logger import get_logger
-
-
-_log = get_logger('infra')
-
 from autowsgr.types import (
     DestroyShipWorkMode,
     EmulatorType,
@@ -29,6 +25,9 @@ from autowsgr.types import (
 )
 
 from .file_utils import load_yaml
+
+
+_log = get_logger('infra')
 
 
 # ── 子配置模型 ──

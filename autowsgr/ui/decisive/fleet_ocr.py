@@ -98,7 +98,7 @@ def recognize_fleet_options(
         name = ocr.recognize_ship_name(name_img)
         if name is None:
             raw = ocr.recognize_single(name_img)
-            name = raw.text.strip() if raw.text.strip() else f'未识别_{i}'
+            name = raw.text.strip() or f'未识别_{i}'
             _log.debug("[舰队OCR] 舰船名模糊匹配失败, 原文: '{}'", name)
 
         click_x = FLEET_CARD_X_POSITIONS[i] if i < len(FLEET_CARD_X_POSITIONS) else 0.5

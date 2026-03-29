@@ -6,14 +6,14 @@ import json
 import os
 import subprocess
 
+from autowsgr.infra import EmulatorError, EmulatorNotFoundError
 from autowsgr.infra.logger import get_logger
+from autowsgr.types import EmulatorType
 
 from .base import EmulatorProcessManager
 
 
 _log = get_logger('emulator')
-from autowsgr.infra import EmulatorError, EmulatorNotFoundError
-from autowsgr.types import EmulatorType
 
 
 class MacEmulatorManager(EmulatorProcessManager):

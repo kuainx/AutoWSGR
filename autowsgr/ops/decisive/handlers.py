@@ -166,7 +166,7 @@ class DecisivePhaseHandlers(DecisiveBase):
 
             if not to_buy and len(self._state.ships) == 0 and self._state.is_begin():
                 _log.info('[决战] 未选择舰船, 必须购买一项 → 选择第一项')
-                self._map.buy_fleet_option(list(selections.values())[0].click_position)
+                self._map.buy_fleet_option(next(iter(selections.values())).click_position)
                 self._map.close_fleet_overlay()
                 self._state.phase = DecisivePhase.RETREAT
                 return

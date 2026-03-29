@@ -355,7 +355,7 @@ class EasyOCREngine(OCREngine):
         raw = self._reader.readtext(image, **kwargs)
         return [
             OCRResult(
-                text=text if text not in REPLACE_RULE else REPLACE_RULE[text],
+                text=REPLACE_RULE.get(text, text),
                 confidence=float(conf),
                 bbox=(
                     int(box[0][0]),
