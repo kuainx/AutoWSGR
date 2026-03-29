@@ -141,9 +141,7 @@ ignore = [
     "TRY003",  # raise-vanilla-args
     "TRY400",  # error-instead-of-exception
     "W505",    # doc-line-too-long
-    "N817",    # CamelCase imported as acronym (local alias)
     "N818",    # exception-name-not-error (renaming is breaking)
-    "RUF012",  # mutable-class-default (test constants, ClassVar patterns)
     "RUF022",  # unsorted-all (__all__ grouped by semantic category)
     "TRY004",  # prefer-type-error (debatable for value parsing)
 ]

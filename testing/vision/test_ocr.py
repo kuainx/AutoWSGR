@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
@@ -52,7 +54,7 @@ class TestOCRResult:
 
 
 class TestFuzzyMatch:
-    SHIP_NAMES = ['雪风', '时雨', '由良', '爱宕', '高雄']
+    SHIP_NAMES: ClassVar[list[str]] = ['雪风', '时雨', '由良', '爱宕', '高雄']
 
     def test_exact_match(self):
         assert _fuzzy_match('雪风', self.SHIP_NAMES) == '雪风'
@@ -159,7 +161,7 @@ class TestRecognizeNumber:
 
 
 class TestRecognizeShipName:
-    CANDIDATES = ['叢雲', '白雪', '初雪', '深雪']
+    CANDIDATES: ClassVar[list[str]] = ['叢雲', '白雪', '初雪', '深雪']
 
     def _engine(self, text: str) -> MockOCREngine:
         return MockOCREngine([OCRResult(text=text, confidence=0.85)])
@@ -193,7 +195,7 @@ class TestRecognizeShipName:
 
 
 class TestRecognizeShipNames:
-    CANDIDATES = ['雪风', '时雨', '由良', '爱宕', '高雄']
+    CANDIDATES: ClassVar[list[str]] = ['雪风', '时雨', '由良', '爱宕', '高雄']
 
     def _engine(self, *texts: str) -> MockOCREngine:
         """构造返回多个文本结果的 MockOCREngine。"""

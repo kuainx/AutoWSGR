@@ -58,12 +58,12 @@ class RepairMixin(BaseBattlePreparation):
         list[int]
             实际修理的槽位列表。
         """
-        from autowsgr.ui.battle.base import RepairStrategy as RS
+        from autowsgr.ui.battle.base import RepairStrategy
 
         if strategy is None:
-            strategy = RS.SEVERE
+            strategy = RepairStrategy.SEVERE
 
-        if strategy is RS.NEVER:
+        if strategy is RepairStrategy.NEVER:
             return []
 
         screen = self._ctrl.screenshot()
@@ -74,9 +74,9 @@ class RepairMixin(BaseBattlePreparation):
             if dmg == ShipDamageState.NO_SHIP or dmg == ShipDamageState.NORMAL:
                 continue
             if (
-                (strategy is RS.ALWAYS and dmg >= ShipDamageState.MODERATE)
-                or (strategy is RS.MODERATE and dmg >= ShipDamageState.MODERATE)
-                or (strategy is RS.SEVERE and dmg >= ShipDamageState.SEVERE)
+                (strategy is RepairStrategy.ALWAYS and dmg >= ShipDamageState.MODERATE)
+                or (strategy is RepairStrategy.MODERATE and dmg >= ShipDamageState.MODERATE)
+                or (strategy is RepairStrategy.SEVERE and dmg >= ShipDamageState.SEVERE)
             ):
                 positions.append(slot)
 

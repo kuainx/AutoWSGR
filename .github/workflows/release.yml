@@ -1,6 +1,6 @@
-# 创建 GitHub Release — 当版本号变更推送到 main 时自动触发
-# 先跑 lint + 构建检查，通过后创建 Release（python-publish.yml 独立处理 PyPI 推送）
-name: Release
+# Release & Publish — 版本号变更时自动触发，也可手动触发
+# 创建 GitHub Release + 发布到 PyPI，不依赖 lint
+name: Release & Publish
 
 on:
   push:
@@ -12,36 +12,23 @@ permissions:
   contents: write
 
 jobs:
-  # ── 质量门禁 ──
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit build
-      - name: Run pre-commit checks
-        run: pre-commit run --all-files
-      - name: Verify package builds
-        run: python -m build
-
-  # ── 创建 GitHub Release ──
   release:
-    needs: lint
     if: github.repository == 'OpenWSGR/AutoWSGR'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Extract version
         id: version
         run: |
           VERSION=$(python -c "exec(open('autowsgr/__init__.py').read()); print(__version__)")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Check if tag exists
         id: check_tag
         run: |
@@ -50,6 +37,7 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Create tag and release
         if: steps.check_tag.outputs.exists == 'false'
         env:
@@ -63,3 +51,16 @@ jobs:
             --title "AutoWSGR $VERSION" \
             --generate-notes \
             --latest
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

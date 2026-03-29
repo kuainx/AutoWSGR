@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import easyocr
 
@@ -302,7 +302,7 @@ class OCREngine(ABC):
 
     # ── 工厂方法 ──
 
-    _instances: dict[str, OCREngine] = {}
+    _instances: ClassVar[dict[str, OCREngine]] = {}
     """已创建的引擎单例缓存，key 为 ``"<engine>:<gpu>"``。"""
 
     @classmethod

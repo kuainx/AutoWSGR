@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
@@ -587,7 +589,7 @@ class TestIdentify:
 
 
 class TestClassifyColor:
-    BLOOD_COLORS = {
+    BLOOD_COLORS: ClassVar[dict[str, Color]] = {
         'green': Color.of(117, 162, 69),
         'yellow': Color.of(51, 184, 246),
         'red': Color.of(89, 58, 230),
