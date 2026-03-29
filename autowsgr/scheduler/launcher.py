@@ -9,7 +9,7 @@
     from autowsgr.scheduler.launcher import launch
 
     ctx = launch("user_settings.yaml")
-    # ctx.ctrl  → 已连接的 ADBController
+    # ctx.ctrl  → 已连接的 ScrcpyController
     # ctx.config → UserConfig
     # ctx.ocr   → OCREngine (已初始化)
     # 游戏已在主页面
@@ -108,8 +108,7 @@ class Launcher:
     def connect(self) -> AndroidController:
         """创建并连接设备控制器。
 
-        默认使用 ScrcpyController（基于 scrcpy 协议截图），
-        备选 ADBController（基于 Airtest，需安装 ``autowsgr[airtest]``）。
+        默认使用 ScrcpyController（基于 scrcpy 协议截图）。
 
         Returns
         -------

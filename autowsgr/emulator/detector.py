@@ -20,7 +20,7 @@
     # 仅探测
     candidates = detect_emulators()
 
-    # 结合配置自动决策（ADBController 内部调用）
+    # 结合配置自动决策（ScrcpyController 内部调用）
     from autowsgr.infra.config import EmulatorConfig
     serial = resolve_serial(EmulatorConfig())
 """

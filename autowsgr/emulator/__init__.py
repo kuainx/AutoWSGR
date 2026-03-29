@@ -2,7 +2,7 @@
 
 提供两大核心能力：
 
-1. **设备控制** (`AndroidController` / `ADBController`)：
+1. **设备控制** (`AndroidController` / `ScrcpyController`)：
    截图、点击、滑动、按键、应用管理等纯设备操作。
    所有触控坐标使用相对值 (0.0-1.0)。
 

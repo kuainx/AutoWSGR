@@ -11,9 +11,9 @@
 
 使用方式::
 
-    from autowsgr.emulator.controller import ADBController
+    from autowsgr.emulator.controller import ScrcpyController
 
-    ctrl = ADBController(serial="emulator-5554")
+    ctrl = ScrcpyController(serial="emulator-5554")
     info = ctrl.connect()
     screen = ctrl.screenshot()
     ctrl.click(0.5, 0.5)

@@ -43,7 +43,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from autowsgr.emulator import ADBController, AndroidController, ScrcpyController
+from autowsgr.emulator import AndroidController, ScrcpyController
 
 
 # ── 将项目根目录加入 sys.path，兼容直接运行 ──
@@ -325,12 +325,6 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument('--json', metavar='FILE', default=None, help='将结果输出到 JSON 文件')
     p.add_argument('--log-level', default='WARNING', help='日志级别（DEBUG / INFO / WARNING）')
-    p.add_argument(
-        '--backend',
-        default='scrcpy',
-        choices=['scrcpy', 'adb'],
-        help='截图后端: scrcpy (默认) 或 adb (Airtest)',
-    )
     return p.parse_args()
 
 
@@ -352,12 +346,8 @@ def main() -> None:
     skip = set(args.skip or [])
     results: dict = {}
 
-    if args.backend == 'scrcpy':
-        ctrl: AndroidController = ScrcpyController(serial=args.serial)
-        print('  后端: ScrcpyController')
-    else:
-        ctrl = ADBController(serial=args.serial)
-        print('  后端: ADBController (Airtest)')
+    ctrl: AndroidController = ScrcpyController(serial=args.serial)
+    print('  后端: ScrcpyController')
 
     # ── 连接 ──
     connect_result = bench_connect(ctrl)

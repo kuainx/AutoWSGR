@@ -353,14 +353,7 @@ def setup_logger(
         _image_dir = None
 
     # ── 静默第三方库的 Python logging 噪音 ──────────────────────────────
-    for _noisy in (
-        'airtest',
-        'airtest.core.android.adb',
-        'airtest.core.android.rotation',
-        'airtest.utils.nbsp',
-        'pocoui',
-        'adbutils',
-    ):
+    for _noisy in ('adbutils',):
         logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 
