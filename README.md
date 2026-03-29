@@ -17,8 +17,8 @@
 
 ## 安装使用
 
-- 注意事项：本项目现在只支持Python3.12以上，如果要使用最新版请升级Python版本。
-- 现在有大佬做了本项目的GUI-->[传送门](https://github.com/yltx/AutoWSGR-GUI)
+- 注意事项：本项目现在只支持 Python3.12 以上，如果要使用最新版请升级 Python 版本。
+- 不想碰代码可以直接用 GUI-->[传送门](https://github.com/yltx/AutoWSGR-GUI)
 
 ## 参与开发
 
