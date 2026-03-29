@@ -39,7 +39,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(python -c "import re; print(re.search(r\"__version__\s*=\s*['\"]([^'\"]+)\", open('autowsgr/__init__.py').read()).group(1))")
+          VERSION=$(python -c "exec(open('autowsgr/__init__.py').read()); print(__version__)")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
       - name: Check if tag exists
