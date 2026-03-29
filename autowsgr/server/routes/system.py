@@ -78,13 +78,16 @@ async def system_status():
 
 @router.get('/emulator/devices', response_model=ApiResponse)
 async def emulator_devices():
-    """查询 ADB 设备列表，用于检查模拟器运行状态。"""
+    """查询 ADB 设备列表，用于检查模拟器运行状态。
+
+    会先对已知 TCP serial（MuMu 等）执行 adb connect，再列出设备。
+    """
     import asyncio
 
     try:
-        from autowsgr.emulator.detector import list_adb_devices
+        from autowsgr.emulator.detector import connect_and_list_devices
 
-        devices = await asyncio.to_thread(list_adb_devices)
+        devices = await asyncio.to_thread(connect_and_list_devices)
         return ApiResponse(
             success=True,
             data=[{'serial': s, 'status': st} for s, st in devices],

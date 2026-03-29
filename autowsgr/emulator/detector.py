@@ -35,13 +35,12 @@ import sys
 import winreg
 from dataclasses import dataclass, field
 
-from autowsgr.infra import EmulatorConnectionError
+from autowsgr.infra import EmulatorConfig, EmulatorConnectionError
 from autowsgr.infra.logger import get_logger
+from autowsgr.types import EmulatorType
 
 
 _log = get_logger('emulator')
-from autowsgr.infra import EmulatorConfig
-from autowsgr.types import EmulatorType
 
 
 # ── serial → EmulatorType 识别规则 ──
@@ -262,6 +261,45 @@ def detect_emulators(adb_path: str | None = None) -> list[EmulatorCandidate]:
 
     _log.debug('[Detector] 检测到 {} 个在线设备', len(candidates))
     return sorted(candidates, key=lambda c: c.serial)
+
+
+# ── TCP 设备 adb connect ──
+
+# 已知模拟器默认的 TCP serial 列表（用于主动 connect）
+_KNOWN_TCP_SERIALS: list[str] = [
+    '127.0.0.1:16384',  # MuMu 12 默认
+    '127.0.0.1:62001',  # MuMu 旧版默认
+]
+
+
+def connect_and_list_devices() -> list[tuple[str, str]]:
+    """先对已知 TCP serial 执行 ``adb connect``，再列出设备。
+
+    该函数适用于前端「检测设备」场景：MuMu 等 TCP 模拟器如果没有
+    事先 ``adb connect``，在 ``adb devices`` 中不会出现。
+
+    Returns
+    -------
+    list[tuple[str, str]]
+        ``(serial, status)`` 列表。
+    """
+    adb = _find_adb()
+
+    # 1) 对已知 TCP serial 尝试 connect（忽略失败）
+    for serial in _KNOWN_TCP_SERIALS:
+        try:
+            subprocess.run(
+                [adb, 'connect', serial],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            _log.debug('[Detector] adb connect {} 完成', serial)
+        except Exception as exc:
+            _log.debug('[Detector] adb connect {} 失败: {}', serial, exc)
+
+    # 2) 列出设备
+    return list_adb_devices(adb)
 
 
 # ── 用户交互选择 ──
