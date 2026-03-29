@@ -397,7 +397,7 @@ def main() -> None:
 
     # 确定 testing/ui 目录
     root_dir = Path(__file__).parent
-    if not root_dir.name == 'ui' or not (root_dir / '_framework.py').exists():
+    if root_dir.name != 'ui' or not (root_dir / '_framework.py').exists():
         print('错误: 请从 testing/ui 目录运行此脚本或直接运行该目录下的脚本')
         sys.exit(1)
 
