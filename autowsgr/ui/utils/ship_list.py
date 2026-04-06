@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 _log = get_logger('ui')
 
-#: Legacy 标准分辨率 (DLL 校准基准)
 LEGACY_WIDTH: int = 1280
 LEGACY_HEIGHT: int = 720
 
