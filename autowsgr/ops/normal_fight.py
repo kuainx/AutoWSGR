@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from autowsgr.combat import CombatMode, CombatPlan, CombatResult
 from autowsgr.combat.engine import run_combat
@@ -37,12 +37,14 @@ class NormalFightRunner:
         plan: CombatPlan,
         fleet_id: int | None = None,
         fleet: list[str] | None = None,
+        fleet_rules: list[Any] | None = None,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
         self._plan = plan
         self._fleet_id = fleet_id if fleet_id is not None else plan.fleet_id
         self._fleet = fleet if fleet is not None else plan.fleet
+        self._fleet_rules = fleet_rules
 
         # 从 config 读取拆船配置
         self._dock_full_destroy = ctx.config.dock_full_destroy
@@ -60,6 +62,35 @@ class NormalFightRunner:
         self._loot_count: int | None = None
         self._ship_acquired_count: int | None = None
         self._fleet_ships: list[Ship] | None = None
+
+    @staticmethod
+    def _primary_names_from_rules(fleet_rules: list[Any] | None) -> list[str | None] | None:
+        if not fleet_rules:
+            return None
+
+        def _normalize_name(value: object) -> str | None:
+            if value is None:
+                return None
+            name = str(value).strip()
+            return name or None
+
+        names: list[str | None] = []
+        for slot in fleet_rules[:6]:
+            if isinstance(slot, str):
+                names.append(_normalize_name(slot))
+                continue
+
+            candidates = None
+            if isinstance(slot, dict):
+                candidates = slot.get('candidates')
+            else:
+                candidates = getattr(slot, 'candidates', None)
+
+            if isinstance(candidates, list) and len(candidates) > 0:
+                names.append(_normalize_name(candidates[0]))
+                continue
+            names.append(None)
+        return names
 
     # ── 公共接口 ──
 
@@ -292,8 +323,17 @@ class NormalFightRunner:
         page.select_fleet(self._fleet_id)
         time.sleep(0.5)
 
-        # 换船 (如果指定了舰船列表)
-        if self._fleet is not None:
+        resolved_ship_names: list[str | None] | None = None
+
+        # 换船 (若提供了规则则优先按规则执行)
+        if self._fleet_rules is not None:
+            page.change_fleet(
+                self._fleet_id,
+                self._fleet_rules,
+            )
+            time.sleep(0.5)
+            resolved_ship_names = page.detect_fleet()
+        elif self._fleet is not None:
             page.change_fleet(
                 self._fleet_id,
                 self._fleet,
@@ -322,7 +362,14 @@ class NormalFightRunner:
         if ShipDamageState.SEVERE in ship_stats:
             _log.error('[OPS] 出征前检测到大破舰船，退出程序')
             raise ActionFailedError('出征前检测到大破舰船，退出程序')
-        self._fleet_ships = fleet_info.to_ships(self._fleet)
+        ship_names = resolved_ship_names
+        if ship_names is None:
+            ship_names = (
+                self._primary_names_from_rules(self._fleet_rules)
+                if self._fleet_rules is not None
+                else self._fleet
+            )
+        self._fleet_ships = fleet_info.to_ships(ship_names)
 
         # 出征
         page.start_battle()
@@ -394,6 +441,7 @@ def run_normal_fight(
     gap: float = 0.0,
     fleet_id: int | None = None,
     fleet: list[str] | None = None,
+    fleet_rules: list[Any] | None = None,
 ) -> list[CombatResult]:
     """执行常规战的便捷函数。"""
     runner = NormalFightRunner(
@@ -401,6 +449,7 @@ def run_normal_fight(
         plan,
         fleet_id=fleet_id,
         fleet=fleet,
+        fleet_rules=fleet_rules,
     )
     return runner.run_for_times(times, gap=gap)
 
@@ -412,6 +461,7 @@ def run_normal_fight_from_yaml(
     times: int = 1,
     fleet_id: int | None = None,
     fleet: list[str] | None = None,
+    fleet_rules: list[Any] | None = None,
 ) -> list[CombatResult]:
     """从 YAML 文件加载计划并执行常规战。
 
@@ -422,4 +472,11 @@ def run_normal_fight_from_yaml(
       包数据目录中查找，可省略 ``.yaml`` 后缀。
     """
     plan = get_normal_fight_plan(yaml_path)
-    return run_normal_fight(ctx, plan, times=times, fleet_id=fleet_id, fleet=fleet)
+    return run_normal_fight(
+        ctx,
+        plan,
+        times=times,
+        fleet_id=fleet_id,
+        fleet=fleet,
+        fleet_rules=fleet_rules,
+    )

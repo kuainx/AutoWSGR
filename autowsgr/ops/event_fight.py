@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from autowsgr.combat import CombatMode, CombatPlan, CombatResult
 from autowsgr.combat.engine import run_combat
@@ -70,6 +70,7 @@ class EventFightRunner:
         event_name: str | None = None,
         fleet_id: int | None = None,
         fleet: list[str] | None = None,
+        fleet_rules: list[Any] | None = None,
     ) -> None:
         self._ctx = ctx
         self._ctrl = ctx.ctrl
@@ -77,6 +78,7 @@ class EventFightRunner:
         self._entrance = entrance
         self._fleet_id = fleet_id if fleet_id is not None else (plan.fleet_id or 1)
         self._fleet = fleet if fleet is not None else plan.fleet
+        self._fleet_rules = fleet_rules
         self._skip_check = False  # 首次执行时检查难度和节点，后续重复执行时跳过检查以节省时间
 
         # 推导 map_code
@@ -110,6 +112,35 @@ class EventFightRunner:
 
         self._results: list[CombatResult] = []
         self._fleet_ships = None
+
+    @staticmethod
+    def _primary_names_from_rules(fleet_rules: list[Any] | None) -> list[str | None] | None:
+        if not fleet_rules:
+            return None
+
+        def _normalize_name(value: object) -> str | None:
+            if value is None:
+                return None
+            name = str(value).strip()
+            return name or None
+
+        names: list[str | None] = []
+        for slot in fleet_rules[:6]:
+            if isinstance(slot, str):
+                names.append(_normalize_name(slot))
+                continue
+
+            candidates = None
+            if isinstance(slot, dict):
+                candidates = slot.get('candidates')
+            else:
+                candidates = getattr(slot, 'candidates', None)
+
+            if isinstance(candidates, list) and len(candidates) > 0:
+                names.append(_normalize_name(candidates[0]))
+                continue
+            names.append(None)
+        return names
 
     # ── 公共接口 ──
 
@@ -217,11 +248,20 @@ class EventFightRunner:
         page.select_fleet(self._fleet_id)
         time.sleep(0.5)
 
-        # 换船 (如果指定了舰船列表)
-        if self._plan.fleet is not None:
+        resolved_ship_names: list[str | None] | None = None
+
+        # 换船 (若提供了规则则优先按规则执行)
+        if self._fleet_rules is not None:
             page.change_fleet(
                 self._fleet_id,
-                self._plan.fleet,
+                self._fleet_rules,
+            )
+            time.sleep(0.5)
+            resolved_ship_names = page.detect_fleet()
+        elif self._fleet is not None:
+            page.change_fleet(
+                self._fleet_id,
+                self._fleet,
             )
             time.sleep(0.5)
 
@@ -244,7 +284,14 @@ class EventFightRunner:
         # 检测战前舰队信息 (血量 + 等级)
         fleet_info = page.detect_fleet_info()
         ship_stats = [fleet_info.ship_damage.get(i, ShipDamageState.NORMAL) for i in range(6)]
-        self._fleet_ships = fleet_info.to_ships(self._plan.fleet)
+        ship_names = resolved_ship_names
+        if ship_names is None:
+            ship_names = (
+                self._primary_names_from_rules(self._fleet_rules)
+                if self._fleet_rules is not None
+                else self._fleet
+            )
+        self._fleet_ships = fleet_info.to_ships(ship_names)
 
         # 出征
         page.start_battle()
@@ -302,6 +349,7 @@ def run_event_fight(
     gap: float = 0.0,
     fleet_id: int | None = None,
     fleet: list[str] | None = None,
+    fleet_rules: list[Any] | None = None,
 ) -> list[CombatResult]:
     """执行活动战的便捷函数。
 
@@ -331,6 +379,7 @@ def run_event_fight(
         entrance=entrance,
         fleet_id=fleet_id,
         fleet=fleet,
+        fleet_rules=fleet_rules,
     )
     return runner.run_for_times(times, gap=gap)
 
@@ -344,6 +393,7 @@ def run_event_fight_from_yaml(
     times: int = 1,
     fleet_id: int | None = None,
     fleet: list[str] | None = None,
+    fleet_rules: list[Any] | None = None,
 ) -> list[CombatResult]:
     """从 YAML 文件加载计划并执行活动战。
 
@@ -386,4 +436,5 @@ def run_event_fight_from_yaml(
         times=times,
         fleet_id=fleet_id,
         fleet=fleet,
+        fleet_rules=fleet_rules,
     )
