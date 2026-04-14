@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -25,7 +26,7 @@ from autowsgr.vision import (
 )
 
 from .utils import wait_for_page, wait_leave_page
-from .utils.ship_list import locate_ship_rows, read_ship_levels
+from .utils.ship_list import LevelOCRRetryNeededError, locate_ship_rows, read_ship_levels
 
 
 if TYPE_CHECKING:
@@ -56,6 +57,7 @@ CLICK_FIRST_RESULT: tuple[float, float] = (183 / 960, 167 / 540)
 _SCROLL_FROM_Y: float = 0.55
 _SCROLL_TO_Y: float = 0.30
 _OCR_MAX_ATTEMPTS: int = 3
+_SHIP_ALIAS_SUFFIX_RE = re.compile(r'\s*[（(][^（）()]*[)）]\s*$')
 
 PAGE_SIGNATURE = PixelSignature(
     name='choose_ship_page',
@@ -329,7 +331,8 @@ class ChooseShipPage:
         Parameters
         ----------
         name:
-            目标舰船名 (精确名称)。
+            目标舰船名。
+            匹配时会先做舰名归一化（如去除“·改”与尾部括号别名）后再比较。
 
         Returns
         -------
@@ -337,6 +340,7 @@ class ChooseShipPage:
             匹配并点击成功时返回舰船名；失败返回 ``None``。
         """
         assert self._ctx.ocr is not None
+        normalized_target = self._normalize_ship_name(name)
 
         for attempt in range(_OCR_MAX_ATTEMPTS):
             screen = self._ctrl.screenshot()
@@ -348,31 +352,47 @@ class ChooseShipPage:
                     deduplicate_by_name=False,
                     include_row_key=True,
                 )
-                raw_levels = read_ship_levels(
-                    self._ctx.ocr,
-                    screen,
-                    deduplicate_by_name=False,
-                    include_row_key=True,
-                )
+                try:
+                    raw_levels = read_ship_levels(
+                        self._ctx.ocr,
+                        screen,
+                        deduplicate_by_name=False,
+                        include_row_key=True,
+                    )
+                except LevelOCRRetryNeededError as exc:
+                    _log.warning(
+                        '[UI] 等级 OCR 噪声过高，触发重新识别 (第 {}/{} 次)',
+                        attempt + 1,
+                        _OCR_MAX_ATTEMPTS,
+                    )
+                    if attempt >= _OCR_MAX_ATTEMPTS - 1:
+                        raise RuntimeError('等级 OCR 噪声过高，重试后仍失败') from exc
+                    time.sleep(0.3)
+                    continue
             else:
                 raw_hits = locate_ship_rows(self._ctx.ocr, screen)
                 raw_levels = []
 
             hits = [self._normalize_hit_entry(hit) for hit in raw_hits]
-            level_map: dict[float, list[int | None]] = {}
+            level_map: dict[float, dict[str, list[int | None]]] = {}
             for entry in raw_levels:
-                _, level, row_key = self._normalize_level_entry(entry)
-                level_map.setdefault(row_key, []).append(level)
+                level_name, level, row_key = self._normalize_level_entry(entry)
+                normalized_level_name = self._normalize_ship_name(level_name)
+                row_levels = level_map.setdefault(row_key, {})
+                row_levels.setdefault(normalized_level_name, []).append(level)
 
             for matched, cx, cy, row_key in hits:
-                if matched != name:
+                normalized_matched = self._normalize_ship_name(matched)
+                if normalized_matched != normalized_target:
                     continue
 
                 level = None
                 if use_level_filter:
                     row_levels = level_map.get(row_key)
                     if row_levels:
-                        level = row_levels.pop(0)
+                        name_levels = row_levels.get(normalized_matched)
+                        if name_levels:
+                            level = name_levels.pop(0)
                 if not self._is_level_in_range(level, min_level, max_level):
                     _log.warning(
                         "[UI] 命中 '{}', 但等级 {} 不满足范围 [{}, {}]",
@@ -406,3 +426,10 @@ class ChooseShipPage:
                 time.sleep(0.5)
 
         return None
+
+    @staticmethod
+    def _normalize_ship_name(name: str) -> str:
+        normalized = name.strip()
+        normalized = normalized.removesuffix('·改')
+        normalized = _SHIP_ALIAS_SUFFIX_RE.sub('', normalized)
+        return normalized.strip()
