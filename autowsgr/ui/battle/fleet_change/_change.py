@@ -378,13 +378,7 @@ class FleetChangeMixin(FleetDetectMixin):
         desired: list[str | None],
         selectors: list[dict | None],
     ) -> bool:
-        # 若指定了 search_name，不能在前置阶段仅凭同名/候选命中判定“已满足”。
-        for selector in selectors:
-            if not isinstance(selector, dict):
-                continue
-            raw_search_name = selector.get('search_name')
-            if isinstance(raw_search_name, str) and raw_search_name.strip():
-                return False
+        # 对 search_name 槽位执行精确匹配，满足时可直接短路，避免准备页重复扫描。
         return cls._validate_with_selector(current, desired, selectors)
 
     @classmethod
@@ -513,6 +507,12 @@ class FleetChangeMixin(FleetDetectMixin):
                 if current_name != target:
                     return False
                 continue
+
+            raw_search_name = selector.get('search_name')
+            if isinstance(raw_search_name, str) and raw_search_name.strip():
+                if not cls._matches_search_name(current_name, raw_search_name):
+                    return False
+
             candidates = selector.get('candidates')
             if not isinstance(candidates, list):
                 if current_name != target:

@@ -1,0 +1,48 @@
+"0":
+  position: [900, 427]
+  next: [A, B]
+A:
+  position: [832, 172]
+  next: [C, I]
+B:
+  position: [787, 300]
+  next: [D, F]
+C:
+  position: [682, 60]
+  next: []
+D:
+  position: [683, 442]
+  next: [E, G]
+E:
+  position: [487, 495]
+  next: []
+F:
+  position: [630, 247]
+  next: [H]
+G:
+  position: [503, 397]
+  next: [L]
+H:
+  position: [449, 278]
+  next: [L]
+I:
+  position: [548, 180]
+  next: [J, K]
+J:
+  position: [435, 75]
+  next: []
+K:
+  position: [345, 240]
+  next: [N, O]
+L:
+  position: [316, 405]
+  next: [M]
+M:
+  position: [128, 367]
+  next: [O]
+N:
+  position: [240, 143]
+  next: [O]
+O:
+  position: [60, 203]
+  next: []
