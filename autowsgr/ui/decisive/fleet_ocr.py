@@ -125,6 +125,8 @@ def recognize_fleet_options(
     )
     cost_img = cost_roi.crop(screen)
     cost_results = ocr.recognize(cost_img, allowlist='0123456789xX')
+    # cost_results 按bbox[0]从小到大排序 保证顺序正确
+    cost_results.sort(key=lambda x: x.bbox[0])
 
     costs: list[int] = []
     for r in cost_results:
@@ -134,7 +136,7 @@ def recognize_fleet_options(
             continue
         costs.append(cost)
     _log.debug('[舰队OCR] 识别到 {} 项费用: {}', len(costs), costs)
-    if any(c < 4 for c in costs):
+    if any(c < 4 for c in costs[0:4]):
         _log.warning('[舰队OCR] 识别到小于4的费用, 建议检查配队是否有误')
 
     # 3. 恢复原版行为：仅对可购买项识别舰名
