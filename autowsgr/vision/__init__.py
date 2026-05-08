@@ -52,31 +52,31 @@ from .roi import ROI
 
 
 __all__ = [
+    # image_matcher (template)
+    'ROI',
+    'TEMPLATE_SOURCE_RESOLUTION',
+    # api_dll
+    'ApiDll',
     # matcher (pixel)
     'Color',
     'CompositePixelSignature',
+    'EasyOCREngine',
+    'ImageChecker',
+    'ImageMatchDetail',
+    'ImageMatchResult',
+    'ImageRule',
+    'ImageSignature',
+    'ImageTemplate',
     'MatchStrategy',
+    # ocr
+    'OCREngine',
+    'OCRResult',
     'PixelChecker',
     'PixelDetail',
     'PixelMatchResult',
     'PixelRule',
     'PixelSignature',
-    # image_matcher (template)
-    'ROI',
-    'ImageTemplate',
-    'ImageRule',
-    'ImageSignature',
-    'ImageChecker',
-    'ImageMatchResult',
-    'ImageMatchDetail',
-    'TEMPLATE_SOURCE_RESOLUTION',
-    # ocr
-    'OCREngine',
-    'OCRResult',
-    'EasyOCREngine',
     'ShipNameMismatchError',
     'apply_ship_patches',
-    # api_dll
-    'ApiDll',
     'get_api_dll',
 ]

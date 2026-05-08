@@ -109,7 +109,6 @@ ignore = [
     "TID252",  # relative-imports
     "TRY003",  # raise-vanilla-args
     "N818",    # exception-name-not-error (renaming is breaking)
-    "RUF022",  # unsorted-all (__all__ grouped by semantic category)
     "TRY004",  # prefer-type-error (debatable for value parsing)
 ]
 allowed-confusables = ["，", "。", "：", "？", "！", "、", "（", "）", "；", "“", "”", "／"]

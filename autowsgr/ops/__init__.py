@@ -91,45 +91,45 @@ from autowsgr.ops.startup import (
 
 
 __all__ = [
-    # 启动
-    'ensure_game_ready',
-    'go_main_page',
-    'is_game_running',
-    'is_on_main_page',
-    'restart_game',
-    'start_game',
-    # 导航
-    'goto_page',
-    'identify_current_page',
+    # 建造
+    'BuildRecipe',
+    # 战役
+    'CampaignRunner',
+    # 决战
+    'DecisiveController',
+    'DecisiveResult',
+    # 活动战斗
+    'EventFightRunner',
+    # 演习
+    'ExerciseConfig',
+    'ExerciseRunner',
+    # 常规战斗
+    'NormalFightRunner',
+    'build_ship',
+    'collect_built_ships',
+    # 远征
+    'collect_expedition',
     # 任务奖励
     'collect_rewards',
     # 食堂
     'cook',
     # 解装
     'destroy_ships',
-    # 远征
-    'collect_expedition',
-    # 建造
-    'BuildRecipe',
-    'build_ship',
-    'collect_built_ships',
+    # 启动
+    'ensure_game_ready',
+    'go_main_page',
+    # 导航
+    'goto_page',
+    'identify_current_page',
+    'is_game_running',
+    'is_on_main_page',
     # 浴室修理
     'repair_in_bath',
-    # 决战
-    'DecisiveController',
-    'DecisiveResult',
-    # 演习
-    'ExerciseConfig',
-    'ExerciseRunner',
-    'run_exercise',
-    # 常规战斗
-    'NormalFightRunner',
-    'run_normal_fight',
-    'run_normal_fight_from_yaml',
-    # 活动战斗
-    'EventFightRunner',
+    'restart_game',
     'run_event_fight',
     'run_event_fight_from_yaml',
-    # 战役
-    'CampaignRunner',
+    'run_exercise',
+    'run_normal_fight',
+    'run_normal_fight_from_yaml',
+    'start_game',
 ]

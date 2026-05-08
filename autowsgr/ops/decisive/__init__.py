@@ -88,17 +88,17 @@ from .state import DecisiveState
 __all__ = [
     # 基类
     'DecisiveBase',
-    # 配置 & 地图数据
-    'MapData',
-    # 状态
-    'DecisivePhase',
-    'DecisiveState',
-    # 逻辑
-    'FleetSelection',
+    'DecisiveController',
     'DecisiveLogic',
     # 地图控制器
     'DecisiveMapController',
+    # 状态
+    'DecisivePhase',
     # 控制器
     'DecisiveResult',
-    'DecisiveController',
+    'DecisiveState',
+    # 逻辑
+    'FleetSelection',
+    # 配置 & 地图数据
+    'MapData',
 ]
