@@ -157,7 +157,7 @@ class EmulatorType(StrEnum):
                 case _:
                     raise ValueError(f'没有为 {self.value} 设置安装路径查找方法，请手动指定')
         except FileNotFoundError:
-            raise FileNotFoundError(f'没有找到 {self.value} 的安装路径')
+            raise FileNotFoundError(f'没有找到 {self.value} 的安装路径') from None
 
     def _macos_auto_emulator_path(self) -> str:
         """macOS 下自动识别模拟器安装路径。"""

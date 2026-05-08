@@ -132,7 +132,7 @@ def _parse_ships(html: str) -> list[tuple[str, str]]:
             '正则未能匹配，且缺少 bs4。\n'
             '请运行: pip install requests beautifulsoup4\n'
             '或启用代理后重新尝试。'
-        )
+        ) from None
 
     soup = BeautifulSoup(html, 'html.parser')
     pairs: list[tuple[str, str]] = []

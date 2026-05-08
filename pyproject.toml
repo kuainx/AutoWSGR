@@ -99,11 +99,10 @@ ignore = [
     "ANN001",
     "ANN201",
     "ANN202",
-    # TODO: temporarily ignore until all exceptions are handled
-    "BLE001",
-    "B904",
+    # TODO: temporarily ignore until all annotations are added
 
     # Intentionally ignored
+    "BLE001",  # blind-except (intentional broad catches in routes/retries)
     "T201",    # `print` found (CLI / debug scripts)
     "ANN002",  # missing-type-args
     "ANN003",  # missing-type-kwargs

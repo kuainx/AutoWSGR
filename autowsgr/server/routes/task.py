@@ -42,7 +42,7 @@ async def task_start(request: TaskRequestUnion):  # type: ignore
     try:
         ctx = get_context()
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
 
     ctx.stop_event = task_manager._stop_event
 
