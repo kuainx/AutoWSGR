@@ -97,7 +97,6 @@ class ScrcpyController(AndroidController):
     # ── 连接 ──
 
     def connect(self) -> DeviceInfo:
-
         # ── serial 解析 ──
         if self._serial:
             resolved = self._serial
@@ -378,7 +377,6 @@ class ScrcpyController(AndroidController):
     # ── 截图 ──
 
     def screenshot(self) -> np.ndarray:
-
         self._ensure_stream_alive()
 
         start = time.monotonic()
