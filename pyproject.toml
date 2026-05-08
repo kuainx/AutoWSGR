@@ -151,7 +151,6 @@ ignore = [
     "ARG005",  # unused-lambda-argument (9)
     "DTZ005",  # call-datetime-now-without-tzinfo (6)
     "PLR0912", # too-many-branches (13)
-    "PLR0915", # too-many-statements (4)
     "PLW0108", # unnecessary-lambda (43)
     "PLW0603", # global-statement (9)
     "PLW1510", # subprocess-run-without-check (6)

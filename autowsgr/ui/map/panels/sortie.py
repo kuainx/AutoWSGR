@@ -181,7 +181,7 @@ class SortiePanelMixin(BaseMapPage):
         self._ctrl.click(SIDEBAR_CLICK_X, target_y)
         return True
 
-    def navigate_to_chapter(self, target: int) -> int | None:  # noqa: C901
+    def navigate_to_chapter(self, target: int) -> int | None:  # noqa: C901, PLR0915
         """导航到指定章节 (通过 OCR 识别当前位置并批量点击)。
 
         远距离章节切换时采用批量点击 + 充分等待的策略，

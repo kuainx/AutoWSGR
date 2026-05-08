@@ -267,7 +267,7 @@ class DecisivePhaseHandlers(DecisiveBase):
 
     # ── 战斗 ──────────────────────────────────────────────────────────────
 
-    def _handle_prepare_combat(self) -> None:
+    def _handle_prepare_combat(self) -> None:  # noqa: PLR0915
         """出征准备：编队 → 修理 → 出征。"""
         screen = self._ctrl.screenshot()
 
