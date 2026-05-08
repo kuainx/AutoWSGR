@@ -73,7 +73,7 @@ class FleetChangeMixin(FleetDetectMixin):
     # 主入口
     # ══════════════════════════════════════════════════════════════════════
 
-    def change_fleet(
+    def change_fleet(  # noqa: C901
         self,
         fleet_id: int | None,
         ship_names: Sequence[FleetSlotInput],
