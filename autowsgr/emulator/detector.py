@@ -333,10 +333,10 @@ def prompt_user_select(candidates: list[EmulatorCandidate]) -> str:
             '请在配置文件中设置 emulator.serial 以指定目标设备。'
         )
 
-    print('\n检测到多个在线设备，请选择要连接的模拟器：\n')
+    print('\n检测到多个在线设备，请选择要连接的模拟器：\n')  # noqa: T201
     for i, cand in enumerate(candidates):
-        print(f'  [{i}] {cand.description}')
-    print()
+        print(f'  [{i}] {cand.description}')  # noqa: T201
+    print()  # noqa: T201
 
     while True:
         try:
@@ -351,7 +351,7 @@ def prompt_user_select(candidates: list[EmulatorCandidate]) -> str:
                 _log.info('[Detector] 用户选择设备: {}', chosen.description)
                 return chosen.serial
 
-        print(f'  无效输入，请输入 0 到 {len(candidates) - 1} 之间的整数。')
+        print(f'  无效输入，请输入 0 到 {len(candidates) - 1} 之间的整数。')  # noqa: T201
 
 
 # ── 主入口：结合配置决策 ──

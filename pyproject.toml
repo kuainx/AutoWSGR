@@ -153,7 +153,6 @@ ignore = [
     "PT018",   # pytest-composite-assertion (12)
     "S110",    # try-except-pass (21)
     "S603",    # subprocess-without-shell-equals-true (16)
-    "T201",    # print (9)
 ]
 allowed-confusables = ["，", "。", "：", "？", "！", "、", "（", "）", "；", "“", "”"]
 extend-safe-fixes = [
@@ -182,6 +181,9 @@ extend-safe-fixes = [
     "T201",    # print
 ]
 "tools/**" = [
+    "T201",    # print
+]
+"examples/**" = [
     "T201",    # print
 ]
 
