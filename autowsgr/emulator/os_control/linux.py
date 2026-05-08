@@ -41,9 +41,10 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            return True
         except subprocess.CalledProcessError:
             return False
+        else:
+            return True
 
     def start(self) -> None:
         if not self._path:

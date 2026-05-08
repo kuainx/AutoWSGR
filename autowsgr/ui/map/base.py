@@ -214,7 +214,6 @@ class BaseMapPage:
                     source=source,
                     target=target,
                 )
-                return
             except NavigationError as e:
                 last_err = e
                 _log.warning(
@@ -224,6 +223,8 @@ class BaseMapPage:
                     source,
                     target,
                 )
+            else:
+                return
 
         raise NavigationError(
             f'面板切换失败 (已重试 {self._PANEL_SWITCH_MAX_RETRIES} 次): {source} -> {target}',

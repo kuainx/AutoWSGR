@@ -263,10 +263,11 @@ def recover_to_main_or_restart(
         try:
             goto_page(ctx, PageName.MAIN)
             _log.info('[Startup] 页面恢复成功，已回到主页面')
-            return
         except NavigationError as exc:
             _log.debug('[Startup] 恢复主页面失败，继续重试: {}', exc)
             time.sleep(1.0)
+        else:
+            return
 
     _log.warning('[Startup] 页面恢复超时，执行强制重启游戏')
     restart_game(ctrl, package)

@@ -207,9 +207,10 @@ def caller_info(depth: int = 1) -> str:
             rel = filepath.relative_to(_PROJECT_ROOT).as_posix()
         except ValueError:
             rel = filepath.name
-        return f'{rel}:{frame.lineno} in {frame.function}'
     except Exception:
         return '<unknown>'
+    else:
+        return f'{rel}:{frame.lineno} in {frame.function}'
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

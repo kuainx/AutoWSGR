@@ -223,10 +223,11 @@ class OCREngine(ABC):
         try:
             value = int(float(text) * multiplier)
             _log_fn("[OCR] recognize_number: '{}' → {}", result.text.strip(), value)
-            return value
         except (ValueError, TypeError):
             _log_fn("[OCR] recognize_number: '{}' 解析失败", result.text.strip())
             return None
+        else:
+            return value
 
     def recognize_ship_name(
         self,

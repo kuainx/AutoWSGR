@@ -174,10 +174,11 @@ class ScrcpyController(AndroidController):
                     time.sleep(2.0)
 
                 _try_connect()
-                return
             except Exception as exc:
                 last_exc = exc
                 _log.warning('[Emulator] 连接失败 (尝试 {}/{}): {}', attempt, max_attempts, exc)
+            else:
+                return
 
         raise EmulatorConnectionError(
             f'连接设备失败（共尝试 {max_attempts} 次）: {self._serial}'

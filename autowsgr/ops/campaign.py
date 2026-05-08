@@ -252,9 +252,10 @@ class CampaignRunner:
                 source=PageName.BATTLE_PREP,
                 target='combat',
             )
-            return True
         except NavigationError:
             return False
+        else:
+            return True
 
     def _start_battle_with_retry(self, page: BattlePreparationPage) -> bool:
         """尝试出征，失败后重试一次。

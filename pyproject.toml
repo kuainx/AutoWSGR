@@ -102,7 +102,6 @@ ignore = [
     # TODO: temporarily ignore until all exceptions are handled
     "BLE001",
     "B904",
-    "TRY300",
 
     # Intentionally ignored
     "T201",    # `print` found (CLI / debug scripts)

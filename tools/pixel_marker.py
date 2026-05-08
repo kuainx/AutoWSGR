@@ -384,13 +384,14 @@ class PixelMarkerApp:
             self._status_var.set(
                 f'已连接: {info.serial} ({info.resolution[0]}x{info.resolution[1]})'
             )
-            return True
         except Exception as exc:
             messagebox.showerror('连接失败', f'无法连接设备:\n{exc}')
             self._status_var.set('连接失败')
             self._controller = None
             self._connected = False
             return False
+        else:
+            return True
 
     # ── 截图 / 加载 ──────────────────────────────────────────────────────
 

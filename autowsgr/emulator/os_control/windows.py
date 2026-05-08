@@ -162,9 +162,10 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                 f'tasklist /fi "ImageName eq {self._process_name}"',
                 shell=True,
             ).decode('gbk', errors='replace')
-            return 'PID' in raw
         except subprocess.CalledProcessError:
             return False
+        else:
+            return 'PID' in raw
 
     @staticmethod
     def _run_cmd(cmd: list[str]) -> str:

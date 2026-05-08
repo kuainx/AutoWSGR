@@ -254,7 +254,6 @@ class SidebarPage:
                     source=PageName.SIDEBAR,
                     target=target.value,
                 )
-                return
             except NavigationError as e:
                 last_err = e
                 _log.warning(
@@ -263,6 +262,8 @@ class SidebarPage:
                     config.max_retries,
                     target.value,
                 )
+            else:
+                return
 
         raise NavigationError(
             f'导航失败 (已重试 {config.max_retries} 次): 侧边栏 → {target.value}',
