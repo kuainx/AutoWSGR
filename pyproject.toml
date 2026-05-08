@@ -148,7 +148,6 @@ ignore = [
     "W505",    # doc-line-too-long
     # TODO: fix and remove below
     "ARG001",  # unused-function-argument (12)
-    "ARG002",  # unused-method-argument (4)
     "ARG005",  # unused-lambda-argument (9)
     "C901",    # complex-structure (4)
     "DTZ005",  # call-datetime-now-without-tzinfo (6)

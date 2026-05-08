@@ -26,8 +26,8 @@ class MockOCREngine(OCREngine):
 
     def recognize(
         self,
-        image: np.ndarray,
-        allowlist: str = '',
+        _image: np.ndarray,
+        _allowlist: str = '',
     ) -> list[OCRResult]:
         return self._results
 

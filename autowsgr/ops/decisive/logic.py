@@ -250,7 +250,7 @@ class DecisiveLogic:
 
     # ── 路径选择 ───────────────────────────────────────────────────────
 
-    def get_advance_choice(self, options: list[str]) -> int:
+    def get_advance_choice(self, options: list[str]) -> int:  # noqa: ARG002
         """选择前进点索引。
 
         Parameters

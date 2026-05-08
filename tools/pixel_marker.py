@@ -689,7 +689,7 @@ class PixelMarkerApp:
             Path(path).write_text(self._config.to_yaml_str(), encoding='utf-8')
             self._status_var.set(f'已保存: {path}')
 
-    def _on_ctrl_c(self, event: tk.Event) -> None:  # type: ignore[type-arg]
+    def _on_ctrl_c(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         """Ctrl+C：如果导出框有内容就复制。"""
         content = self._export_text.get('1.0', tk.END).strip()
         if content:
