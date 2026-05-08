@@ -104,7 +104,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
             f'浮层消除: {overlay.value}',
             '主页面',
             MainPage.is_base_page,
-            lambda: main_page.dismiss_current_overlay(),
+            main_page.dismiss_current_overlay,
         )
         if runner.aborted:
             return
@@ -117,8 +117,8 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
     runner.read_state(
         '主页面状态',
         readers={
-            '远征完成通知': lambda s: MainPage.has_expedition_ready(s),
-            '任务可领取通知': lambda s: MainPage.has_task_ready(s),
+            '远征完成通知': MainPage.has_expedition_ready,
+            '任务可领取通知': MainPage.has_task_ready,
         },
     )
 
@@ -140,7 +140,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '地图页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: map_page.go_back(),
+        map_page.go_back,
     )
     if runner.aborted:
         return
@@ -159,7 +159,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '任务页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: mission_page.go_back(),
+        mission_page.go_back,
     )
     if runner.aborted:
         return
@@ -178,7 +178,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '侧边栏 → close → 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: sidebar_page.close(),
+        sidebar_page.close,
     )
     if runner.aborted:
         return
@@ -197,7 +197,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '后院页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: backyard_page.go_back(),
+        backyard_page.go_back,
     )
     if runner.aborted:
         return
@@ -233,7 +233,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
                 '活动地图 → ◁ 主页面',
                 '主页面',
                 MainPage.is_current_page,
-                lambda: event_page.go_back(),
+                event_page.go_back,
             )
         else:
             info('未在活动地图页面，跳过返回步骤')
@@ -251,7 +251,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '便捷方法 go_to_sortie()',
         '地图页面',
         MapPage.is_current_page,
-        lambda: main_page.go_to_sortie(),
+        main_page.go_to_sortie,
     )
     if runner.aborted:
         return
@@ -260,7 +260,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
         '地图页面 → ◁ 主页面 (收尾)',
         '主页面',
         MainPage.is_current_page,
-        lambda: map_page.go_back(),
+        map_page.go_back,
     )
     if runner.aborted:
         return

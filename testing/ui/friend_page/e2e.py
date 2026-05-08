@@ -50,7 +50,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '好友页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: friend_page.go_back(),
+        friend_page.go_back,
     )
 
 

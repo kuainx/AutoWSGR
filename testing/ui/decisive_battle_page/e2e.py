@@ -51,7 +51,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '决战页面 → ◁ 前一章节',
         '决战页面',
         DecisiveBattlePage.is_current_page,
-        lambda: db_page.go_prev_chapter(),
+        db_page.go_prev_chapter,
     )
     if runner.aborted:
         return
@@ -60,7 +60,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '决战页面 → ▷ 后一章节 (还原)',
         '决战页面',
         DecisiveBattlePage.is_current_page,
-        lambda: db_page.go_next_chapter(),
+        db_page.go_next_chapter,
     )
     if runner.aborted:
         return
@@ -69,7 +69,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '决战页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: db_page.go_back(),
+        db_page.go_back,
     )
 
 

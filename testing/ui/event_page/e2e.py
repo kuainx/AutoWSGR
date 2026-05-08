@@ -93,7 +93,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.read_state(
         '活动地图状态',
         readers={
-            '浮层 (进入页弹窗)': lambda s: BaseEventPage._detect_overlay(s),
+            '浮层 (进入页弹窗)': BaseEventPage._detect_overlay,
         },
     )
 
@@ -141,7 +141,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '活动地图 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: event_page.go_back(),
+        event_page.go_back,
     )
     if runner.aborted:
         return

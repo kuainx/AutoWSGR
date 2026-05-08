@@ -56,7 +56,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '浴室页面 → ◁ 后院',
         '后院',
         BackyardPage.is_current_page,
-        lambda: bath_page.go_back(),
+        bath_page.go_back,
     )
 
 

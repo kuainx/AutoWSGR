@@ -49,7 +49,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
 
     runner.read_state(
         '强化页面',
-        readers={'当前标签': lambda s: IntensifyPage.get_active_tab(s)},
+        readers={'当前标签': IntensifyPage.get_active_tab},
     )
 
     for tab in [IntensifyTab.REMAKE, IntensifyTab.SKILL, IntensifyTab.INTENSIFY]:
@@ -66,7 +66,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '强化页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: intensify_page.go_back(),
+        intensify_page.go_back,
     )
 
 

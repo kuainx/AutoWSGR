@@ -58,7 +58,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '后院 → 浴室页面',
         '浴室页面',
         BathPage.is_current_page,
-        lambda: backyard_page.go_to_bath(),
+        backyard_page.go_to_bath,
     )
     if runner.aborted:
         return
@@ -68,7 +68,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '浴室 → ◁ 后院页面',
         '后院页面',
         BackyardPage.is_current_page,
-        lambda: bath_page.go_back(),
+        bath_page.go_back,
     )
     if runner.aborted:
         return
@@ -78,7 +78,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '后院 → 食堂页面',
         '食堂页面',
         CanteenPage.is_current_page,
-        lambda: backyard_page.go_to_canteen(),
+        backyard_page.go_to_canteen,
     )
     if runner.aborted:
         return
@@ -88,7 +88,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '食堂 → ◁ 后院页面',
         '后院页面',
         BackyardPage.is_current_page,
-        lambda: canteen_page.go_back(),
+        canteen_page.go_back,
     )
     if runner.aborted:
         return
@@ -98,7 +98,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '后院 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: backyard_page.go_back(),
+        backyard_page.go_back,
     )
 
 

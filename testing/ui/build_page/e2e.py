@@ -49,7 +49,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
 
     runner.read_state(
         '建造页面',
-        readers={'当前标签': lambda s: BuildPage.get_active_tab(s)},
+        readers={'当前标签': BuildPage.get_active_tab},
     )
 
     for tab in [BuildTab.DESTROY, BuildTab.DEVELOP, BuildTab.DISCARD, BuildTab.BUILD]:
@@ -66,7 +66,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '建造页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: build_page.go_back(),
+        build_page.go_back,
     )
 
 

@@ -50,7 +50,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '任务页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: mission_page.go_back(),
+        mission_page.go_back,
     )
 
 

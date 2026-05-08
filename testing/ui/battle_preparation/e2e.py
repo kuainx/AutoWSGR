@@ -53,9 +53,9 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.read_state(
         '出征准备页面',
         readers={
-            '当前舰队': lambda s: BattlePreparationPage.get_selected_fleet(s),
-            '当前面板': lambda s: BattlePreparationPage.get_active_panel(s),
-            '自动补给': lambda s: BattlePreparationPage.is_auto_supply_enabled(s),
+            '当前舰队': BattlePreparationPage.get_selected_fleet,
+            '当前面板': BattlePreparationPage.get_active_panel,
+            '自动补给': BattlePreparationPage.is_auto_supply_enabled,
         },
     )
 
@@ -87,7 +87,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
             f'拨动自动补给 (第{i}次)',
             '出征准备页面',
             BattlePreparationPage.is_current_page,
-            lambda: bp_page.toggle_auto_supply(),
+            bp_page.toggle_auto_supply,
         )
         if runner.aborted:
             return
@@ -96,7 +96,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '出征准备页面 → ◁ 返回',
         None,  # 返回目标页面因地图层级不同而变化，跳过严格验证
         lambda _: True,
-        lambda: bp_page.go_back(),
+        bp_page.go_back,
     )
 
 

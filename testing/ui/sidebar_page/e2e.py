@@ -82,7 +82,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911
         '建造页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: build_page.go_back(),
+        build_page.go_back,
     )
     if runner.aborted:
         return
@@ -113,7 +113,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911
         '强化页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: intensify_page.go_back(),
+        intensify_page.go_back,
     )
     if runner.aborted:
         return
@@ -133,7 +133,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911
         '好友页面 → ◁ 侧边栏',
         '侧边栏',
         SidebarPage.is_current_page,
-        lambda: friend_page.go_back(),
+        friend_page.go_back,
     )
     if runner.aborted:
         return
@@ -143,7 +143,7 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911
         '侧边栏 → close → 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: sidebar_page.close(),
+        sidebar_page.close,
     )
 
 

@@ -57,9 +57,9 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.read_state(
         '地图页面状态',
         readers={
-            '远征通知': lambda s: MapPage.has_expedition_notification(s),
-            '当前面板': lambda s: MapPage.get_active_panel(s),
-            '选中章节Y': lambda s: MapPage.find_selected_chapter_y(s),
+            '远征通知': MapPage.has_expedition_notification,
+            '当前面板': MapPage.get_active_panel,
+            '选中章节Y': MapPage.find_selected_chapter_y,
         },
     )
 
@@ -86,7 +86,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '章节 → 下一章',
         '地图页面',
         MapPage.is_current_page,
-        lambda: map_page.click_next_chapter(),
+        map_page.click_next_chapter,
     )
     if runner.aborted:
         return
@@ -96,7 +96,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '章节 → 上一章 (恢复)',
         '地图页面',
         MapPage.is_current_page,
-        lambda: map_page.click_prev_chapter(),
+        map_page.click_prev_chapter,
     )
     if runner.aborted:
         return
@@ -106,7 +106,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
         '地图页面 → ◁ 主页面',
         '主页面',
         MainPage.is_current_page,
-        lambda: map_page.go_back(),
+        map_page.go_back,
     )
 
 
