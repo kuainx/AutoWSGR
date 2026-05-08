@@ -106,7 +106,6 @@ ignore = [
     "TRY301",  # raise-within-try
     "T201",    # `print` found
     "N801",    # Class name `EventFightPlan2025_0424` should use CapWords convention
-    "N806",    # Variable `EXP_AREA` in function should be lowercase
 
     "ANN002",  # missing-type-args
     "ANN003",  # missing-type-kwargs

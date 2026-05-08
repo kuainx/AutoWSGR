@@ -302,7 +302,7 @@ def setup_logger(
     # 注册 patcher：为每条记录附加可点击的相对路径 + ch 默认值
     logger.configure(patcher=_src_patcher)
 
-    _FMT = (
+    _fmt = (
         '<green>{time:HH:mm:ss.SSS}</green> | '
         '<level>{level:8}</level> | '
         '<cyan>{extra[src]}</cyan> | '
@@ -315,7 +315,7 @@ def setup_logger(
         sys.stderr,
         level=0,  # 由 filter 全权控制
         filter=_make_channel_filter(console_level_no),
-        format=_FMT,
+        format=_fmt,
     )
 
     # 文件输出
@@ -329,7 +329,7 @@ def setup_logger(
             rotation=rotation,
             retention=retention,
             encoding='utf-8',
-            format=_FMT,
+            format=_fmt,
         )
 
         # 过滤文件：与控制台 level 一致，受通道过滤
@@ -341,7 +341,7 @@ def setup_logger(
                 rotation=rotation,
                 retention=retention,
                 encoding='utf-8',
-                format=_FMT,
+                format=_fmt,
             )
 
         # 图片目录

@@ -80,9 +80,9 @@ def _goto_page(ctx: GameContext, target: str) -> None:
     NavigationError
         无法识别当前页面、找不到路径或步数超限。
     """
-    MAX_STEPS = 20
+    max_steps = 20
 
-    for step in range(MAX_STEPS):
+    for step in range(max_steps):
         # 1. 识别
         current = identify_current_page(ctx)
         if current is None:
@@ -113,7 +113,7 @@ def _goto_page(ctx: GameContext, target: str) -> None:
         _log.debug(
             '[OPS] 步骤 {} (总限 {}): {} → {} ({})',
             step + 1,
-            MAX_STEPS,
+            max_steps,
             edge.source,
             edge.target,
             edge.description,
@@ -121,7 +121,7 @@ def _goto_page(ctx: GameContext, target: str) -> None:
         edge.action(ctx)
 
     raise NavigationError(
-        f'导航步数超限 ({MAX_STEPS})，目标: {target}',
+        f'导航步数超限 ({max_steps})，目标: {target}',
         screen=ctx.ctrl.screenshot(),
     )
 

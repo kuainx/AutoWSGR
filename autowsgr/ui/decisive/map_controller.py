@@ -257,15 +257,15 @@ class DecisiveMapController:
         return icon_rel_x
 
     def get_ship_icon_pos_with_retry(self) -> float | None:
-        _ICON_TIMEOUT = 10.0
-        _ICON_GAP = 0.15
-        deadline = time.monotonic() + _ICON_TIMEOUT
+        _icon_timeout = 10.0
+        _icon_gap = 0.15
+        deadline = time.monotonic() + _icon_timeout
         icon_rel_x: float | None = None
         while time.monotonic() < deadline:
             icon_rel_x = self.get_ship_icon_pos()
             if icon_rel_x is not None:
                 break
-            time.sleep(_ICON_GAP)
+            time.sleep(_icon_gap)
         return icon_rel_x
 
     def recognize_node(
@@ -280,12 +280,12 @@ class DecisiveMapController:
         2. 以舰标 X 为参考裁剪全高竖列，送 DLL ``recognize_map`` 识别。
         3. DLL 返回 ``'0'`` 时重试 (最多 3 次)，全部失败抛出异常。
         """
-        _MAX_RETRY = 3
+        _max_retry = 3
         dll = get_api_dll()
 
-        for retry in range(_MAX_RETRY + 1):
+        for retry in range(_max_retry + 1):
             icon_rel_x: float | None = self.get_ship_icon_pos_with_retry()
-            for retry_icon in range(_MAX_RETRY + 1):
+            for retry_icon in range(_max_retry + 1):
                 time.sleep(0.5)
                 icon_rel_x_now = self.get_ship_icon_pos_with_retry()
                 if icon_rel_x_now == -1:
@@ -316,14 +316,14 @@ class DecisiveMapController:
             except Exception:
                 _log.warning('[地图控制器] DLL 节点识别异常', exc_info=True)
 
-            if retry >= _MAX_RETRY:
+            if retry >= _max_retry:
                 break
             _log.warning(
                 '[地图控制器] 节点识别失败, 正在重试第 {} 次',
                 retry + 1,
             )
 
-        raise RuntimeError(f'决战节点识别失败: 重试 {_MAX_RETRY + 1} 次后仍无法识别')
+        raise RuntimeError(f'决战节点识别失败: 重试 {_max_retry + 1} 次后仍无法识别')
 
     # ══════════════════════════════════════════════════════════════════════
     # 战备舰队获取 overlay
@@ -418,7 +418,7 @@ class DecisiveMapController:
         """
         from autowsgr.image_resources import Templates
 
-        CLICK_CONFIRM_POS: tuple[float, float] = (873 / 960, 500 / 540)
+        click_confirm_pos: tuple[float, float] = (873 / 960, 500 / 540)
 
         screen = self._ctrl.screenshot()
         match = ImageChecker.find_template(
@@ -430,7 +430,7 @@ class DecisiveMapController:
             self._ctrl.click(*match.center)
             time.sleep(0.5)
 
-        self._ctrl.click(*CLICK_CONFIRM_POS)
+        self._ctrl.click(*click_confirm_pos)
         time.sleep(1.0)
 
     def use_skill(self) -> list[str]:

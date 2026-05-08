@@ -428,51 +428,51 @@ class TestCheckBlood:
     """check_blood 测试。"""
 
     def test_all_green_continues(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.NORMAL, S.NORMAL, S.NORMAL, S.NORMAL, S.NORMAL]
-        assert check_blood(stats, R.severe_damage) is True
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.NORMAL, s.NORMAL, s.NORMAL, s.NORMAL, s.NORMAL]
+        assert check_blood(stats, r.severe_damage) is True
 
     def test_severe_damage_stops(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.NORMAL, S.SEVERE, S.NORMAL, S.NORMAL, S.NORMAL]
-        assert check_blood(stats, R.severe_damage) is False
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.NORMAL, s.SEVERE, s.NORMAL, s.NORMAL, s.NORMAL]
+        assert check_blood(stats, r.severe_damage) is False
 
     def test_moderate_damage_with_severe_rule(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.NORMAL, S.MODERATE, S.NORMAL, S.NORMAL, S.NORMAL]
-        assert check_blood(stats, R.severe_damage) is True
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.NORMAL, s.MODERATE, s.NORMAL, s.NORMAL, s.NORMAL]
+        assert check_blood(stats, r.severe_damage) is True
 
     def test_no_ship_ignored(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.NORMAL, S.NORMAL, S.NO_SHIP, S.NO_SHIP, S.NO_SHIP]
-        assert check_blood(stats, R.severe_damage) is True
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.NORMAL, s.NORMAL, s.NO_SHIP, s.NO_SHIP, s.NO_SHIP]
+        assert check_blood(stats, r.severe_damage) is True
 
     def test_per_position_rules(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.MODERATE, S.SEVERE, S.NORMAL, S.NORMAL, S.NORMAL]
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.MODERATE, s.SEVERE, s.NORMAL, s.NORMAL, s.NORMAL]
         rules = [
-            R.severe_damage,
-            R.moderate_damage,
-            R.severe_damage,
-            R.severe_damage,
-            R.severe_damage,
-            R.severe_damage,
+            r.severe_damage,
+            r.moderate_damage,
+            r.severe_damage,
+            r.severe_damage,
+            r.severe_damage,
+            r.severe_damage,
         ]
         assert check_blood(stats, rules) is False  # position 1 has MODERATE >= moderate_damage
 
     def test_severe_always_stops(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.NORMAL, S.SEVERE, S.NORMAL, S.NORMAL, S.NORMAL]
-        assert check_blood(stats, R.severe_damage) is False
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.NORMAL, s.SEVERE, s.NORMAL, s.NORMAL, s.NORMAL]
+        assert check_blood(stats, r.severe_damage) is False
 
     def test_moderate_stops_with_moderate_rule(self):
-        S = ShipDamageState
-        R = RepairMode
-        stats = [S.NORMAL, S.MODERATE, S.NORMAL, S.NORMAL, S.NORMAL, S.NORMAL]
-        assert check_blood(stats, R.moderate_damage) is False
+        s = ShipDamageState
+        r = RepairMode
+        stats = [s.NORMAL, s.MODERATE, s.NORMAL, s.NORMAL, s.NORMAL, s.NORMAL]
+        assert check_blood(stats, r.moderate_damage) is False

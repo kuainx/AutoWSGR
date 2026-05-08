@@ -188,7 +188,7 @@ def main() -> None:
     print(f'  决战结果  (共 {len(results)} 轮)')
     print('=' * 60)
 
-    _RESULT_DESC = {
+    _result_desc = {
         DecisiveResult.CHAPTER_CLEAR: '大关通关 ✓',
         DecisiveResult.RETREAT: '主动撤退',
         DecisiveResult.LEAVE: '暂离保存',
@@ -196,7 +196,7 @@ def main() -> None:
     }
 
     for i, r in enumerate(results, start=1):
-        desc = _RESULT_DESC.get(r, r.value)
+        desc = _result_desc.get(r, r.value)
         logger.info('第 {}/{} 轮: {}', i, len(results), r.value)
         print(f'    第 {i:2d} 轮: {desc}')
 

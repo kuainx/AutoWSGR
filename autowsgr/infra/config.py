@@ -292,7 +292,7 @@ class UserConfig(BaseModel):
     @classmethod
     def _coerce_destroy_mode(cls, v: object) -> object:
         """允许用中文别名或英文成员名指定解装模式。"""
-        _ALIAS: dict[str, int] = {
+        _alias: dict[str, int] = {
             '不启用': 0,
             'disable': 0,
             '黑名单': 1,
@@ -302,8 +302,8 @@ class UserConfig(BaseModel):
         }
         if isinstance(v, str):
             key = v.strip()
-            if key in _ALIAS:
-                return _ALIAS[key]
+            if key in _alias:
+                return _alias[key]
             # 纯数字字符串也兼容
             if key.isdigit():
                 return int(key)

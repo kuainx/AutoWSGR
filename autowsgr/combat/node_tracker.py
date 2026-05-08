@@ -330,12 +330,12 @@ class NodeTracker:
             return None
 
         # 按面积降序排列（排除背景 label 0）
-        _MIN_AREA = 200
+        _min_area = 200
         best_label = -1
         best_area = 0
         for label_id in range(1, num_labels):
             area = int(stats[label_id, cv2.CC_STAT_AREA])
-            if area >= _MIN_AREA and area > best_area:
+            if area >= _min_area and area > best_area:
                 best_area = area
                 best_label = label_id
 

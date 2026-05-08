@@ -487,33 +487,33 @@ class BuildPage:
         remove_equipment:
             是否在解装前卸下装备。默认 ``True``。
         """
-        _STEP_DELAY = 1.5
+        _step_delay = 1.5
 
         self.destroy_click_add()
-        time.sleep(_STEP_DELAY)
+        time.sleep(_step_delay)
 
         if ship_types:
             # 按舰种过滤：打开过滤器 → 勾选各舰种 → 确认
             self.destroy_open_type_filter()
-            time.sleep(_STEP_DELAY)
+            time.sleep(_step_delay)
             for ship_type in ship_types:
                 _log.debug('[UI] 解体 → 点击舰种: {}', ship_type.value)
                 self._ctrl.click(*ship_type.relative_position_in_destroy)
                 time.sleep(0.8)
             self.destroy_confirm_filter()
-            time.sleep(_STEP_DELAY)
+            time.sleep(_step_delay)
 
         self.destroy_quick_select()
-        time.sleep(_STEP_DELAY)
+        time.sleep(_step_delay)
         self.destroy_confirm_select()
-        time.sleep(_STEP_DELAY)
+        time.sleep(_step_delay)
         if remove_equipment:
             self.destroy_toggle_remove_equip()
-            time.sleep(_STEP_DELAY)
+            time.sleep(_step_delay)
         self.destroy_confirm()
-        time.sleep(_STEP_DELAY)
+        time.sleep(_step_delay)
         self.destroy_four_star_confirm()
-        time.sleep(_STEP_DELAY)
+        time.sleep(_step_delay)
 
         _log.info(
             '[UI] 解装完成 (舰种={}, 卸下装备={})',
