@@ -323,7 +323,7 @@ def _probe_level_near_name(
     return max(parsed_levels)
 
 
-def read_ship_levels(
+def read_ship_levels(  # noqa: PLR0912
     ocr: OCREngine,
     screen: np.ndarray,
     *,

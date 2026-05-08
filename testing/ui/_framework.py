@@ -479,7 +479,7 @@ class UIControllerTestRunner:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def reset_to_main_page(ctrl: ADBController, pause: float = 1.5) -> bool:
+def reset_to_main_page(ctrl: ADBController, pause: float = 1.5) -> bool:  # noqa: PLR0912
     """从任意已知页面导航回主页面。
 
     按"叶页面 → 中间页面 → 主页面"顺序尝试每一级的返回操作，最多循环 5 次。

@@ -147,7 +147,6 @@ ignore = [
     "UP047",   # type parameters
     "W505",    # doc-line-too-long
     # TODO: fix and remove below
-    "PLR0912", # too-many-branches (13)
     "PLW0108", # unnecessary-lambda (43)
     "S110",    # try-except-pass (21)
     "S603",    # subprocess-without-shell-equals-true (16)

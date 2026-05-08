@@ -80,7 +80,7 @@ class CombatEngine(PhaseHandlersMixin):
     # 公共接口
     # ═══════════════════════════════════════════════════════════════════════════
 
-    def fight(
+    def fight(  # noqa: PLR0912
         self,
         plan: CombatPlan,
         initial_ship_stats: list[ShipDamageState],

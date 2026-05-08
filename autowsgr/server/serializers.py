@@ -82,7 +82,7 @@ def serialize_build_queue(build_queue: Any) -> dict[str, Any]:
     }
 
 
-def convert_combat_result(result: Any, round_num: int) -> dict[str, Any]:
+def convert_combat_result(result: Any, round_num: int) -> dict[str, Any]:  # noqa: PLR0912
     """转换 CombatResult 为响应格式。"""
     nodes: list[str] = []
     mvp = None

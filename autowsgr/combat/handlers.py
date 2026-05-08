@@ -150,7 +150,7 @@ class PhaseHandlersMixin:
         )
         return ConditionFlag.FIGHT_CONTINUE
 
-    def _handle_spot_enemy(self) -> ConditionFlag:
+    def _handle_spot_enemy(self) -> ConditionFlag:  # noqa: PLR0912
         """处理索敌成功 — 核心决策节点。
 
         决策顺序:

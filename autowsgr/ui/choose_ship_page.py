@@ -192,7 +192,7 @@ class ChooseShipPage:
         _log.debug('[UI] 选船 → 移除舰船')
         self._ctrl.click(*CLICK_REMOVE_SHIP)
 
-    def change_single_ship(  # noqa: C901
+    def change_single_ship(  # noqa: C901, PLR0912
         self,
         name: str | None,
         *,
@@ -358,7 +358,7 @@ class ChooseShipPage:
             return False
         return not (max_level is not None and level > max_level)
 
-    def _click_ship_in_list(
+    def _click_ship_in_list(  # noqa: PLR0912
         self,
         name: str,
         *,

@@ -73,7 +73,7 @@ class FleetChangeMixin(FleetDetectMixin):
     # 主入口
     # ══════════════════════════════════════════════════════════════════════
 
-    def change_fleet(  # noqa: C901, PLR0915
+    def change_fleet(  # noqa: C901, PLR0912, PLR0915
         self,
         fleet_id: int | None,
         ship_names: Sequence[FleetSlotInput],
@@ -430,7 +430,7 @@ class FleetChangeMixin(FleetDetectMixin):
         return chosen, narrowed_selector
 
     @classmethod
-    def _match_existing_members(
+    def _match_existing_members(  # noqa: PLR0912
         cls,
         current: list[str | None],
         desired: list[str | None],
