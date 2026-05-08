@@ -54,6 +54,8 @@ from ..page import click_and_wait_for_page
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from autowsgr.context import GameContext
     from autowsgr.infra import DecisiveConfig
 
@@ -65,7 +67,7 @@ _log = get_logger('ui.decisive')
 recognize_ship_drop = None  # type: ignore[assignment]
 
 
-def _get_recognize_ship_drop():
+def _get_recognize_ship_drop() -> Callable:
     global recognize_ship_drop
     if recognize_ship_drop is None:
         from autowsgr.combat import recognize_ship_drop as _fn

@@ -120,7 +120,7 @@ class TestWaitForPage:
         with patch('autowsgr.ui.utils.navigation.time') as mock_time:
             call_count = 0
 
-            def advancing_time():
+            def advancing_time() -> float:
                 nonlocal call_count
                 call_count += 1
                 # 第一次 (设 deadline) 返回 0, 之后返回 100 (已超时)

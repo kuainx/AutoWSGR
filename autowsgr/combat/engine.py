@@ -196,7 +196,7 @@ class CombatEngine(PhaseHandlersMixin):
     # ═══════════════════════════════════════════════════════════════════════════
     # 内部方法
     # ═══════════════════════════════════════════════════════════════════════════
-    def _is_map_routing_phase(self, last_phase: CombatPhase):
+    def _is_map_routing_phase(self, last_phase: CombatPhase) -> bool:
         return (
             last_phase
             in (CombatPhase.PROCEED, CombatPhase.FIGHT_CONDITION, CombatPhase.START_FIGHT)

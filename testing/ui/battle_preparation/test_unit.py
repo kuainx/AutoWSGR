@@ -43,7 +43,7 @@ _AUTO_OFF = (50, 50, 50)
 _W, _H = 960, 540
 
 
-def _make_ctx(ctrl, ocr=None):
+def _make_ctx(ctrl, ocr=None) -> GameContext:
     """构造 GameContext，用于 BattlePreparationPage 初始化。"""
     return GameContext(ctrl=ctrl, config=MagicMock(), ocr=ocr)
 

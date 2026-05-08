@@ -98,8 +98,6 @@ ignore = [
     # TODO: temporarily ignore until all annotations are added
     "ANN001",
     "ANN201",
-    "ANN202",
-    # TODO: temporarily ignore until all annotations are added
 
     # Intentionally ignored
     "BLE001",  # blind-except (intentional broad catches in routes/retries)
