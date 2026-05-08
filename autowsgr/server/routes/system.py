@@ -24,7 +24,7 @@ class SystemStartRequest(BaseModel):
 
 
 @router.post('/start', response_model=ApiResponse)
-async def system_start(request: SystemStartRequest):
+async def system_start(request: SystemStartRequest) -> ApiResponse:
     """启动系统 (连接模拟器、启动游戏)。"""
     if _main._ctx is not None:
         return ApiResponse(success=True, message='系统已启动')
@@ -45,7 +45,7 @@ async def system_start(request: SystemStartRequest):
 
 
 @router.post('/stop', response_model=ApiResponse)
-async def system_stop():
+async def system_stop() -> ApiResponse:
     """停止系统。"""
     if _main._ctx is None:
         return ApiResponse(success=True, message='系统未运行')
@@ -59,7 +59,7 @@ async def system_stop():
 
 
 @router.get('/status', response_model=ApiResponse)
-async def system_status():
+async def system_status() -> ApiResponse:
     """获取系统状态。"""
     return ApiResponse(
         success=True,
@@ -77,7 +77,7 @@ async def system_status():
 
 
 @router.get('/emulator/devices', response_model=ApiResponse)
-async def emulator_devices():
+async def emulator_devices() -> ApiResponse:
     """查询 ADB 设备列表，用于检查模拟器运行状态。
 
     会先对已知 TCP serial（MuMu 等）执行 adb connect，再列出设备。

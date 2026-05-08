@@ -178,7 +178,7 @@ class TestAutoSupply:
 
 class TestActions:
     @pytest.fixture
-    def page(self):
+    def page(self) -> tuple[BattlePreparationPage, MagicMock]:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
@@ -215,7 +215,7 @@ class TestActions:
 
 class TestSelectFleet:
     @pytest.fixture
-    def page(self):
+    def page(self) -> tuple[BattlePreparationPage, MagicMock]:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
@@ -243,7 +243,7 @@ class TestSelectFleet:
 
 class TestSelectPanel:
     @pytest.fixture
-    def page(self):
+    def page(self) -> tuple[BattlePreparationPage, MagicMock]:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
@@ -271,7 +271,7 @@ class TestSelectPanel:
 
 class TestToggles:
     @pytest.fixture
-    def page(self):
+    def page(self) -> tuple[BattlePreparationPage, MagicMock]:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 

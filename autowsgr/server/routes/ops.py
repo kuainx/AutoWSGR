@@ -30,7 +30,7 @@ def _require_idle() -> None:
 
 
 @router.post('/api/expedition/check', response_model=ApiResponse)
-async def expedition_check():
+async def expedition_check() -> ApiResponse:
     """检查并收取已完成的远征。"""
     try:
         ctx = get_context()
@@ -61,7 +61,7 @@ class ExpeditionAutoCheckRequest(BaseModel):
 
 
 @router.post('/api/expedition/auto_check', response_model=ApiResponse)
-async def expedition_auto_check(request: ExpeditionAutoCheckRequest):
+async def expedition_auto_check(request: ExpeditionAutoCheckRequest) -> ApiResponse:
     """自动远征检查（挂机专用）。
 
     不受 _require_idle 限制，顺带领取任务奖励并根据战斗任务状态智能执行浴室维修。
@@ -130,7 +130,7 @@ class BuildStartRequest(BaseModel):
 
 
 @router.post('/api/build/collect', response_model=ApiResponse)
-async def build_collect():
+async def build_collect() -> ApiResponse:
     """收取已完成的建造。"""
     try:
         ctx = get_context()
@@ -150,7 +150,7 @@ async def build_collect():
 
 
 @router.post('/api/build/start', response_model=ApiResponse)
-async def build_start(request: BuildStartRequest):
+async def build_start(request: BuildStartRequest) -> ApiResponse:
     """开始建造。"""
     try:
         ctx = get_context()
@@ -186,7 +186,7 @@ async def build_start(request: BuildStartRequest):
 
 
 @router.post('/api/reward/collect', response_model=ApiResponse)
-async def reward_collect():
+async def reward_collect() -> ApiResponse:
     """收取任务奖励。"""
     try:
         ctx = get_context()
@@ -216,7 +216,7 @@ class CookRequest(BaseModel):
 
 
 @router.post('/api/cook', response_model=ApiResponse)
-async def cook_action(request: CookRequest):
+async def cook_action(request: CookRequest) -> ApiResponse:
     """食堂烹饪。"""
     try:
         ctx = get_context()
@@ -241,7 +241,7 @@ async def cook_action(request: CookRequest):
 
 
 @router.post('/api/repair/bath', response_model=ApiResponse)
-async def repair_bath():
+async def repair_bath() -> ApiResponse:
     """浴室修理。"""
     try:
         ctx = get_context()
@@ -267,7 +267,7 @@ class RepairShipRequest(BaseModel):
 
 
 @router.post('/api/repair/ship', response_model=ApiResponse)
-async def repair_ship(request: RepairShipRequest):
+async def repair_ship(request: RepairShipRequest) -> ApiResponse:
     """使用浴室修理指定名称的舰船。
 
     前端泡澡修理系统调用此端点，将指定舰船送入浴室修理。
@@ -310,7 +310,7 @@ class DestroyRequest(BaseModel):
 
 
 @router.post('/api/destroy', response_model=ApiResponse)
-async def destroy_action(request: DestroyRequest):
+async def destroy_action(request: DestroyRequest) -> ApiResponse:
     """解装/解体舰船。"""
     try:
         ctx = get_context()

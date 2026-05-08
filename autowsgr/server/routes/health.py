@@ -18,7 +18,7 @@ _server_start_time = time.monotonic()
 
 
 @router.get('/api/health', response_model=ApiResponse)
-async def health_check():
+async def health_check() -> ApiResponse:
     """健康检查端点。"""
     uptime = int(time.monotonic() - _server_start_time)
     task_info = None

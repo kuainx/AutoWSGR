@@ -7,13 +7,13 @@ _TARGET_H = 720
 
 
 class ApiDll:
-    def locate(self, image: np.ndarray):
+    def locate(self, image: np.ndarray) -> list[tuple[float, float]]:
         return autowsgr_native.locate(image)
 
     def recognize_enemy(self, images: list[np.ndarray]) -> str:
         return autowsgr_native.recognize_enemy(images)
 
-    def recognize_map(self, image: np.ndarray):
+    def recognize_map(self, image: np.ndarray) -> str:
         h, w = image.shape[:2]
         if h > _TARGET_H:
             scale = _TARGET_H / h

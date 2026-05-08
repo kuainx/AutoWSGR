@@ -97,7 +97,6 @@ explicit-preview-rules = true
 ignore = [
     # TODO: temporarily ignore until all annotations are added
     "ANN001",
-    "ANN201",
 
     # Intentionally ignored
     "BLE001",  # blind-except (intentional broad catches in routes/retries)

@@ -346,7 +346,7 @@ class NodeTracker:
         cx_abs, cy_abs = centroids[best_label]
         return (cx_abs / w, cy_abs / h)
 
-    def is_spot_page(self, screen):
+    def is_spot_page(self, screen) -> bool:
         return (
             CombatRecognizer.identify_current(screen, [CombatPhase.SPOT_ENEMY_SUCCESS]) is not None
         )

@@ -46,7 +46,7 @@ class TestScrcpyControllerCoordinates:
     """测试 click/swipe 的相对-绝对坐标转换。"""
 
     @pytest.fixture
-    def ctrl(self):
+    def ctrl(self) -> ScrcpyController:
         """创建一个 mock 设备的 ScrcpyController。"""
         c = ScrcpyController(serial='test')
         c._resolution = (960, 540)

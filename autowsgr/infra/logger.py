@@ -66,6 +66,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     import numpy as np
+    from loguru import Logger
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -218,7 +219,7 @@ def caller_info(depth: int = 1) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def get_logger(channel: str):
+def get_logger(channel: str) -> Logger:
     """创建绑定了通道的 logger 实例。
 
     Parameters

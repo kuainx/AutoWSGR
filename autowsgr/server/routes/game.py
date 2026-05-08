@@ -25,7 +25,7 @@ router = APIRouter(tags=['game'])
 
 
 @router.get('/api/game/acquisition', response_model=ApiResponse)
-async def game_acquisition():
+async def game_acquisition() -> ApiResponse:
     """从出征面板截图 OCR 识别今日舰船 (X/500) 与战利品 (X/50) 获取数量。
 
     仅在空闲时可用 (需要控制画面导航到出征面板)。
@@ -61,7 +61,7 @@ async def game_acquisition():
 
 
 @router.get('/api/game/context', response_model=ApiResponse)
-async def game_context_info():
+async def game_context_info() -> ApiResponse:
     """返回当前游戏上下文中的运行时状态。
 
     包含资源、舰队、远征、建造等完整游戏状态数据。
@@ -88,7 +88,7 @@ async def game_context_info():
 
 
 @router.get('/api/expedition/status', response_model=ApiResponse)
-async def expedition_status():
+async def expedition_status() -> ApiResponse:
     """查询远征槽位状态（4 个槽位的章节、节点、剩余时间等）。"""
     try:
         ctx = get_context()
@@ -102,7 +102,7 @@ async def expedition_status():
 
 
 @router.get('/api/build/status', response_model=ApiResponse)
-async def build_status():
+async def build_status() -> ApiResponse:
     """查询建造队列状态。"""
     try:
         ctx = get_context()

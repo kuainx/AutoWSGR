@@ -1,5 +1,6 @@
 """测试公共 fixtures。"""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ def fixtures_dir() -> Path:
 
 
 @pytest.fixture
-def tmp_yaml(tmp_path: Path):
+def tmp_yaml(tmp_path: Path) -> Callable[[str, str], Path]:
     """创建临时 YAML 文件的工厂 fixture。"""
 
     def _factory(name: str, content: str) -> Path:

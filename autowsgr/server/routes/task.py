@@ -34,7 +34,7 @@ TaskRequestUnion = Annotated[
 
 
 @router.post('/start', response_model=ApiResponse)
-async def task_start(request: TaskRequestUnion):  # type: ignore
+async def task_start(request: TaskRequestUnion) -> ApiResponse:  # type: ignore
     """启动任务 (异步执行，立即返回)。"""
     if task_manager.is_running:
         raise HTTPException(status_code=409, detail='已有任务正在运行')
@@ -61,7 +61,7 @@ async def task_start(request: TaskRequestUnion):  # type: ignore
 
 
 @router.post('/stop', response_model=ApiResponse)
-async def task_stop():
+async def task_stop() -> ApiResponse:
     """停止当前任务。"""
     if not task_manager.is_running:
         return ApiResponse(success=True, message='没有正在运行的任务')
@@ -81,7 +81,7 @@ async def task_stop():
 
 
 @router.get('/status', response_model=ApiResponse)
-async def task_status():
+async def task_status() -> ApiResponse:
     """查询当前任务状态。"""
     status = task_manager.get_status()
     return ApiResponse(success=True, data=status)
