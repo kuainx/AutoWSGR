@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
+except Exception:  # noqa: S110
     pass  # 如果 reconfigure 不可用，继续使用默认编码
 from datetime import UTC, datetime
 from pathlib import Path

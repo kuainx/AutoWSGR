@@ -332,15 +332,15 @@ class ScrcpyController(AndroidController):
         if self._video_socket is not None:
             try:
                 self._video_socket.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.debug('[Scrcpy] 关闭 video socket 失败: {}', exc)
             self._video_socket = None
 
         if self._server_stream is not None:
             try:
                 self._server_stream.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                _log.debug('[Scrcpy] 关闭 server stream 失败: {}', exc)
             self._server_stream = None
 
         if self._decode_thread is not None:

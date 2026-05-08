@@ -182,7 +182,7 @@ def _try_enter_node(event_page: object, node_id: int) -> None:
     """尝试选择一个节点。异常时静默处理（不中断测试）。"""
     try:
         event_page._enter_node(node_id)  # type: ignore[attr-defined]
-    except Exception:
+    except Exception:  # noqa: S110
         pass  # 节点选择可能因活动状态而失败，不影响测试流程
 
 

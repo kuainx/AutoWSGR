@@ -148,7 +148,6 @@ ignore = [
     "W505",    # doc-line-too-long
     # TODO: fix and remove below
     "PLW0108", # unnecessary-lambda (43)
-    "S110",    # try-except-pass (21)
 ]
 allowed-confusables = ["，", "。", "：", "？", "！", "、", "（", "）", "；", "“", "”"]
 extend-safe-fixes = [

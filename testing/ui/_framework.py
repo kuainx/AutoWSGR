@@ -59,7 +59,7 @@ except Exception:
             sys.stderr = io.TextIOWrapper(
                 sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True
             )
-    except Exception:
+    except Exception:  # noqa: S110
         pass  # 如果配置失败，继续使用默认编码
 
 if TYPE_CHECKING:
@@ -352,9 +352,8 @@ class UIControllerTestRunner:
             try:
                 _, path = self._take_screenshot(f'{tag}_error')
                 rec.screenshot_path = str(path) if path else None
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
-
         self.report.add(rec)
         return rec
 

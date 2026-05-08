@@ -48,9 +48,8 @@ except Exception:
             sys.stderr = io.TextIOWrapper(
                 sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True
             )
-    except Exception:
+    except Exception:  # noqa: S110
         pass
-
 from loguru import logger
 
 from autowsgr.ops.campaign import CAMPAIGN_NAME_MAP, CampaignRunner

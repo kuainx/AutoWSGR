@@ -28,9 +28,8 @@ try:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
+except Exception:  # noqa: S110
     pass
-
 from loguru import logger
 
 from autowsgr.types import ShipType

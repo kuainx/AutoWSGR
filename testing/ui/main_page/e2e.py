@@ -237,9 +237,8 @@ def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911, C901, PL
             )
         else:
             info('未在活动地图页面，跳过返回步骤')
-    except Exception:
+    except Exception:  # noqa: S110
         pass
-
     if runner.aborted:
         return
 

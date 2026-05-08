@@ -38,9 +38,8 @@ try:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # type: ignore[union-attr]
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')  # type: ignore[union-attr]
-except Exception:
+except Exception:  # noqa: S110
     pass
-
 # ────────────────────────────────────────────────────────────────────────────
 
 WIKI_URL = 'https://www.zjsnrwiki.com/wiki/%E8%88%B0%E5%A8%98%E5%9B%BE%E9%89%B4'
