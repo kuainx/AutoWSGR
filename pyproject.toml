@@ -145,7 +145,6 @@ ignore = [
     "TRY400",  # error-instead-of-exception
     "UP047",   # type parameters
     "W505",    # doc-line-too-long
-    # TODO: fix and remove below
 ]
 allowed-confusables = ["，", "。", "：", "？", "！", "、", "（", "）", "；", "“", "”"]
 extend-safe-fixes = [
