@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import cv2
@@ -63,18 +64,12 @@ if TYPE_CHECKING:
 
 _log = get_logger('ui.decisive')
 
-# Deferred import to avoid circular dependency with autowsgr.combat
-# (combat -> ui.battle -> ui -> decisive.map_controller -> combat)
-recognize_ship_drop = None  # type: ignore[assignment]
 
-
+@lru_cache(maxsize=1)
 def _get_recognize_ship_drop() -> Callable:
-    global recognize_ship_drop
-    if recognize_ship_drop is None:
-        from autowsgr.combat import recognize_ship_drop as _fn
+    from autowsgr.combat import recognize_ship_drop as _fn
 
-        recognize_ship_drop = _fn
-    return recognize_ship_drop
+    return _fn
 
 
 SKILL_USED = PixelSignature(

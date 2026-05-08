@@ -287,7 +287,7 @@ def setup_logger(
 
         未列出的通道跟随 sink 自身的 *level* 设置。
     """
-    global _image_dir, _channel_levels
+    global _image_dir, _channel_levels  # noqa: PLW0603
 
     # 解析通道级别配置
     _channel_levels = {}

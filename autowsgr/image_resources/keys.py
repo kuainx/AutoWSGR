@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 from enum import Enum
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 
@@ -78,9 +79,8 @@ class TemplateKey(Enum):
 # 内部映射 (延迟初始化)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_TEMPLATE_MAP: dict[TemplateKey, list[ImageTemplate]] | None = None
 
-
+@lru_cache(maxsize=1)
 def _build_map() -> dict[TemplateKey, list[ImageTemplate]]:
     from autowsgr.image_resources.combat import CombatTemplates as T
 
@@ -118,10 +118,7 @@ def _build_map() -> dict[TemplateKey, list[ImageTemplate]]:
 
 
 def _resolve(key: TemplateKey) -> list[ImageTemplate]:
-    global _TEMPLATE_MAP
-    if _TEMPLATE_MAP is None:
-        _TEMPLATE_MAP = _build_map()
-    return _TEMPLATE_MAP[key]
+    return _build_map()[key]
 
 
 def get_templates(key: TemplateKey) -> list[ImageTemplate]:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -148,17 +149,13 @@ CLICK_CONFIRM_CENTER: tuple[float, float] = (0.5, 0.5)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _MISSIONS_YAML = Path(__file__).resolve().parent.parent.parent / 'data' / 'missions.yaml'
-_mission_db_cache: dict | None = None
 
 
+@lru_cache(maxsize=1)
 def _load_mission_db() -> dict:
     """加载并缓存任务数据库。"""
-    global _mission_db_cache
-    if _mission_db_cache is None:
-        with open(_MISSIONS_YAML, encoding='utf-8') as f:
-            _mission_db_cache = yaml.safe_load(f)
-    assert _mission_db_cache is not None
-    return _mission_db_cache
+    with open(_MISSIONS_YAML, encoding='utf-8') as f:
+        return yaml.safe_load(f)
 
 
 def get_all_mission_names() -> list[str]:

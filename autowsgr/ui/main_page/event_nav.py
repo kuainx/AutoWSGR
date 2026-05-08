@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
@@ -27,23 +28,19 @@ _log = get_logger('ui')
 
 # ── 活动图标模板 (延迟加载) ──────────────────────────────────────────────
 
-_event_icon_templates: list[ImageTemplate] | None = None
 
-
+@lru_cache(maxsize=1)
 def _get_event_icon_templates() -> list[ImageTemplate]:
     """延迟加载活动入口图标模板。"""
-    global _event_icon_templates
-    if _event_icon_templates is None:
-        from autowsgr.image_resources._lazy import load_template
+    from autowsgr.image_resources._lazy import load_template
 
-        _event_icon_templates = [
-            load_template(
-                'event/event_icon_20260212_720p.png',
-                name='event_icon',
-                source_resolution=(1280, 720),
-            ),
-        ]
-    return _event_icon_templates
+    return [
+        load_template(
+            'event/event_icon_20260212_720p.png',
+            name='event_icon',
+            source_resolution=(1280, 720),
+        ),
+    ]
 
 
 # ── 内部: 单次导航尝试 ──────────────────────────────────────────────────

@@ -64,6 +64,7 @@
 from __future__ import annotations
 
 import enum
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -183,15 +184,10 @@ def _load_templates() -> dict[TabbedPageType, np.ndarray]:
 
 
 # 模块级缓存 — 首次调用时加载
-_templates: dict[TabbedPageType, np.ndarray] | None = None
-
-
+@lru_cache(maxsize=1)
 def _get_templates() -> dict[TabbedPageType, np.ndarray]:
     """获取参考模板 (懒加载 + 缓存)。"""
-    global _templates
-    if _templates is None:
-        _templates = _load_templates()
-    return _templates
+    return _load_templates()
 
 
 def _binarize_tabbar(screen: np.ndarray) -> np.ndarray:

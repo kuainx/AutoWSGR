@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import autowsgr_native
 import cv2
 import numpy as np
@@ -25,12 +27,7 @@ class ApiDll:
         return autowsgr_native.recognize_map(image)
 
 
-_dll_instance: ApiDll | None = None
-
-
+@lru_cache(maxsize=1)
 def get_api_dll() -> ApiDll:
     """获取 ApiDll 单例。首次调用时加载 DLL。"""
-    global _dll_instance
-    if _dll_instance is None:
-        _dll_instance = ApiDll()
-    return _dll_instance
+    return ApiDll()
