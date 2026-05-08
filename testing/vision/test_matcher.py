@@ -48,11 +48,15 @@ def patch_screen(
 class TestColor:
     def test_of_creates_rgb_color(self):
         c = Color.of(10, 20, 30)
-        assert c.r == 10 and c.g == 20 and c.b == 30
+        assert c.r == 10
+        assert c.g == 20
+        assert c.b == 30
 
     def test_from_rgb(self):
         c = Color.from_rgb(r=10, g=20, b=30)
-        assert c.r == 10 and c.g == 20 and c.b == 30
+        assert c.r == 10
+        assert c.g == 20
+        assert c.b == 30
 
     def test_from_bgr_tuple(self):
         c = Color.from_bgr_tuple((1, 2, 3))
@@ -60,7 +64,9 @@ class TestColor:
 
     def test_from_rgb_tuple(self):
         c = Color.from_rgb_tuple((10, 20, 30))
-        assert c.r == 10 and c.g == 20 and c.b == 30
+        assert c.r == 10
+        assert c.g == 20
+        assert c.b == 30
 
     def test_distance_same_color_is_zero(self):
         c = Color.of(100, 100, 100)
@@ -109,7 +115,8 @@ class TestColor:
 class TestPixelRule:
     def test_basic_construction(self):
         r = PixelRule(x=70, y=485, color=Color.of(201, 129, 54))
-        assert r.x == 70 and r.y == 485
+        assert r.x == 70
+        assert r.y == 485
 
     def test_of_convenience(self):
         r = PixelRule.of(10, 20, (50, 60, 70))
@@ -123,7 +130,8 @@ class TestPixelRule:
     def test_from_dict_list_color(self):
         d = {'x': 10, 'y': 20, 'color': [50, 60, 70]}
         r = PixelRule.from_dict(d)
-        assert r.x == 10 and r.color.r == 50
+        assert r.x == 10
+        assert r.color.r == 50
 
     def test_from_dict_with_tolerance(self):
         d = {'x': 5, 'y': 5, 'color': [10, 20, 30], 'tolerance': 40.0}
@@ -289,7 +297,9 @@ class TestPixelCheckerSingle:
         screen = np.zeros((10, 10, 3), dtype=np.uint8)
         screen[3, 7] = [11, 22, 33]  # row=3, col=7
         c = PixelChecker.get_pixel(screen, x=0.7, y=0.3)
-        assert c.r == 11 and c.g == 22 and c.b == 33
+        assert c.r == 11
+        assert c.g == 22
+        assert c.b == 33
 
     def test_check_pixel_match(self):
         screen = solid_screen(100, 150, 200)
@@ -577,7 +587,8 @@ class TestIdentify:
         sig_b = PixelSignature(name='b', rules=[r2])
         results = PixelChecker.identify_all(screen, [sig_a, sig_b])
         names = [r.signature_name for r in results]
-        assert 'a' in names and 'b' in names
+        assert 'a' in names
+        assert 'b' in names
 
     def test_identify_all_empty_on_no_match(self):
         screen = solid_screen(0, 0, 0)

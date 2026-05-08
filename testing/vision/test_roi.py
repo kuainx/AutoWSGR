@@ -12,13 +12,17 @@ from ._helpers import solid_screen
 class TestROI:
     def test_full_roi(self):
         roi = ROI.full()
-        assert roi.x1 == 0.0 and roi.y1 == 0.0
-        assert roi.x2 == 1.0 and roi.y2 == 1.0
+        assert roi.x1 == 0.0
+        assert roi.y1 == 0.0
+        assert roi.x2 == 1.0
+        assert roi.y2 == 1.0
 
     def test_from_tuple(self):
         roi = ROI.from_tuple((0.1, 0.2, 0.5, 0.6))
-        assert roi.x1 == 0.1 and roi.y1 == 0.2
-        assert roi.x2 == 0.5 and roi.y2 == 0.6
+        assert roi.x1 == 0.1
+        assert roi.y1 == 0.2
+        assert roi.x2 == 0.5
+        assert roi.y2 == 0.6
 
     def test_from_dict(self):
         roi = ROI.from_dict({'x1': 0.1, 'y1': 0.2, 'x2': 0.5, 'y2': 0.6})
@@ -26,7 +30,8 @@ class TestROI:
 
     def test_from_dict_shorthand(self):
         roi = ROI.from_dict({'roi': [0.1, 0.2, 0.5, 0.6]})
-        assert roi.x1 == 0.1 and roi.y2 == 0.6
+        assert roi.x1 == 0.1
+        assert roi.y2 == 0.6
 
     def test_to_dict(self):
         roi = ROI(0.1, 0.2, 0.5, 0.6)
