@@ -15,8 +15,15 @@ from autowsgr.infra import (
 from autowsgr.types import (
     DestroyShipWorkMode,
     EmulatorType,
+    OSType,
     RepairMode,
 )
+
+
+@pytest.fixture(autouse=True)
+def _mock_wsl(monkeypatch):
+    """在非 WSL Linux CI runner 上伪装成 WSL，使 OSType.auto() 不抛异常。"""
+    monkeypatch.setattr(OSType, '_is_wsl', staticmethod(lambda: True))
 
 
 # ── EmulatorConfig ──
