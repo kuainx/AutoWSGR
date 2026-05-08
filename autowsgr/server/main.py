@@ -43,7 +43,6 @@ _ctx: Any = None
 
 def get_context() -> Any:
     """获取全局 GameContext。"""
-    global _ctx
     if _ctx is None:
         raise RuntimeError('系统未启动，请先调用 POST /api/system/start')
     return _ctx
@@ -65,7 +64,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # 关闭时: 清理资源
-    global _ctx
     if _ctx is not None:
         _log.info('[Server] 断开模拟器连接')
     _log.info('[Server] HTTP Server 已关闭')
