@@ -2,6 +2,8 @@
 
 我们欢迎对 [AutoWSGR](https://github.com/OpenWSGR/AutoWSGR) 的贡献！在贡献之前，请阅读以下指南。
 
+技术规范（开发环境、代码风格、测试、约定式提交等）详见项目根目录的 [`AGENTS.md`](../AGENTS.md)。
+
 ------
 
 ## 开发设置 Development Setup
@@ -15,10 +17,7 @@
 2. 设置开发环境。
 
     ```bash
-    conda create -n autowsgr python=3.12
-    conda activate autowsgr
-    pip install -e .
-
+    uv sync
     pre-commit install
     ```
 
@@ -45,7 +44,7 @@
         git checkout -b <my-feature-branch>
         ```
 
-    2. 如果你是项目管理员：可以不用Fork，转为在主仓库创建一个分支。
+    2. 如果你是项目管理员：可以不用 Fork，转为在主仓库创建一个分支。
 
         ```bash
         git fetch --all
@@ -78,27 +77,14 @@
 
 ## 测试 Testing
 
-在创建合并请求之前，请确保在本地测试你的变更。可以运行 [`examples`](./examples) 目录中的各种脚本进行测试。
+在创建合并请求之前，请确保在本地测试你的变更。可以运行 [`examples`](../examples) 目录中的各种脚本进行测试。
 
 ------
 
 ## 文档 Documentation
 
-如果你对代码库进行了更改，请更新 [用户文档](https://docs-autowsgr.notion.site/)。同样鼓励在代码中编写注释和文档字符串。
+如果你对代码库进行了更改，请更新 [用户文档](https://docs-autowsgr.notion.site)。同样鼓励在代码中编写注释和文档字符串。
 
 ------
 
-## 代码风格 Code Style
-
-我们使用几种工具来确保代码质量，包括：
-
-- Python 代码风格：`ruff`, `isort`, `black`
-- 英语拼写检查：`codespell`
-
-我们建议使用 `pre-commit` 工具在提交之前自动检查和格式化你的代码。
-
-我们将逐步在 CI/CD 流水线中强制执行这些工具，以确保代码质量。
-
-------
-
-如果你有任何问题或需要帮助，请通过qq群568500514联系团队。
+如果你有任何问题或需要帮助，请通过 qq 群 568500514 联系团队。
