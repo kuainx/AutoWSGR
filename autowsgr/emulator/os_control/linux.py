@@ -36,7 +36,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
             return False
         try:
             subprocess.run(
-                ['pgrep', '-f', self._process_name],
+                ['pgrep', '-f', self._process_name],  # noqa: S607
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -66,7 +66,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         try:
             if self._is_wsl:
                 result = subprocess.run(
-                    ['taskkill.exe', '/f', '/im', self._process_name],
+                    ['taskkill.exe', '/f', '/im', self._process_name],  # noqa: S607
                     capture_output=True,
                     text=True,
                     check=False,
@@ -75,7 +75,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                     error_msg = result.stderr.strip() or result.stdout.strip()
             else:
                 subprocess.run(
-                    ['pkill', '-9', '-f', self._process_name],
+                    ['pkill', '-9', '-f', self._process_name],  # noqa: S607
                     check=True,
                 )
             _log.info('模拟器已停止: {}', self._process_name)
@@ -119,7 +119,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         if not self._process_name:
             return False
         result = subprocess.run(
-            ['tasklist.exe', '/fi', f'IMAGENAME eq {self._process_name}'],
+            ['tasklist.exe', '/fi', f'IMAGENAME eq {self._process_name}'],  # noqa: S607
             capture_output=True,
             text=True,
             check=False,

@@ -94,7 +94,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                     return
                 case _:
                     subprocess.run(
-                        ['taskkill', '-f', '-im', self._process_name],
+                        ['taskkill', '-f', '-im', self._process_name],  # noqa: S607
                         check=True,
                         capture_output=True,
                     )
@@ -159,7 +159,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
             return False
         try:
             raw = subprocess.check_output(
-                ['tasklist', '/fi', f'ImageName eq {self._process_name}'],
+                ['tasklist', '/fi', f'ImageName eq {self._process_name}'],  # noqa: S607
             ).decode('gbk', errors='replace')
         except subprocess.CalledProcessError:
             return False
