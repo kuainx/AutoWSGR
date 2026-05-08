@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from autowsgr.emulator import AndroidController
 
 
-def run_test(runner: UIControllerTestRunner) -> None:
+def run_test(runner: UIControllerTestRunner) -> None:  # noqa: PLR0911
     from autowsgr.ui.build_page import BuildPage, BuildTab
     from autowsgr.ui.friend_page import FriendPage
     from autowsgr.ui.intensify_page import IntensifyPage, IntensifyTab

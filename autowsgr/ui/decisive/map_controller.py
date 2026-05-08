@@ -135,7 +135,7 @@ class DecisiveMapController:
         screen = self._ctrl.screenshot()
         return PixelChecker.check_signature(screen, SKILL_USED).matched
 
-    def detect_decisive_phase(
+    def detect_decisive_phase(  # noqa: PLR0911
         self,
         screen: np.ndarray | None = None,
     ) -> DecisivePhase | None:
