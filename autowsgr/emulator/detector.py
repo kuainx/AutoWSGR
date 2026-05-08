@@ -208,8 +208,8 @@ def list_adb_devices(adb_path: str | None = None) -> list[tuple[str, str]]:
 
     lines = result.stdout.strip().splitlines()
     devices: list[tuple[str, str]] = []
-    for line in lines[1:]:  # 跳过第一行 "List of devices attached"
-        line = line.strip()
+    for raw_line in lines[1:]:  # 跳过第一行 "List of devices attached"
+        line = raw_line.strip()
         if not line:
             continue
         parts = line.split()

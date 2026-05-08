@@ -104,8 +104,8 @@ class LinuxEmulatorManager(EmulatorProcessManager):
             return []
 
         devices: list[str] = []
-        for line in result.stdout.splitlines():
-            line = line.strip()
+        for raw_line in result.stdout.splitlines():
+            line = raw_line.strip()
             if not line or line.startswith('List of devices'):
                 continue
             parts = line.split()

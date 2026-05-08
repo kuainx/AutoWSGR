@@ -292,8 +292,8 @@ def setup_logger(
     # 解析通道级别配置
     _channel_levels = {}
     if channels:
-        for ch_name, ch_level_str in channels.items():
-            ch_level_str = ch_level_str.upper()
+        for ch_name, raw_level in channels.items():
+            ch_level_str = raw_level.upper()
             if ch_level_str not in _LEVEL_MAP:
                 raise ValueError(f"无效的日志级别 '{ch_level_str}'，有效值: {list(_LEVEL_MAP)}")
             _channel_levels[ch_name] = _LEVEL_MAP[ch_level_str]
