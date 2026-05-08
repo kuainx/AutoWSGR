@@ -108,11 +108,10 @@ def run_test(runner: UIControllerTestRunner) -> None:
         )
         if runner.aborted:
             return
+    elif is_base:
+        ok('主页面基础状态确认 (无浮层)')
     else:
-        if is_base:
-            ok('主页面基础状态确认 (无浮层)')
-        else:
-            warn('is_current_page 通过但 is_base_page 为 False — 可能存在未识别浮层')
+        warn('is_current_page 通过但 is_base_page 为 False — 可能存在未识别浮层')
 
     # ───── Step 3: 状态查询 (远征/任务通知红点) ──────────────────────
     runner.read_state(
