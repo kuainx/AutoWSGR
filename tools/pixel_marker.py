@@ -30,7 +30,7 @@ import argparse
 import sys
 import tkinter as tk
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 from typing import TYPE_CHECKING
@@ -429,7 +429,7 @@ class PixelMarkerApp:
         log_dir.mkdir(parents=True, exist_ok=True)
 
         # 生成文件名：pixel_marker_YYYYMMDD_HHMMSS.png
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')
         filename = f'pixel_marker_{timestamp}.png'
         filepath = log_dir / filename
 

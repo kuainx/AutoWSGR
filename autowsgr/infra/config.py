@@ -119,7 +119,7 @@ class LogConfig(BaseModel):
     @model_validator(mode='after')
     def _set_log_dir(self) -> LogConfig:
         if self.dir is None:
-            ts = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            ts = datetime.datetime.now(tz=datetime.UTC).strftime('%Y-%m-%d_%H-%M-%S')
             object.__setattr__(self, 'dir', self.root / ts)
         return self
 

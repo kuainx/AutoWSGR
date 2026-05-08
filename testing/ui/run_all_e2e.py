@@ -36,7 +36,7 @@ try:
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:
     pass  # 如果 reconfigure 不可用，继续使用默认编码
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -177,7 +177,7 @@ def run_e2e_test(
         name=name,
         script_path=script_path,
         exit_code=-1,
-        start_time=datetime.now().isoformat(),
+        start_time=datetime.now(tz=UTC).isoformat(),
     )
 
     # 为每个测试准备日志目录
@@ -222,7 +222,7 @@ def run_e2e_test(
         sys.argv = orig_argv
         sys.stdout = orig_stdout
         sys.stderr = orig_stderr
-        result.end_time = datetime.now().isoformat()
+        result.end_time = datetime.now(tz=UTC).isoformat()
 
     result.stdout = stdout_buf.getvalue()
     result.stderr = stderr_buf.getvalue()
@@ -272,7 +272,7 @@ def run_all_tests(
         sys.exit(1)
 
     report = TestRunReport(
-        start_time=datetime.now().isoformat(),
+        start_time=datetime.now(tz=UTC).isoformat(),
         end_time='',
     )
 
@@ -294,7 +294,7 @@ def run_all_tests(
         duration = f'{result.duration_sec:.1f}s' if result.duration_sec > 0 else '?'
         print(f'{symbol} {status:20s} ({duration})')
 
-    report.end_time = datetime.now().isoformat()
+    report.end_time = datetime.now(tz=UTC).isoformat()
     return report
 
 
