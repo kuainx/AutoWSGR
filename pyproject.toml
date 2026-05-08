@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "autowsgr"
 dynamic = ["version"]
@@ -15,6 +11,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: System :: Distributed Computing",
 ]
+urls.Documentation = "https://docs-autowsgr.notion.site"
+urls.Repository = "https://github.com/OpenWSGR/AutoWSGR"
 dependencies = [
     "wheel",
     "setuptools",
@@ -34,25 +32,17 @@ dependencies = [
     "websockets>=11.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/OpenWSGR/AutoWSGR"
-Documentation = "https://autowsgr.readthedocs.io/"
-Repository = "https://github.com/OpenWSGR/AutoWSGR.git"
-
-[tool.setuptools]
-package-dir = {"" = "."}
-include-package-data = true
-
-[tool.setuptools.dynamic]
-version = {attr = "autowsgr.__version__"}
-
-[tool.setuptools.package-data]
-"*" = [
-    "data/**",
-    "requirements.txt",
-    "bin/**",
-    "c_src/**",
+[dependency-groups]
+dev = [
+    "requests>=2.32.5",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "autowsgr/__init__.py"
 
 [tool.codespell]
 ignore-words = "docs/spelling_wordlist.txt"
@@ -184,8 +174,3 @@ inline-quotes = "single"
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
-
-[dependency-groups]
-dev = [
-    "requests>=2.32.5",
-]
