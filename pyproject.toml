@@ -152,7 +152,6 @@ ignore = [
     "ARG005",  # unused-lambda-argument (9)
     "C901",    # complex-structure (4)
     "DTZ005",  # call-datetime-now-without-tzinfo (6)
-    "N818",    # error-suffix-on-exception-name (2)
     "PLR0911", # too-many-return-statements (3)
     "PLR0912", # too-many-branches (13)
     "PLR0915", # too-many-statements (4)

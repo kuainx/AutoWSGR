@@ -27,7 +27,7 @@ from .recognition import (
     recognize_enemy_ships,
     recognize_ship_drop,
 )
-from .recognizer import CombatRecognitionTimeout
+from .recognizer import CombatRecognitionTimeoutError
 
 
 if TYPE_CHECKING:
@@ -374,7 +374,7 @@ def detect_result_grade(device: AndroidController) -> str:
                 return grade
         time.sleep(0.25)
         retry += 1
-    raise CombatRecognitionTimeout('战果等级识别超时: 5 次尝试未识别到有效等级')
+    raise CombatRecognitionTimeoutError('战果等级识别超时: 5 次尝试未识别到有效等级')
 
 
 def detect_ship_stats(

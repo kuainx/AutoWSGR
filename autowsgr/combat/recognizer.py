@@ -265,7 +265,7 @@ class CombatRecognizer:
 
         Raises
         ------
-        CombatRecognitionTimeout
+        CombatRecognitionTimeoutError
             所有候选状态均未在超时内匹配到。
         """
         # 构建签名列表并计算总超时
@@ -287,7 +287,7 @@ class CombatRecognizer:
         while time.time() < deadline:
             # 检查停止信号
             if self._ctx.stop_event.is_set():
-                raise CombatStopRequested('任务被用户停止')
+                raise CombatStopRequestedError('任务被用户停止')
 
             screen = self._device.screenshot()
             if poll_action is not None:
@@ -303,7 +303,7 @@ class CombatRecognizer:
                     return phase
         # 超时
         phase_names = [p.name for p, _ in phase_sigs]
-        raise CombatRecognitionTimeout(f'等待状态超时 ({max_timeout:.1f}s): {phase_names}')
+        raise CombatRecognitionTimeoutError(f'等待状态超时 ({max_timeout:.1f}s): {phase_names}')
 
     @staticmethod
     def identify_current(
@@ -333,9 +333,9 @@ class CombatRecognizer:
         return None
 
 
-class CombatRecognitionTimeout(Exception):
+class CombatRecognitionTimeoutError(Exception):
     """战斗状态识别超时。"""
 
 
-class CombatStopRequested(Exception):
+class CombatStopRequestedError(Exception):
     """外部请求停止战斗。"""
