@@ -223,7 +223,7 @@ def restart_game(
     start_game(ctrl, package, startup_timeout=startup_timeout)
 
 
-def go_main_page(ctx: GameContext, *, dismiss_overlays: bool = True) -> None:
+def go_main_page(ctx: GameContext, *, dismiss_overlays: bool = True) -> None:  # noqa: ARG001
     """确保当前处于游戏主页面。
 
     1. 若设置了 ``dismiss_overlays``，先消除登录浮层
@@ -278,7 +278,7 @@ def ensure_game_ready(
     app: GameAPP | str = GameAPP.official,
     *,
     startup_timeout: float = _STARTUP_TIMEOUT,
-    dismiss_overlays: bool = True,
+    dismiss_overlays: bool = True,  # noqa: ARG001
 ) -> None:
     """确保游戏已启动并处于可识别页面。
 

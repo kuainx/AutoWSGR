@@ -89,7 +89,7 @@ def wait_for_page(
     *,
     timeout: float = DEFAULT_NAV_CONFIG.timeout,
     interval: float = DEFAULT_NAV_CONFIG.interval,
-    handle_overlays: bool = True,
+    handle_overlays: bool = True,  # noqa: ARG001
     source: str = '',
     target: str = '',
 ) -> np.ndarray:
@@ -144,7 +144,7 @@ def wait_leave_page(
     *,
     timeout: float = DEFAULT_NAV_CONFIG.timeout,
     interval: float = DEFAULT_NAV_CONFIG.interval,
-    handle_overlays: bool = True,
+    handle_overlays: bool = True,  # noqa: ARG001
     source: str = '',
     target: str = '',
 ) -> np.ndarray:

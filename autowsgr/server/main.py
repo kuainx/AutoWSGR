@@ -54,7 +54,7 @@ def get_context() -> Any:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # noqa: ARG001
     """应用生命周期管理。"""
     # 启动时: 设置事件循环引用
     loop = asyncio.get_running_loop()

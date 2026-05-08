@@ -97,7 +97,7 @@ async def _start_normal_fight(ctx: Any, request: NormalFightRequest) -> ApiRespo
     from autowsgr.combat import CombatPlan
     from autowsgr.ops import run_normal_fight
 
-    def executor(task_info: Any) -> list[dict[str, Any]]:
+    def executor(_task_info: Any) -> list[dict[str, Any]]:
         results = []
 
         if request.plan_id:
@@ -155,7 +155,7 @@ async def _start_event_fight(ctx: Any, request: EventFightRequest) -> ApiRespons
     from autowsgr.combat import CombatPlan
     from autowsgr.ops import run_event_fight
 
-    def executor(task_info: Any) -> list[dict[str, Any]]:
+    def executor(_task_info: Any) -> list[dict[str, Any]]:
         results = []
 
         if request.plan_id:
@@ -217,7 +217,7 @@ async def _start_campaign(ctx: Any, request: CampaignRequest) -> ApiResponse:
     """启动战役任务。"""
     from autowsgr.ops import CampaignRunner
 
-    def executor(task_info: Any) -> list[dict[str, Any]]:
+    def executor(_task_info: Any) -> list[dict[str, Any]]:
         runner = CampaignRunner(
             ctx,
             campaign_name=request.campaign_name,
@@ -261,7 +261,7 @@ async def _start_exercise(ctx: Any, request: ExerciseRequest) -> ApiResponse:
     """启动演习任务。"""
     from autowsgr.ops import ExerciseRunner
 
-    def executor(task_info: Any) -> list[dict[str, Any]]:
+    def executor(_task_info: Any) -> list[dict[str, Any]]:
         runner = ExerciseRunner(ctx, fleet_id=request.fleet_id)
         task_manager.update_progress(current_round=1, current_node='演习')
 
@@ -289,7 +289,7 @@ async def _start_decisive(ctx: Any, request: DecisiveRequest) -> ApiResponse:
     from autowsgr.infra import DecisiveConfig
     from autowsgr.ops import DecisiveController
 
-    def executor(task_info: Any) -> list[dict[str, Any]]:
+    def executor(_task_info: Any) -> list[dict[str, Any]]:
         config = DecisiveConfig(
             chapter=request.chapter,
             decisive_rounds=request.decisive_rounds,

@@ -125,7 +125,7 @@ def _try_navigate_to_event(
 def navigate_to_event(
     ctrl: AndroidController,
     *,
-    is_base_page: type,  # MainPage class (保留兼容签名)
+    is_base_page: type,  # MainPage class (保留兼容签名)  # noqa: ARG001
     max_retries: int = 3,
 ) -> None:
     """导航到活动地图 — 带自动重试。
