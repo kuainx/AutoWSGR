@@ -148,7 +148,6 @@ ignore = [
     "W505",    # doc-line-too-long
     # TODO: fix and remove below
     "ARG001",  # unused-function-argument (12)
-    "ARG005",  # unused-lambda-argument (9)
     "PLR0912", # too-many-branches (13)
     "PLW0108", # unnecessary-lambda (43)
     "PLW0603", # global-statement (9)

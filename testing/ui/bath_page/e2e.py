@@ -49,7 +49,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
 
     runner.read_state(
         '浴室页面',
-        readers={'修理中船舰数': lambda s: '（需手动读取）'},
+        readers={'修理中船舰数': lambda _s: '（需手动读取）'},
     )
 
     runner.execute_step(

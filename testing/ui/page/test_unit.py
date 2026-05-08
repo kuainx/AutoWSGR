@@ -45,13 +45,13 @@ class TestGetCurrentPage:
         _PAGE_REGISTRY.update(self._backup)
 
     def test_returns_first_match(self):
-        register_page('always_true', lambda s: True)
-        register_page('also_true', lambda s: True)
+        register_page('always_true', lambda _s: True)
+        register_page('also_true', lambda _s: True)
         result = get_current_page(_blank())
         assert result == 'always_true'
 
     def test_returns_none_when_no_match(self):
-        register_page('never', lambda s: False)
+        register_page('never', lambda _s: False)
         assert get_current_page(_blank()) is None
 
     def test_empty_registry(self):
@@ -64,7 +64,7 @@ class TestGetCurrentPage:
             raise RuntimeError('boom')
 
         register_page('bad', bad_checker)
-        register_page('good', lambda s: True)
+        register_page('good', lambda _s: True)
         assert get_current_page(_blank()) == 'good'
 
 
@@ -81,7 +81,7 @@ class TestWaitForPage:
 
         result = wait_for_page(
             ctrl,
-            lambda s: True,
+            lambda _s: True,
             source='A',
             target='B',
         )
@@ -132,7 +132,7 @@ class TestWaitForPage:
             with pytest.raises(NavigationError, match='超时'):
                 wait_for_page(
                     ctrl,
-                    lambda s: False,
+                    lambda _s: False,
                     timeout=1.0,
                     source='A',
                     target='B',

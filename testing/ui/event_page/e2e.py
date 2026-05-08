@@ -115,7 +115,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.execute_step(
         f'切换难度: {initial_difficulty} → {opposite} ({opposite_label})',
         '活动地图页面',
-        lambda s: event_page._get_difficulty() == opposite,
+        lambda _s: event_page._get_difficulty() == opposite,
         lambda: event_page._change_difficulty(opposite),
     )
     if runner.aborted:
@@ -126,7 +126,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     runner.execute_step(
         f'切换回原难度: {opposite} → {initial_difficulty} ({initial_label})',
         '活动地图页面',
-        lambda s: event_page._get_difficulty() == initial_difficulty,
+        lambda _s: event_page._get_difficulty() == initial_difficulty,
         lambda: event_page._change_difficulty(initial_difficulty),
     )
     if runner.aborted:
