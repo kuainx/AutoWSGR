@@ -162,7 +162,6 @@ ignore = [
     "PT011",   # pytest-raises-too-broad (4)
     "PT018",   # pytest-composite-assertion (12)
     "S110",    # try-except-pass (21)
-    "S602",    # subprocess-popen-with-shell-equals-true (2)
     "S603",    # subprocess-without-shell-equals-true (16)
     "S607",    # start-process-with-partial-path (8)
     "T201",    # print (9)

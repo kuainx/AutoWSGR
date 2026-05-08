@@ -159,8 +159,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
             return False
         try:
             raw = subprocess.check_output(
-                f'tasklist /fi "ImageName eq {self._process_name}"',
-                shell=True,
+                ['tasklist', '/fi', f'ImageName eq {self._process_name}'],
             ).decode('gbk', errors='replace')
         except subprocess.CalledProcessError:
             return False
@@ -174,7 +173,6 @@ class WindowsEmulatorManager(EmulatorProcessManager):
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            shell=True,
         )
         out, err = proc.communicate()
         return (
