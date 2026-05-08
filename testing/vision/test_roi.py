@@ -73,5 +73,5 @@ class TestROI:
             ROI(0.0, 0.6, 0.5, 0.3)
 
     def test_equal_x_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='ROI x 坐标无效'):
             ROI(0.5, 0.0, 0.5, 1.0)

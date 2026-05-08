@@ -42,7 +42,7 @@ class TestEmulatorConfig:
 
 class TestDecisiveConfig:
     def test_invalid_chapter(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='决战章节'):
             DecisiveConfig(chapter=0)
 
 

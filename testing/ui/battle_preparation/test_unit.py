@@ -237,7 +237,7 @@ class TestSelectFleet:
 
     def test_fleet_zero_raises(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, _ctrl = page
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='舰队编号'):
             pg.select_fleet(0)
 
 

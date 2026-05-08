@@ -136,7 +136,7 @@ class TestPixelRule:
         assert r.color == Color(r=3, g=2, b=1)
 
     def test_from_dict_invalid_color_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError, match='无法解析颜色'):
             PixelRule.from_dict({'x': 0, 'y': 0, 'color': 'bad'})
 
     def test_to_dict_round_trip(self):
