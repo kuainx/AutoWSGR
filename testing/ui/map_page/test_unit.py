@@ -61,7 +61,7 @@ class TestParseMapTitle:
         assert info.name == ''
 
     def test_with_full_width_slash(self):
-        info = parse_map_title('5-3／马耳他附近海域')
+        info = parse_map_title('5-3／马耳他附近海域')  # noqa: RUF001
         assert info is not None
         assert info.chapter == 5
         assert info.map_num == 3
