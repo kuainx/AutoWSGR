@@ -73,6 +73,16 @@ class WindowsEmulatorManager(EmulatorProcessManager):
             raise EmulatorError(f'启动模拟器失败: {exc}') from exc
 
     def stop(self) -> None:
+        if (
+            self._emulator_type
+            not in {
+                EmulatorType.leidian,
+                EmulatorType.mumu,
+                EmulatorType.yunshouji,
+            }
+            and not self._process_name
+        ):
+            raise EmulatorError('未设置进程名，无法停止模拟器')
         try:
             match self._emulator_type:
                 case EmulatorType.leidian:
@@ -83,8 +93,6 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                     _log.info('云手机无需关闭')
                     return
                 case _:
-                    if not self._process_name:
-                        raise EmulatorError('未设置进程名，无法停止模拟器')
                     subprocess.run(
                         ['taskkill', '-f', '-im', self._process_name],
                         check=True,

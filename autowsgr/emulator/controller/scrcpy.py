@@ -151,6 +151,19 @@ class ScrcpyController(AndroidController):
         """通过 adbutils 连接设备。"""
         import adbutils
 
+        def _try_connect() -> None:
+            if serial:
+                # TCP 地址（如 127.0.0.1:16384）需先 adb connect
+                if ':' in serial:
+                    adbutils.adb.connect(serial, timeout=5.0)
+                self._device = adbutils.adb.device(serial=serial)
+            else:
+                devices = adbutils.adb.device_list()
+                if not devices:
+                    raise EmulatorConnectionError('未发现已连接的 ADB 设备')
+                self._device = devices[0]
+                self._serial = self._device.serial
+
         max_attempts = 3
         last_exc: Exception | None = None
         for attempt in range(1, max_attempts + 1):
@@ -160,17 +173,7 @@ class ScrcpyController(AndroidController):
                     self._restart_adb_server()
                     time.sleep(2.0)
 
-                if serial:
-                    # TCP 地址（如 127.0.0.1:16384）需先 adb connect
-                    if ':' in serial:
-                        adbutils.adb.connect(serial, timeout=5.0)
-                    self._device = adbutils.adb.device(serial=serial)
-                else:
-                    devices = adbutils.adb.device_list()
-                    if not devices:
-                        raise EmulatorConnectionError('未发现已连接的 ADB 设备')
-                    self._device = devices[0]
-                    self._serial = self._device.serial
+                _try_connect()
                 return
             except Exception as exc:
                 last_exc = exc

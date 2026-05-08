@@ -103,7 +103,6 @@ ignore = [
     "BLE001",
     "B904",
     "TRY300",
-    "TRY301",  # raise-within-try
 
     # Intentionally ignored
     "T201",    # `print` found (CLI / debug scripts)

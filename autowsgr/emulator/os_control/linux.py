@@ -61,6 +61,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
     def stop(self) -> None:
         if not self._process_name:
             raise EmulatorError('未设置进程名，无法停止模拟器')
+        error_msg = ''
         try:
             if self._is_wsl:
                 result = subprocess.run(
@@ -69,7 +70,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                     text=True,
                 )
                 if result.returncode != 0:
-                    raise EmulatorError(result.stderr.strip() or result.stdout.strip())
+                    error_msg = result.stderr.strip() or result.stdout.strip()
             else:
                 subprocess.run(
                     ['pkill', '-9', '-f', self._process_name],
@@ -80,6 +81,9 @@ class LinuxEmulatorManager(EmulatorProcessManager):
             raise
         except Exception as exc:
             raise EmulatorError(f'停止模拟器失败: {exc}') from exc
+
+        if error_msg:
+            raise EmulatorError(error_msg)
 
     # ── 辅助 ──
 
