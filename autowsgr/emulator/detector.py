@@ -195,7 +195,7 @@ def list_adb_devices(adb_path: str | None = None) -> list[tuple[str, str]]:
     """
     adb = adb_path or _find_adb()
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [adb, 'devices'],
             capture_output=True,
             text=True,
@@ -290,7 +290,7 @@ def connect_and_list_devices() -> list[tuple[str, str]]:
     # 1) 对已知 TCP serial 尝试 connect（忽略失败）
     for serial in _KNOWN_TCP_SERIALS:
         try:
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 [adb, 'connect', serial],
                 capture_output=True,
                 text=True,

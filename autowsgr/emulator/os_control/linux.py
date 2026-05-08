@@ -35,7 +35,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         if not self._process_name:
             return False
         try:
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 ['pgrep', '-f', self._process_name],  # noqa: S607
                 check=True,
                 stdout=subprocess.DEVNULL,
@@ -50,7 +50,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         if not self._path:
             raise EmulatorNotFoundError('未设置模拟器路径（WSL 需要显式设置）')
         try:
-            subprocess.Popen(shlex.split(self._path))
+            subprocess.Popen(shlex.split(self._path))  # noqa: S603
             _log.info('正在启动模拟器: {}', self._path)
             self.wait_until_online()
             _log.info('模拟器已启动')
@@ -65,7 +65,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         error_msg = ''
         try:
             if self._is_wsl:
-                result = subprocess.run(
+                result = subprocess.run(  # noqa: S603
                     ['taskkill.exe', '/f', '/im', self._process_name],  # noqa: S607
                     capture_output=True,
                     text=True,
@@ -74,7 +74,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                 if result.returncode != 0:
                     error_msg = result.stderr.strip() or result.stdout.strip()
             else:
-                subprocess.run(
+                subprocess.run(  # noqa: S603
                     ['pkill', '-9', '-f', self._process_name],  # noqa: S607
                     check=True,
                 )
@@ -94,7 +94,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         """列出通过 ADB 连接的设备。"""
         try:
             adb = _find_adb()
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603
                 [adb, 'devices'],
                 capture_output=True,
                 text=True,
@@ -118,7 +118,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
         """WSL 下通过 tasklist.exe 检查 Windows 进程。"""
         if not self._process_name:
             return False
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             ['tasklist.exe', '/fi', f'IMAGENAME eq {self._process_name}'],  # noqa: S607
             capture_output=True,
             text=True,

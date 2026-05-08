@@ -23,7 +23,7 @@ class MacEmulatorManager(EmulatorProcessManager):
         if not self._process_name:
             return False
         try:
-            subprocess.check_output(['pgrep', '-f', self._process_name])  # noqa: S607
+            subprocess.check_output(['pgrep', '-f', self._process_name])  # noqa: S603, S607
         except subprocess.CalledProcessError:
             return False
 
@@ -39,7 +39,7 @@ class MacEmulatorManager(EmulatorProcessManager):
             raise EmulatorNotFoundError('未设置模拟器路径，无法启动')
 
         try:
-            subprocess.Popen(['open', '-a', self._path])  # noqa: S607
+            subprocess.Popen(['open', '-a', self._path])  # noqa: S603, S607
             if self._emulator_type == EmulatorType.mumu:
                 self._mumu_restart_instance()
             self.wait_until_online()
@@ -56,7 +56,7 @@ class MacEmulatorManager(EmulatorProcessManager):
         if not self._process_name:
             raise EmulatorError('未设置进程名，无法停止')
         try:
-            subprocess.Popen(['pkill', '-9', '-f', self._process_name])  # noqa: S607
+            subprocess.Popen(['pkill', '-9', '-f', self._process_name])  # noqa: S603, S607
             _log.info('模拟器已停止')
         except Exception as exc:
             raise EmulatorError(f'停止模拟器失败: {exc}') from exc
@@ -73,7 +73,7 @@ class MacEmulatorManager(EmulatorProcessManager):
         tool = self._mumu_tool
         if not tool or not os.path.isfile(tool):
             return {}
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S603
             [tool, 'info', 'all'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -91,7 +91,7 @@ class MacEmulatorManager(EmulatorProcessManager):
         info = self._get_mumu_info()
         for idx, v in enumerate(info.get('return', {}).get('results', [])):
             if port == v.get('adb_port'):
-                subprocess.Popen(
+                subprocess.Popen(  # noqa: S603
                     [tool, 'restart', str(idx)],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,

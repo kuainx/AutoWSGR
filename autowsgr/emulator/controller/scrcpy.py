@@ -190,9 +190,9 @@ class ScrcpyController(AndroidController):
 
         try:
             adb = _find_adb()
-            subprocess.run([adb, 'kill-server'], timeout=5, capture_output=True, check=False)
+            subprocess.run([adb, 'kill-server'], timeout=5, capture_output=True, check=False)  # noqa: S603
             time.sleep(1)
-            subprocess.run([adb, 'start-server'], timeout=8, capture_output=True, check=False)
+            subprocess.run([adb, 'start-server'], timeout=8, capture_output=True, check=False)  # noqa: S603
         except Exception as exc:
             _log.debug('[Emulator] 重启 adb server 失败: {}', exc)
 

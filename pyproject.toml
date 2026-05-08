@@ -149,7 +149,6 @@ ignore = [
     # TODO: fix and remove below
     "PLW0108", # unnecessary-lambda (43)
     "S110",    # try-except-pass (21)
-    "S603",    # subprocess-without-shell-equals-true (16)
 ]
 allowed-confusables = ["，", "。", "：", "？", "！", "、", "（", "）", "；", "“", "”"]
 extend-safe-fixes = [

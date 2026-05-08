@@ -63,7 +63,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                 case EmulatorType.mumu:
                     self._mumuconsole('launch')
                 case _:
-                    subprocess.Popen([self._path])
+                    subprocess.Popen([self._path])  # noqa: S603
 
             self.wait_until_online()
             _log.info('模拟器已启动')
@@ -93,7 +93,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                     _log.info('云手机无需关闭')
                     return
                 case _:
-                    subprocess.run(
+                    subprocess.run(  # noqa: S603
                         ['taskkill', '-f', '-im', self._process_name],  # noqa: S607
                         check=True,
                         capture_output=True,
@@ -158,7 +158,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
         if not self._process_name:
             return False
         try:
-            raw = subprocess.check_output(
+            raw = subprocess.check_output(  # noqa: S603
                 ['tasklist', '/fi', f'ImageName eq {self._process_name}'],  # noqa: S607
             ).decode('gbk', errors='replace')
         except subprocess.CalledProcessError:
@@ -169,7 +169,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
     @staticmethod
     def _run_cmd(cmd: list[str]) -> str:
         """执行外部命令并返回 stdout。"""
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S603
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
