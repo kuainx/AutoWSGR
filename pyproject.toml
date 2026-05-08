@@ -155,7 +155,6 @@ ignore = [
     "PLR0911", # too-many-return-statements (3)
     "PLR0912", # too-many-branches (13)
     "PLR0915", # too-many-statements (4)
-    "PLR1714", # repeated-equality-comparison (2)
     "PLW0108", # unnecessary-lambda (43)
     "PLW0603", # global-statement (9)
     "PLW1510", # subprocess-run-without-check (6)

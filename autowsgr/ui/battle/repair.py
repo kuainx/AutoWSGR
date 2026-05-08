@@ -65,7 +65,7 @@ class RepairMixin(BaseBattlePreparation):
 
         positions: list[int] = []
         for slot, dmg in damage.items():
-            if dmg == ShipDamageState.NO_SHIP or dmg == ShipDamageState.NORMAL:
+            if dmg in {ShipDamageState.NO_SHIP, ShipDamageState.NORMAL}:
                 continue
             if (
                 (strategy is RepairStrategy.ALWAYS and dmg >= ShipDamageState.MODERATE)
