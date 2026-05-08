@@ -115,7 +115,6 @@ ignore = [
     "ANN204",  # missing-return-type-special-method
     "ANN401",  # any-type
     "B027",    # empty-method-without-abstract-decorator
-    "B905",    # zip-without-explicit-strict
     "BLE001",  # blind-except
     "C401",    # unnecessary set comprehension
     "C416",    # unnecessary-comprehension
