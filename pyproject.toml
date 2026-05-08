@@ -104,9 +104,9 @@ ignore = [
     "B904",
     "TRY300",
     "TRY301",  # raise-within-try
-    "T201",    # `print` found
-    "N801",    # Class name `EventFightPlan2025_0424` should use CapWords convention
 
+    # Intentionally ignored
+    "T201",    # `print` found (CLI / debug scripts)
     "ANN002",  # missing-type-args
     "ANN003",  # missing-type-kwargs
     "ANN401",  # any-type
