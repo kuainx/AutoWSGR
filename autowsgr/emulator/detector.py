@@ -200,6 +200,7 @@ def list_adb_devices(adb_path: str | None = None) -> list[tuple[str, str]]:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise EmulatorConnectionError('adb devices 超时，请检查 adb 是否正常运行') from exc
@@ -294,6 +295,7 @@ def connect_and_list_devices() -> list[tuple[str, str]]:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             _log.debug('[Detector] adb connect {} 完成', serial)
         except Exception as exc:

@@ -152,7 +152,6 @@ ignore = [
     "PLR0912", # too-many-branches (13)
     "PLW0108", # unnecessary-lambda (43)
     "PLW0603", # global-statement (9)
-    "PLW1510", # subprocess-run-without-check (6)
     "PT018",   # pytest-composite-assertion (12)
     "S110",    # try-except-pass (21)
     "S603",    # subprocess-without-shell-equals-true (16)

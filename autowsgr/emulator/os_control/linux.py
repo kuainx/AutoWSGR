@@ -69,6 +69,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
                     ['taskkill.exe', '/f', '/im', self._process_name],
                     capture_output=True,
                     text=True,
+                    check=False,
                 )
                 if result.returncode != 0:
                     error_msg = result.stderr.strip() or result.stdout.strip()
@@ -121,6 +122,7 @@ class LinuxEmulatorManager(EmulatorProcessManager):
             ['tasklist.exe', '/fi', f'IMAGENAME eq {self._process_name}'],
             capture_output=True,
             text=True,
+            check=False,
         )
         output = (result.stdout or '').lower()
         if 'no tasks' in output:
