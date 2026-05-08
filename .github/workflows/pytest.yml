@@ -1,0 +1,22 @@
+# Pytest — 运行全部单元测试并生成覆盖率报告
+name: Pytest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Run tests with coverage
+        run: uv run pytest -n auto --cov=autowsgr --cov-report=term-missing
