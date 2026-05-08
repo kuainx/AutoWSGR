@@ -535,7 +535,9 @@ class TestCheckSignatureCount:
 
 class TestIdentify:
     # 100x100 screen: x=0.10 → col 10, y=0.10 → row 10
-    def _make_screen_with_marker(self, marker_color=(0, 0, 0)) -> np.ndarray:
+    def _make_screen_with_marker(
+        self, marker_color: tuple[int, int, int] = (0, 0, 0)
+    ) -> np.ndarray:
         screen = np.full((100, 100, 3), 100, dtype=np.uint8)
         screen[10, 10] = marker_color  # row=10, col=10
         return screen
@@ -595,7 +597,7 @@ class TestClassifyColor:
         'red': Color.of(89, 58, 230),
     }
 
-    def _screen_with_pixel(self, r, g, b) -> np.ndarray:
+    def _screen_with_pixel(self, r: int, g: int, b: int) -> np.ndarray:
         s = np.zeros((10, 10, 3), dtype=np.uint8)
         s[5, 5] = [r, g, b]
         return s

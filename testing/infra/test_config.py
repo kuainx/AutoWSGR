@@ -1,5 +1,6 @@
 """测试配置系统与日志工具。"""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ from autowsgr.types import (
 
 
 @pytest.fixture(autouse=True)
-def _mock_wsl(monkeypatch):
+def _mock_wsl(monkeypatch: pytest.MonkeyPatch):
     """在非 WSL Linux CI runner 上伪装成 WSL，使 OSType.auto() 不抛异常。"""
     monkeypatch.setattr(OSType, '_is_wsl', staticmethod(lambda: True))
 
@@ -49,7 +50,7 @@ class TestDecisiveConfig:
 
 
 class TestUserConfig:
-    def test_from_yaml(self, tmp_yaml):
+    def test_from_yaml(self, tmp_yaml: Callable[[str, str], Path]):
         content = """\
 emulator:
   type: "蓝叠"
@@ -67,7 +68,7 @@ dock_full_destroy: false
         assert cfg.delay == 2.0
         assert cfg.dock_full_destroy is False
 
-    def test_with_daily_automation(self, tmp_yaml):
+    def test_with_daily_automation(self, tmp_yaml: Callable[[str, str], Path]):
         content = """\
 emulator:
   type: "雷电"
@@ -83,7 +84,7 @@ daily_automation:
         assert cfg.daily_automation.auto_exercise is False
         assert cfg.daily_automation.battle_type == '简单航母'
 
-    def test_with_decisive_battle(self, tmp_yaml):
+    def test_with_decisive_battle(self, tmp_yaml: Callable[[str, str], Path]):
         content = """\
 emulator:
   type: "雷电"
@@ -99,7 +100,7 @@ decisive_battle:
         assert cfg.decisive_battle.chapter == 5
         assert cfg.decisive_battle.repair_level == 2
 
-    def test_destroy_ship_config(self, tmp_yaml):
+    def test_destroy_ship_config(self, tmp_yaml: Callable[[str, str], Path]):
         content = """\
 emulator:
   type: "雷电"
@@ -145,7 +146,7 @@ class TestBattleConfig:
 
 
 class TestConfigManager:
-    def test_load_existing_file(self, tmp_yaml):
+    def test_load_existing_file(self, tmp_yaml: Callable[[str, str], Path]):
         content = """\
 emulator:
   type: "MuMu"

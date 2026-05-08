@@ -35,6 +35,8 @@ from autowsgr.vision import (
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import numpy as np
 
     from autowsgr.context import GameContext
@@ -214,7 +216,7 @@ class SidebarPage:
     def _navigate_with_submenu(
         self,
         target: SidebarTarget,
-        checker,
+        checker: Callable,
     ) -> None:
         """带二级弹出菜单的导航 (建造 / 强化)。
 

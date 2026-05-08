@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from numpy import ndarray
 
     from autowsgr.emulator import AndroidController
+    from autowsgr.vision.ocr import OCREngine
 
 
 _log = get_logger('combat')
@@ -344,7 +345,7 @@ def get_enemy_info(device: AndroidController, mode: str = 'fight') -> dict[str, 
     return recognize_enemy_ships(screen, mode=mode)
 
 
-def get_enemy_formation(device: AndroidController, ocr_engine) -> str:
+def get_enemy_formation(device: AndroidController, ocr_engine: OCREngine) -> str:
     """OCR 识别敌方阵型。
     Returns
     -------

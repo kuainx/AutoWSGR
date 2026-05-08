@@ -21,6 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from typing import TYPE_CHECKING
+
 from testing.ui._framework import (
     UIControllerTestRunner,
     connect_via_launcher,
@@ -29,6 +31,10 @@ from testing.ui._framework import (
     parse_e2e_args,
     reset_to_main_page,
 )
+
+
+if TYPE_CHECKING:
+    from autowsgr.emulator import AndroidController
 
 
 def run_test(runner: UIControllerTestRunner) -> None:
@@ -64,7 +70,7 @@ def run_test(runner: UIControllerTestRunner) -> None:
     )
 
 
-def _navigate_to(ctrl, pause: float) -> None:
+def _navigate_to(ctrl: AndroidController, pause: float) -> None:
     """从任意已知页面导航到强化页面。"""
     import time
 

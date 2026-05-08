@@ -58,6 +58,7 @@ if TYPE_CHECKING:
 
     from autowsgr.context import GameContext
     from autowsgr.infra import DecisiveConfig
+    from autowsgr.vision.api_dll import ApiDll
 
 
 _log = get_logger('ui.decisive')
@@ -238,7 +239,7 @@ class DecisiveMapController:
             return None
         return float(centroids[best][0]) / bgr.shape[1]
 
-    def dll_recognize_map(self, dll, screen, center) -> str:
+    def dll_recognize_map(self, dll: ApiDll, screen: np.ndarray, center: float) -> str:
         h, w = screen.shape[:2]
         x1 = max(0, int((center - 0.03) * w))
         x2 = min(w, int((center - 0.03 + 0.042) * w))

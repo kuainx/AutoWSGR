@@ -282,7 +282,7 @@ class NodeTracker:
         self._last_ship_position = None
         self._current_node = '0'
 
-    def _recheck_pixel(self, center: tuple[float, float], screen) -> bool:
+    def _recheck_pixel(self, center: tuple[float, float], screen: np.ndarray) -> bool:
         """验证中心及其左右两侧的像素特征。
         Returns
         -------
@@ -346,12 +346,12 @@ class NodeTracker:
         cx_abs, cy_abs = centroids[best_label]
         return (cx_abs / w, cy_abs / h)
 
-    def is_spot_page(self, screen) -> bool:
+    def is_spot_page(self, screen: np.ndarray) -> bool:
         return (
             CombatRecognizer.identify_current(screen, [CombatPhase.SPOT_ENEMY_SUCCESS]) is not None
         )
 
-    def update_ship_position(self, screen) -> tuple[float, float] | None:
+    def update_ship_position(self, screen: np.ndarray) -> tuple[float, float] | None:
         """在战斗移动界面检测黄色小船图标的位置。
         Returns
         -------
@@ -510,7 +510,7 @@ class NodeTracker:
 
         return self._current_node
 
-    def track(self, screen) -> str:
+    def track(self, screen: np.ndarray) -> str:
         """一站式追踪：更新位置 + 判定节点。"""
         self.update_ship_position(screen)
         return self.update_node()

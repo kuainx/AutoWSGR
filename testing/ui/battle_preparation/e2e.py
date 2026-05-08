@@ -23,6 +23,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from typing import TYPE_CHECKING
+
 from testing.ui._framework import (
     UIControllerTestRunner,
     connect_via_launcher,
@@ -31,6 +33,10 @@ from testing.ui._framework import (
     parse_e2e_args,
     reset_to_main_page,
 )
+
+
+if TYPE_CHECKING:
+    from autowsgr.emulator import AndroidController
 
 
 def run_test(runner: UIControllerTestRunner) -> None:
@@ -111,7 +117,9 @@ def _parse_extra_args() -> tuple[int, int]:
     return chapter, map_node
 
 
-def _navigate_to(ctrl, pause: float, *, chapter: int = 1, map_node: int = 1) -> None:
+def _navigate_to(
+    ctrl: AndroidController, pause: float, *, chapter: int = 1, map_node: int = 1
+) -> None:
     """从任意已知页面导航到出征准备页面。
 
     流程: reset → 主页面 → 地图（出征面板） → 章节导航 → 点击地图节点 → 再次点击确认进入

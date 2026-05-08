@@ -60,7 +60,7 @@ class TestGetCurrentPage:
     def test_skips_exception_checker(self):
         """识别器抛异常时跳过，不影响后续。"""
 
-        def bad_checker(s):
+        def bad_checker(s: np.ndarray):
             raise RuntimeError('boom')
 
         register_page('bad', bad_checker)

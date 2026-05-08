@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -27,6 +28,10 @@ from autowsgr.ui.battle.preparation import (
 )
 
 
+if TYPE_CHECKING:
+    from autowsgr.vision.ocr import OCREngine
+
+
 # ─────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────
@@ -43,7 +48,7 @@ _AUTO_OFF = (50, 50, 50)
 _W, _H = 960, 540
 
 
-def _make_ctx(ctrl, ocr=None) -> GameContext:
+def _make_ctx(ctrl: AndroidController, ocr: OCREngine | None = None) -> GameContext:
     """构造 GameContext，用于 BattlePreparationPage 初始化。"""
     return GameContext(ctrl=ctrl, config=MagicMock(), ocr=ocr)
 
@@ -182,7 +187,7 @@ class TestActions:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
-    def test_go_back(self, page):
+    def test_go_back(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         # go_back 调用 click_and_wait_leave_page，会截图验证是否离开当前页
         # mock screenshot 先返回当前页，再返回地图页
@@ -202,7 +207,7 @@ class TestActions:
             pg.go_back()
         ctrl.click.assert_called_with(*CLICK_BACK)
 
-    def test_start_battle(self, page):
+    def test_start_battle(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         pg.start_battle()
         ctrl.click.assert_called_once_with(*CLICK_START_BATTLE)
@@ -220,17 +225,17 @@ class TestSelectFleet:
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     @pytest.mark.parametrize('fleet', [1, 2, 3, 4])
-    def test_valid_fleet(self, page, fleet: int):
+    def test_valid_fleet(self, page: tuple[BattlePreparationPage, MagicMock], fleet: int):
         pg, ctrl = page
         pg.select_fleet(fleet)
         ctrl.click.assert_called_once_with(*CLICK_FLEET[fleet])
 
-    def test_invalid_fleet_raises(self, page):
+    def test_invalid_fleet_raises(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, _ctrl = page
         with pytest.raises(ValueError, match='1-4'):
             pg.select_fleet(5)
 
-    def test_fleet_zero_raises(self, page):
+    def test_fleet_zero_raises(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, _ctrl = page
         with pytest.raises(ValueError):
             pg.select_fleet(0)
@@ -248,17 +253,17 @@ class TestSelectPanel:
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     @pytest.mark.parametrize('panel', list(Panel))
-    def test_each_panel(self, page, panel: Panel):
+    def test_each_panel(self, page: tuple[BattlePreparationPage, MagicMock], panel: Panel):
         pg, ctrl = page
         pg.select_panel(panel)
         ctrl.click.assert_called_once_with(*CLICK_PANEL[panel])
 
-    def test_quick_supply(self, page):
+    def test_quick_supply(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         pg.quick_supply()
         ctrl.click.assert_called_once_with(*CLICK_PANEL[Panel.QUICK_SUPPLY])
 
-    def test_quick_repair(self, page):
+    def test_quick_repair(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         pg.quick_repair()
         ctrl.click.assert_called_once_with(*CLICK_PANEL[Panel.QUICK_REPAIR])
@@ -275,12 +280,12 @@ class TestToggles:
         ctrl = MagicMock(spec=AndroidController)
         return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
-    def test_toggle_battle_support(self, page):
+    def test_toggle_battle_support(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         pg.toggle_battle_support()
         ctrl.click.assert_called_once_with(*CLICK_SUPPORT)
 
-    def test_toggle_auto_supply(self, page):
+    def test_toggle_auto_supply(self, page: tuple[BattlePreparationPage, MagicMock]):
         pg, ctrl = page
         pg.toggle_auto_supply()
         ctrl.click.assert_called_once_with(*CLICK_AUTO_SUPPLY)

@@ -54,35 +54,35 @@ class TestScrcpyControllerCoordinates:
         c._device.shell = MagicMock(return_value='')
         return c
 
-    def test_click_center(self, ctrl):
+    def test_click_center(self, ctrl: ScrcpyController):
         ctrl.click(0.5, 0.5)
         ctrl._device.shell.assert_called_once_with('input tap 480 270')
 
-    def test_click_top_left(self, ctrl):
+    def test_click_top_left(self, ctrl: ScrcpyController):
         ctrl.click(0.0, 0.0)
         ctrl._device.shell.assert_called_once_with('input tap 0 0')
 
-    def test_click_bottom_right(self, ctrl):
+    def test_click_bottom_right(self, ctrl: ScrcpyController):
         ctrl.click(1.0, 1.0)
         ctrl._device.shell.assert_called_once_with('input tap 960 540')
 
-    def test_click_quarter(self, ctrl):
+    def test_click_quarter(self, ctrl: ScrcpyController):
         ctrl.click(0.25, 0.75)
         ctrl._device.shell.assert_called_once_with('input tap 240 405')
 
-    def test_swipe_default_duration(self, ctrl):
+    def test_swipe_default_duration(self, ctrl: ScrcpyController):
         ctrl.swipe(0.1, 0.2, 0.9, 0.8)
         ctrl._device.shell.assert_called_once_with('input swipe 96 108 864 432 500')
 
-    def test_swipe_custom_duration(self, ctrl):
+    def test_swipe_custom_duration(self, ctrl: ScrcpyController):
         ctrl.swipe(0.0, 0.0, 1.0, 1.0, duration=1.0)
         ctrl._device.shell.assert_called_once_with('input swipe 0 0 960 540 1000')
 
-    def test_swipe_short_duration(self, ctrl):
+    def test_swipe_short_duration(self, ctrl: ScrcpyController):
         ctrl.swipe(0.5, 0.5, 0.6, 0.6, duration=0.2)
         ctrl._device.shell.assert_called_once_with('input swipe 480 270 576 324 200')
 
-    def test_long_tap_delegates_to_swipe(self, ctrl):
+    def test_long_tap_delegates_to_swipe(self, ctrl: ScrcpyController):
         """long_tap 通过 swipe(x, y, x, y, duration) 实现。"""
         ctrl.long_tap(0.5, 0.5, duration=2.0)
         ctrl._device.shell.assert_called_once_with('input swipe 480 270 480 270 2000')

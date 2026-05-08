@@ -1,5 +1,6 @@
 """测试文件工具函数。"""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -10,23 +11,23 @@ from autowsgr.infra import load_yaml, merge_dicts, save_yaml
 class TestLoadYaml:
     """测试 load_yaml。"""
 
-    def test_load_simple(self, tmp_yaml):
+    def test_load_simple(self, tmp_yaml: Callable[[str, str], Path]):
         p = tmp_yaml('test.yaml', 'key: value\ncount: 42\n')
         result = load_yaml(p)
         assert result == {'key': 'value', 'count': 42}
 
-    def test_load_nested(self, tmp_yaml):
+    def test_load_nested(self, tmp_yaml: Callable[[str, str], Path]):
         content = 'a:\n  b:\n    c: 1\n'
         p = tmp_yaml('nested.yaml', content)
         result = load_yaml(p)
         assert result == {'a': {'b': {'c': 1}}}
 
-    def test_load_empty_file(self, tmp_yaml):
+    def test_load_empty_file(self, tmp_yaml: Callable[[str, str], Path]):
         p = tmp_yaml('empty.yaml', '')
         result = load_yaml(p)
         assert result == {}
 
-    def test_load_list(self, tmp_yaml):
+    def test_load_list(self, tmp_yaml: Callable[[str, str], Path]):
         content = 'items:\n  - a\n  - b\n  - c\n'
         p = tmp_yaml('list.yaml', content)
         result = load_yaml(p)
@@ -36,7 +37,7 @@ class TestLoadYaml:
         with pytest.raises(FileNotFoundError):
             load_yaml(Path('nonexistent_file.yaml'))
 
-    def test_chinese_content(self, tmp_yaml):
+    def test_chinese_content(self, tmp_yaml: Callable[[str, str], Path]):
         content = 'name: 胡德\ntype: 战巡\n'
         p = tmp_yaml('cn.yaml', content)
         result = load_yaml(p)

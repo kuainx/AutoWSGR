@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 from autowsgr.image_resources import Templates
 from autowsgr.infra.logger import get_logger
@@ -17,6 +18,10 @@ from autowsgr.ui.utils import confirm_operation, wait_for_page
 from autowsgr.vision import ImageChecker, PixelChecker
 
 
+if TYPE_CHECKING:
+    import numpy as np
+
+
 _log = get_logger('ui')
 
 
@@ -26,7 +31,7 @@ class ExpeditionPanelMixin(BaseMapPage):
     # ── 查询 ─────────────────────────────────────────────────────────────
 
     @staticmethod
-    def find_ready_expedition_slot(screen) -> int | None:
+    def find_ready_expedition_slot(screen: np.ndarray) -> int | None:
         """检测 4 个远征槽位，返回第一个已完成 (黄色) 的槽位索引。
 
         Parameters

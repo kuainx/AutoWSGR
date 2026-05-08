@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import PageName
@@ -23,6 +24,10 @@ from autowsgr.ui.map.panels.sortie import (
 )
 from autowsgr.ui.utils import wait_for_page
 from autowsgr.vision import PixelChecker
+
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 _log = get_logger('ui')
@@ -141,7 +146,7 @@ class CampaignPanelMixin(BaseMapPage):
 
     def _recognize_acquisition_counts(
         self,
-        screen,
+        screen: np.ndarray,
     ) -> AcquisitionCounts:
         """从截图中 OCR 识别今日舰船与战利品获取数量。
 
