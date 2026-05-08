@@ -20,7 +20,6 @@ import cv2
 import numpy as np
 
 import autowsgr.ui.decisive.fleet_ocr as _fleet_ocr
-from autowsgr.combat import recognize_ship_drop
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import DecisivePhase, FleetSelection, ShipDamageState
 from autowsgr.ui.battle.preparation import BattlePreparationPage, RepairStrategy
@@ -60,6 +59,20 @@ if TYPE_CHECKING:
 
 
 _log = get_logger('ui.decisive')
+
+# Deferred import to avoid circular dependency with autowsgr.combat
+# (combat -> ui.battle -> ui -> decisive.map_controller -> combat)
+recognize_ship_drop = None  # type: ignore[assignment]
+
+
+def _get_recognize_ship_drop():
+    global recognize_ship_drop
+    if recognize_ship_drop is None:
+        from autowsgr.combat import recognize_ship_drop as _fn
+
+        recognize_ship_drop = _fn
+    return recognize_ship_drop
+
 
 SKILL_USED = PixelSignature(
     name='skill_used',
@@ -618,7 +631,7 @@ class DecisiveMapController:
                 if detail is None:
                     break
 
-            ship_drop = recognize_ship_drop(screen, ocr=self._ocr)
+            ship_drop = _get_recognize_ship_drop()(screen, ocr=self._ocr)
             _log.info(f'[地图控制器] 检测到掉落: {ship_drop.ship_name}({ship_drop.ship_type})')
             collected.append(ship_drop.ship_name)
             self._ctrl.click(0.953, 0.954)

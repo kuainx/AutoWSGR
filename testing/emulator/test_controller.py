@@ -1,34 +1,35 @@
 """测试 emulator.controller 模块。
 
-由于 ADBController 依赖物理设备/模拟器，测试策略：
+由于 ScrcpyController 依赖物理设备/模拟器，测试策略：
 1. DeviceInfo — 不可变数据类
-2. AndroidController — ABC 接口约束
-3. ADBController — 坐标转换逻辑（mock airtest）
+2. ScrcpyController — ABC 接口约束
+3. ScrcpyController — 坐标转换逻辑（mock airtest）
 """
 
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 from autowsgr.emulator import (
-    ADBController,
+    ScrcpyController,
 )
 from autowsgr.infra import EmulatorConnectionError
 
 
 # ═══════════════════════════════════════════════
-# ADBController — 初始化 / 状态
+# ScrcpyController — 初始化 / 状态
 # ═══════════════════════════════════════════════
 
 
-class TestADBControllerInit:
-    """ADBController 初始化行为。"""
+class TestScrcpyControllerInit:
+    """ScrcpyController 初始化行为。"""
 
     def test_disconnect_resets_state(self):
-        ctrl = ADBController(serial='s')
+        ctrl = ScrcpyController(serial='s')
         ctrl._resolution = (1920, 1080)
         ctrl._device = MagicMock()
         ctrl.disconnect()
@@ -37,17 +38,17 @@ class TestADBControllerInit:
 
 
 # ═══════════════════════════════════════════════
-# ADBController — 坐标转换
+# ScrcpyController — 坐标转换
 # ═══════════════════════════════════════════════
 
 
-class TestADBControllerCoordinates:
+class TestScrcpyControllerCoordinates:
     """测试 click/swipe 的相对-绝对坐标转换。"""
 
     @pytest.fixture
     def ctrl(self):
-        """创建一个 mock 设备的 ADBController。"""
-        c = ADBController(serial='test')
+        """创建一个 mock 设备的 ScrcpyController。"""
+        c = ScrcpyController(serial='test')
         c._resolution = (960, 540)
         c._device = MagicMock()
         c._device.shell = MagicMock(return_value='')
@@ -88,7 +89,7 @@ class TestADBControllerCoordinates:
 
     def test_high_resolution(self):
         """1920x1080 分辨率下的转换。"""
-        c = ADBController(serial='test')
+        c = ScrcpyController(serial='test')
         c._resolution = (1920, 1080)
         c._device = MagicMock()
         c._device.shell = MagicMock(return_value='')
@@ -98,55 +99,63 @@ class TestADBControllerCoordinates:
 
 
 # ═══════════════════════════════════════════════
-# ADBController — 截图
+# ScrcpyController — 截图
 # ═══════════════════════════════════════════════
 
 
-class TestADBControllerScreenshot:
+class TestScrcpyControllerScreenshot:
     """测试截图功能（使用 mock）。"""
 
-    def test_screenshot_bgr_to_rgb(self):
-        """确认 BGR → RGB 转换。airtest snapshot 返回 BGR，screenshot() 转为 RGB。"""
-        ctrl = ADBController(serial='test')
+    def test_screenshot_returns_last_frame(self):
+        """screenshot() 返回 _last_frame 中的图像。"""
+        ctrl = ScrcpyController(serial='test')
         ctrl._resolution = (4, 3)
 
-        # 创建一个纯蓝色 BGR 图像（模拟 airtest snapshot 返回值）
-        bgr = np.zeros((3, 4, 3), dtype=np.uint8)
-        bgr[:, :, 0] = 255  # BGR 的 B 通道
+        # mock 视频流，避免启动真实 scrcpy 连接
+        ctrl._ensure_stream_alive = MagicMock()
+        ctrl._alive = True
 
-        mock_device = MagicMock()
-        mock_device.snapshot.return_value = bgr
-        ctrl._device = mock_device
+        img = np.zeros((3, 4, 3), dtype=np.uint8)
+        ctrl._last_frame = img
 
         result = ctrl.screenshot()
-        # BGR(255,0,0) → RGB(0,0,255): 蓝色
         assert result.shape == (3, 4, 3)
-        assert result[0, 0, 0] == 0  # R
-        assert result[0, 0, 1] == 0  # G
-        assert result[0, 0, 2] == 255  # B
+        assert result is img
 
     def test_screenshot_timeout(self):
         """截图超时应抛异常。"""
-        ctrl = ADBController(serial='test', screenshot_timeout=0.2)
+        ctrl = ScrcpyController(serial='test', screenshot_timeout=0.2)
         ctrl._resolution = (4, 3)
 
-        mock_device = MagicMock()
-        mock_device.snapshot.return_value = None  # 始终返回 None
-        ctrl._device = mock_device
+        # mock 视频流，避免启动真实 scrcpy 连接
+        ctrl._ensure_stream_alive = MagicMock()
+        ctrl._alive = True
+        ctrl._last_frame = None  # 始终无帧
 
         with pytest.raises(EmulatorConnectionError, match='截图超时'):
             ctrl.screenshot()
 
     def test_screenshot_retry_on_initial_none(self):
         """首次返回 None 后重试成功。"""
-        ctrl = ADBController(serial='test', screenshot_timeout=5.0)
+        ctrl = ScrcpyController(serial='test', screenshot_timeout=5.0)
         ctrl._resolution = (2, 2)
 
-        img = np.zeros((2, 2, 3), dtype=np.uint8)
-        mock_device = MagicMock()
-        mock_device.snapshot.side_effect = [None, img]
-        ctrl._device = mock_device
+        # mock 视频流，避免启动真实 scrcpy 连接
+        ctrl._ensure_stream_alive = MagicMock()
+        ctrl._alive = True
 
+        img = np.zeros((2, 2, 3), dtype=np.uint8)
+
+        # 直接测试逻辑：先 None 后成功
+        ctrl._last_frame = None
+        # 在 screenshot() 循环中手动注入帧
+        import threading
+
+        def _inject_frame():
+            time.sleep(0.05)
+            ctrl._last_frame = img
+
+        threading.Thread(target=_inject_frame, daemon=True).start()
         result = ctrl.screenshot()
         assert result.shape == (2, 2, 3)
-        assert mock_device.snapshot.call_count == 2
+        assert result is img

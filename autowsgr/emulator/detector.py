@@ -32,7 +32,6 @@ import re
 import shutil
 import subprocess
 import sys
-import winreg
 from dataclasses import dataclass, field
 
 from autowsgr.infra import EmulatorConfig, EmulatorConnectionError
@@ -95,6 +94,8 @@ def _registry_adb_candidates_windows() -> list[str]:
     仅读取注册表，不做路径存在性判断（由调用方统一检查）。
     找不到对应注册表键时静默跳过，不抛出异常。
     """
+    import winreg
+
     candidates: list[str] = []
 
     # ── 雷电模拟器 ──

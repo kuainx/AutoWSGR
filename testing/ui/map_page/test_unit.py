@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from autowsgr.context import GameContext
 from autowsgr.emulator import AndroidController
 from autowsgr.ui.map.data import (
     CHAPTER_MAP_COUNTS,
@@ -134,15 +135,15 @@ class TestParseMapTitle:
 
 class TestMapDatabase:
     def test_all_chapters_present(self):
-        """数据库包含 1-9 章。"""
+        """数据库包含 1-10 章。"""
         chapters = {ch for ch, _ in MAP_DATABASE}
-        assert chapters == set(range(1, 10))
+        assert chapters == set(range(1, 11))
 
     def test_chapter_map_counts(self):
-        """每章至少 4 张地图。"""
-        for ch in range(1, 10):
+        """每章至少 1 张地图（早期章节 4+，新章节可能只有 1 张）。"""
+        for ch in range(1, 11):
             assert ch in CHAPTER_MAP_COUNTS
-            assert CHAPTER_MAP_COUNTS[ch] >= 4
+            assert CHAPTER_MAP_COUNTS[ch] >= 1
 
     def test_known_maps(self):
         """抽检几个已知地图。"""
@@ -165,14 +166,16 @@ class TestNavigateToChapter:
     def test_invalid_chapter_raises(self):
         ctrl = MagicMock(spec=AndroidController)
         ocr = MagicMock()
-        pg = MapPage(ctrl, ocr=ocr)
-        with pytest.raises(ValueError, match='1-9'):
+        ctx = GameContext(ctrl=ctrl, config=MagicMock(), ocr=ocr)
+        pg = MapPage(ctx)
+        with pytest.raises(ValueError, match='1-10'):
             pg.navigate_to_chapter(0)
-        with pytest.raises(ValueError, match='1-9'):
-            pg.navigate_to_chapter(10)
+        with pytest.raises(ValueError, match='1-10'):
+            pg.navigate_to_chapter(11)
 
     def test_no_ocr_raises(self):
         ctrl = MagicMock(spec=AndroidController)
-        pg = MapPage(ctrl, ocr=None)
+        ctx = GameContext(ctrl=ctrl, config=MagicMock(), ocr=None)
+        pg = MapPage(ctx)
         with pytest.raises(RuntimeError, match='OCR'):
             pg.navigate_to_chapter(5)

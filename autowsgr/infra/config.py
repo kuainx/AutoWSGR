@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import (
@@ -482,7 +482,11 @@ class ConfigManager:
             path = Path(path)
             if not path.exists():
                 _log.warning('配置文件 {} 不存在，使用默认配置', path)
-                return UserConfig()
+                try:
+                    return UserConfig()
+                except ValidationError:
+                    # WSL/Linux 下默认配置缺少 serial/path 无法通过验证，提供占位值
+                    return UserConfig(emulator={'serial': '', 'path': ''})
             config = UserConfig.from_yaml(path)
             _log.info('已加载配置: {}', path)
             return config

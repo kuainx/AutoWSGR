@@ -14,10 +14,7 @@ classifiers = [
 urls.Documentation = "https://docs-autowsgr.notion.site"
 urls.Repository = "https://github.com/OpenWSGR/AutoWSGR"
 dependencies = [
-    "wheel",
-    "setuptools",
     "rich",
-    "pre-commit",
     "opencv-python-headless",
     "loguru",
     "keyboard",
@@ -34,6 +31,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pre-commit",
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-xdist",
     "requests>=2.32.5",
 ]
 

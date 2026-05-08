@@ -299,9 +299,6 @@ class TestOCREngineCreate:
             with pytest.raises(ImportError):
                 OCREngine.create('easyocr')
 
-    def test_paddleocr_import_error_propagates(self):
-        import importlib.util
-
-        if importlib.util.find_spec('paddleocr') is None:
-            with pytest.raises(ImportError):
-                OCREngine.create('paddleocr')
+    def test_paddleocr_not_supported(self):
+        with pytest.raises(ValueError, match='不支持的 OCR 引擎'):
+            OCREngine.create('paddleocr')

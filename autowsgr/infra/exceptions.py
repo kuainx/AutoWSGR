@@ -66,6 +66,18 @@ class OCRError(VisionError):
     """OCR 识别失败。"""
 
 
+class ImageNotFoundError(VisionError):
+    """模板图像在屏幕上未找到。"""
+
+    def __init__(self, template_name: str = '', timeout: float = 0) -> None:
+        self.template_name = template_name
+        self.timeout = timeout
+        msg = f'未找到图像: {template_name}'
+        if timeout:
+            msg += f' (超时 {timeout:.1f}s)'
+        super().__init__(msg)
+
+
 # ── UI 层异常 ──
 
 
@@ -75,6 +87,18 @@ class UIError(AutoWSGRError):
 
 class PageNotFoundError(UIError):
     """无法识别当前页面。"""
+
+
+class NavigationError(UIError):
+    """页面导航失败（从 A 到 B 的转移失败）。"""
+
+    def __init__(self, source: str, target: str, reason: str = '') -> None:
+        self.source = source
+        self.target = target
+        msg = f'导航失败: {source} -> {target}'
+        if reason:
+            msg += f' ({reason})'
+        super().__init__(msg)
 
 
 class ActionFailedError(UIError):

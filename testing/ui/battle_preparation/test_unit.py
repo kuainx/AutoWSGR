@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from autowsgr.context import GameContext
 from autowsgr.emulator import AndroidController
+from autowsgr.ui.battle.base import PAGE_SIGNATURE
 from autowsgr.ui.battle.constants import (
     AUTO_SUPPLY_PROBE,
     CLICK_AUTO_SUPPLY,
@@ -39,6 +41,11 @@ _AUTO_OFF = (50, 50, 50)
 
 # 屏幕尺寸
 _W, _H = 960, 540
+
+
+def _make_ctx(ctrl, ocr=None):
+    """构造 GameContext，用于 BattlePreparationPage 初始化。"""
+    return GameContext(ctrl=ctrl, config=MagicMock(), ocr=ocr)
 
 
 def _set_pixel(screen: np.ndarray, rx: float, ry: float, rgb: tuple[int, int, int]) -> None:
@@ -73,6 +80,10 @@ def _make_screen(
     ax, ay = AUTO_SUPPLY_PROBE
     _set_pixel(screen, ax, ay, _AUTO_ON if auto_supply else _AUTO_OFF)
 
+    # 页面签名像素（使 is_current_page 返回 True）
+    for rule in PAGE_SIGNATURE.rules:
+        _set_pixel(screen, rule.x, rule.y, rule.color.as_rgb_tuple())
+
     return screen
 
 
@@ -95,21 +106,22 @@ class TestIsCurrentPage:
         assert BattlePreparationPage.is_current_page(screen) is True
 
     def test_blank_screen_not_detected(self):
+        # 缺少签名的屏幕不应被识别为出征准备页
         screen = np.zeros((_H, _W, 3), dtype=np.uint8)
         assert BattlePreparationPage.is_current_page(screen) is False
 
-    def test_two_fleets_selected_not_detected(self):
-        """两个舰队同时选中 → 不是合法状态。"""
+    def test_two_fleets_selected_still_detected(self):
+        """is_current_page 仅验证页面签名，不校验状态合法性。"""
         screen = _make_screen(selected_fleet=1)
         _set_pixel(screen, *FLEET_PROBE[2], _FLEET_SELECTED)
-        assert BattlePreparationPage.is_current_page(screen) is False
+        assert BattlePreparationPage.is_current_page(screen) is True
 
-    def test_no_panel_selected_not_detected(self):
-        """没有面板选中 → 不是合法状态。"""
+    def test_no_panel_selected_still_detected(self):
+        """is_current_page 仅验证页面签名，不校验面板状态。"""
         screen = _make_screen()
-        # 把唯一选中的面板清掉
+        # 把唯一选中的面板清掉，签名仍在
         _set_pixel(screen, *PANEL_PROBE[Panel.STATS], _PANEL_UNSELECTED)
-        assert BattlePreparationPage.is_current_page(screen) is False
+        assert BattlePreparationPage.is_current_page(screen) is True
 
 
 # ─────────────────────────────────────────────
@@ -168,30 +180,24 @@ class TestActions:
     @pytest.fixture
     def page(self):
         ctrl = MagicMock(spec=AndroidController)
-        return BattlePreparationPage(ctrl), ctrl
+        return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     def test_go_back(self, page):
         pg, ctrl = page
-        # go_back 验证到达地图页面 — 使用 mock 绕过模板匹配
-        from autowsgr.ui.tabbed_page import (
-            TAB_BLUE,
-            TAB_DARK,
-            TAB_PROBES,
-            TabbedPageType,
-        )
+        # go_back 调用 click_and_wait_leave_page，会截图验证是否离开当前页
+        # mock screenshot 先返回当前页，再返回地图页
+        from autowsgr.ui.battle.base import PAGE_SIGNATURE as BATTLE_PREP_SIG
 
-        screen = np.zeros((540, 960, 3), dtype=np.uint8)
-        # 标签 0 (出征) 设蓝色，其余暗色
-        for i, (px, py) in enumerate(TAB_PROBES):
-            x, y = int(px * 960), int(py * 540)
-            if i == 0:
-                screen[y, x] = list(TAB_BLUE.as_rgb_tuple())
-            else:
-                screen[y, x] = list(TAB_DARK)
-        ctrl.screenshot.return_value = screen
+        # 第一次：BATTLE_PREP（带签名）
+        screen_prep = np.zeros((540, 960, 3), dtype=np.uint8)
+        for rule in BATTLE_PREP_SIG.rules:
+            _set_pixel(screen_prep, rule.x, rule.y, rule.color.as_rgb_tuple())
+        # 第二次：空白页（无签名）
+        screen_blank = np.zeros((540, 960, 3), dtype=np.uint8)
+        ctrl.screenshot.side_effect = [screen_prep, screen_blank]
+
         with patch(
-            'autowsgr.ui.map.base.identify_page_type',
-            return_value=TabbedPageType.MAP,
+            'autowsgr.ui.utils.navigation.time.sleep',
         ):
             pg.go_back()
         ctrl.click.assert_called_with(*CLICK_BACK)
@@ -211,7 +217,7 @@ class TestSelectFleet:
     @pytest.fixture
     def page(self):
         ctrl = MagicMock(spec=AndroidController)
-        return BattlePreparationPage(ctrl), ctrl
+        return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     @pytest.mark.parametrize('fleet', [1, 2, 3, 4])
     def test_valid_fleet(self, page, fleet: int):
@@ -239,7 +245,7 @@ class TestSelectPanel:
     @pytest.fixture
     def page(self):
         ctrl = MagicMock(spec=AndroidController)
-        return BattlePreparationPage(ctrl), ctrl
+        return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     @pytest.mark.parametrize('panel', list(Panel))
     def test_each_panel(self, page, panel: Panel):
@@ -267,7 +273,7 @@ class TestToggles:
     @pytest.fixture
     def page(self):
         ctrl = MagicMock(spec=AndroidController)
-        return BattlePreparationPage(ctrl), ctrl
+        return BattlePreparationPage(_make_ctx(ctrl)), ctrl
 
     def test_toggle_battle_support(self, page):
         pg, ctrl = page

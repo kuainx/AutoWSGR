@@ -94,7 +94,7 @@ class TestWaitForPage:
         screens = [_blank(), _blank(), _white()]
         ctrl.screenshot.side_effect = screens
 
-        with patch('autowsgr.ui.utils.time') as mock_time:
+        with patch('autowsgr.ui.utils.navigation.time') as mock_time:
             mock_time.monotonic.return_value = 0.0
             mock_time.sleep = MagicMock()
 
@@ -117,7 +117,7 @@ class TestWaitForPage:
         ctrl.screenshot.return_value = _blank()
 
         # 模拟时间: 第一次 monotonic=0, deadline=0, 立即超时
-        with patch('autowsgr.ui.utils.time') as mock_time:
+        with patch('autowsgr.ui.utils.navigation.time') as mock_time:
             call_count = 0
 
             def advancing_time():

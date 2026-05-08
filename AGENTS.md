@@ -9,6 +9,15 @@ uv sync
 pre-commit install
 ```
 
+激活虚拟环境后可直接运行命令（无需 `uv run` 前缀）：
+
+```bash
+source .venv/bin/activate   # Linux/macOS
+# .venv\Scripts\activate    # Windows
+pytest
+pre-commit run --all-files
+```
+
 ## 代码风格
 
 - Python 版本：3.12+
