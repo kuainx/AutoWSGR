@@ -63,7 +63,7 @@ class WindowsEmulatorManager(EmulatorProcessManager):
                 case EmulatorType.mumu:
                     self._mumuconsole('launch')
                 case _:
-                    os.popen(self._path)
+                    subprocess.Popen([self._path])
 
             self.wait_until_online()
             _log.info('模拟器已启动')
