@@ -142,7 +142,7 @@ class PixelRule:
         elif isinstance(color, dict):
             c = Color(r=color['r'], g=color['g'], b=color['b'])
         else:
-            raise ValueError(f'无法解析颜色: {color}')
+            raise TypeError(f'无法解析颜色: {color}')
         return cls(
             x=float(d['x']),
             y=float(d['y']),
