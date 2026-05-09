@@ -36,6 +36,7 @@ dev = [
     "pytest-cov",
     "pytest-xdist",
     "requests>=2.32.5",
+    "beautifulsoup4",
 ]
 
 [build-system]

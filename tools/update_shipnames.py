@@ -28,6 +28,9 @@ import shutil
 import sys
 from pathlib import Path
 
+import requests
+from bs4 import BeautifulSoup
+
 
 # ── 项目根路径 ───────────────────────────────────────────────────────────────
 _ROOT = Path(__file__).resolve().parent.parent
@@ -74,11 +77,6 @@ Other: # 战例
 
 def _fetch_html(url: str, proxy: str | None, timeout: int) -> str:
     """下载页面 HTML。"""
-    try:
-        import requests
-    except ImportError as exc:
-        raise SystemExit('缺少依赖: requests\n请运行: pip install requests') from exc
-
     proxies = {'http': proxy, 'https': proxy} if proxy else None
     headers = {
         'User-Agent': (
@@ -124,15 +122,6 @@ def _parse_ships(html: str) -> list[tuple[str, str]]:
         return pairs
 
     # ── 方案 B：BeautifulSoup ────────────────────────────────────────────────
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        raise SystemExit(
-            '正则未能匹配，且缺少 bs4。\n'
-            '请运行: pip install requests beautifulsoup4\n'
-            '或启用代理后重新尝试。'
-        ) from None
-
     soup = BeautifulSoup(html, 'html.parser')
     pairs: list[tuple[str, str]] = []
 
