@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import time
-from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import cv2
@@ -55,21 +54,12 @@ from ..page import click_and_wait_for_page
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from autowsgr.context import GameContext
     from autowsgr.infra import DecisiveConfig
     from autowsgr.vision.api_dll import ApiDll
 
 
 _log = get_logger('ui.decisive')
-
-
-@lru_cache(maxsize=1)
-def _get_recognize_ship_drop() -> Callable:
-    from autowsgr.combat import recognize_ship_drop as _fn
-
-    return _fn
 
 
 SKILL_USED = PixelSignature(
@@ -590,6 +580,7 @@ class DecisiveMapController:
 
     def confirm_stage_clear(self) -> list[str]:  # noqa: PLR0912
         """小关通关后确认弹窗并收集掉落舰船。"""
+        from autowsgr.combat import recognize_ship_drop
         from autowsgr.image_resources import Templates
         from autowsgr.ui.utils import confirm_operation
 
@@ -629,7 +620,7 @@ class DecisiveMapController:
                 if detail is None:
                     break
 
-            ship_drop = _get_recognize_ship_drop()(screen, ocr=self._ocr)
+            ship_drop = recognize_ship_drop(screen, ocr=self._ocr)
             _log.info(f'[地图控制器] 检测到掉落: {ship_drop.ship_name}({ship_drop.ship_type})')
             collected.append(ship_drop.ship_name)
             self._ctrl.click(0.953, 0.954)
