@@ -143,7 +143,7 @@ class BaseMapPage:
         """通过 OCR 识别当前地图。"""
         x1, y1, x2, y2 = TITLE_CROP_REGION
         cropped = PixelChecker.crop(screen, x1, y1, x2, y2)
-        result = ocr.recognize_single(cropped)
+        result = ocr.recognize_maxlen(cropped)
         if not result.text:
             _log.debug('[UI] 地图标题 OCR 无结果')
             return None
