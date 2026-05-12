@@ -186,6 +186,24 @@ class OCREngine(ABC):
         _log_fn("[OCR] recognize_single: '{}' (conf={:.2f})", best.text, best.confidence)
         return best
 
+    def recognize_maxlen(
+        self,
+        image: np.ndarray,
+        allowlist: str = '',
+    ) -> OCRResult:
+        """识别单个文本区域，返回置信度最高的结果。
+
+        无结果时返回空文本、零置信度的 OCRResult。
+        """
+        results = self.recognize(image, allowlist)
+        _log_fn = _log.debug if self.verbose else _log.trace
+        if not results:
+            _log_fn('[OCR] recognize_maxlen: 无结果')
+            return OCRResult(text='', confidence=0.0)
+        best = max(results, key=lambda r: len(r.text))
+        _log_fn("[OCR] recognize_maxlen: '{}' (conf={:.2f})", best.text, best.confidence)
+        return best
+
     def recognize_number(
         self,
         image: np.ndarray,
