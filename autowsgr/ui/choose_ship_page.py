@@ -44,7 +44,7 @@ _log = get_logger('ui')
 CLICK_SEARCH_BOX: tuple[float, float] = (700 / 960, 30 / 540)
 """搜索框。"""
 
-CLICK_DISMISS_KEYBOARD: tuple[float, float] = (50 / 960, 50 / 540)
+CLICK_DISMISS_KEYBOARD: tuple[float, float] = (500 / 960, 50 / 540)
 """点击空白区域关闭键盘。"""
 
 CLICK_REMOVE_SHIP: tuple[float, float] = (83 / 960, 167 / 540)
