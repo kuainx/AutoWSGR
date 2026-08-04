@@ -1,6 +1,12 @@
 """测试选船页的舰名比较逻辑。"""
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+from autowsgr.combat.fleet import ShipSelector
+from autowsgr.types import ShipType
 from autowsgr.ui.choose_ship_page import ChooseShipPage
+from autowsgr.ui.utils.ship_list import LevelOCRRetryNeededError
 from autowsgr.vision.ocr import set_ship_name_match_confidence
 from autowsgr.vision.ocr_rules import set_user_ship_name_aliases
 
@@ -34,3 +40,161 @@ class TestShipNameMatching:
         assert ChooseShipPage._normalize_search_keyword('契卡洛夫') == '契卡洛夫'
         assert ChooseShipPage._matches_ship_name('契卡洛夫', '85工程')
         assert ChooseShipPage._matches_ship_name('85工程', '契卡洛夫')
+
+
+class TestIndependentShipRules:
+    def test_single_rule_uses_its_own_constraints(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+        selector = ShipSelector(
+            name='U-47',
+            search_name='U47',
+            ship_types=(ShipType.SS, ShipType.SSG),
+            min_level=100,
+            max_level=110,
+        )
+
+        with (
+            patch.object(page, 'ensure_search_box'),
+            patch.object(page, 'ensure_dismiss_keyboard'),
+            patch.object(page, 'input_ship_name') as input_name,
+            patch.object(
+                page,
+                '_click_ship_in_list',
+                return_value='U-47',
+            ) as click_ship,
+            patch.object(page, '_wait_leave_current_page'),
+        ):
+            assert page.change_single_ship(selector) == 'U-47'
+
+        input_name.assert_called_once_with('U47')
+        click_ship.assert_called_once_with(
+            'U-47',
+            ship_type=(ShipType.SS, ShipType.SSG),
+            min_level=100,
+            max_level=110,
+            relaxed_constraints=False,
+        )
+
+    def test_multiple_ship_types_are_supported(self):
+        expected = (ShipType.SS, ShipType.SSG)
+        assert ChooseShipPage._is_ship_type_in_rule(ShipType.SS, expected)
+        assert ChooseShipPage._is_ship_type_in_rule(ShipType.SSG, expected)
+        assert not ChooseShipPage._is_ship_type_in_rule(ShipType.BB, expected)
+
+    def test_primary_rejects_failed_level_constraint(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+
+        with (
+            patch('autowsgr.ui.choose_ship_page._OCR_MAX_ATTEMPTS', 1),
+            patch(
+                'autowsgr.ui.choose_ship_page.locate_ship_rows',
+                return_value=[('U-47', 0.2, 0.3, 0.4)],
+            ),
+            patch(
+                'autowsgr.ui.choose_ship_page.read_ship_levels',
+                return_value=[('U-47', 90, 0.4)],
+            ),
+        ):
+            matched = page._click_ship_in_list(
+                'U-47',
+                min_level=100,
+            )
+
+        assert matched is None
+        ctx.ctrl.click.assert_not_called()
+
+    def test_relaxed_candidate_accepts_failed_level_constraint(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+
+        with (
+            patch(
+                'autowsgr.ui.choose_ship_page.locate_ship_rows',
+                return_value=[('U-96', 0.2, 0.3, 0.4)],
+            ),
+            patch(
+                'autowsgr.ui.choose_ship_page.read_ship_levels',
+                return_value=[('U-96', 90, 0.4)],
+            ),
+            patch('autowsgr.ui.choose_ship_page.time.sleep'),
+        ):
+            matched = page._click_ship_in_list(
+                'U-96',
+                min_level=100,
+                relaxed_constraints=True,
+            )
+
+        assert matched == 'U-96'
+        ctx.ctrl.click.assert_called_once_with(0.2, 0.3)
+
+    def test_relaxed_candidate_accepts_failed_ship_type_constraint(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+
+        with (
+            patch(
+                'autowsgr.ui.choose_ship_page.locate_ship_rows',
+                return_value=[('U-96', 0.2, 0.3)],
+            ),
+            patch.object(
+                page,
+                '_detect_ship_type_near_hit',
+                return_value=ShipType.BB,
+            ) as detect_ship_type,
+            patch('autowsgr.ui.choose_ship_page.time.sleep'),
+        ):
+            matched = page._click_ship_in_list(
+                'U-96',
+                ship_type=(ShipType.SS,),
+                relaxed_constraints=True,
+            )
+
+        assert matched == 'U-96'
+        detect_ship_type.assert_called_once()
+        ctx.ctrl.click.assert_called_once_with(0.2, 0.3)
+
+    def test_relaxed_candidate_accepts_level_ocr_error(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+
+        with (
+            patch(
+                'autowsgr.ui.choose_ship_page.locate_ship_rows',
+                return_value=[('U-96', 0.2, 0.3, 0.4)],
+            ),
+            patch(
+                'autowsgr.ui.choose_ship_page.read_ship_levels',
+                side_effect=LevelOCRRetryNeededError,
+            ) as read_levels,
+            patch('autowsgr.ui.choose_ship_page.time.sleep'),
+        ):
+            matched = page._click_ship_in_list(
+                'U-96',
+                min_level=100,
+                relaxed_constraints=True,
+            )
+
+        assert matched == 'U-96'
+        read_levels.assert_called_once()
+        ctx.ctrl.click.assert_called_once_with(0.2, 0.3)
+
+    def test_relaxed_candidate_still_rejects_wrong_name(self):
+        ctx = SimpleNamespace(ctrl=MagicMock(), ocr=object())
+        page = ChooseShipPage(ctx)
+
+        with (
+            patch('autowsgr.ui.choose_ship_page._OCR_MAX_ATTEMPTS', 1),
+            patch(
+                'autowsgr.ui.choose_ship_page.locate_ship_rows',
+                return_value=[('U-47', 0.2, 0.3)],
+            ),
+        ):
+            matched = page._click_ship_in_list(
+                'U-96',
+                relaxed_constraints=True,
+            )
+
+        assert matched is None
+        ctx.ctrl.click.assert_not_called()

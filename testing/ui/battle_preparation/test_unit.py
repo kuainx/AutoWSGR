@@ -3,14 +3,23 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import pytest
 
+from autowsgr.combat.fleet import (
+    FleetSlotRule,
+    ShipSelector,
+    exact_fleet_rules,
+    fleet_slot_from_api,
+)
+from autowsgr.constants import normalize_ship_name
 from autowsgr.context import GameContext
 from autowsgr.emulator import AndroidController
 from autowsgr.infra import DecisiveConfig
+from autowsgr.server.schemas import FleetRuleRequest
+from autowsgr.types import ShipDamageState, ShipType
 from autowsgr.ui.battle.base import PAGE_SIGNATURE
 from autowsgr.ui.battle.constants import (
     AUTO_SUPPLY_PROBE,
@@ -21,6 +30,8 @@ from autowsgr.ui.battle.constants import (
     CLICK_SUPPORT,
     FLEET_PROBE,
 )
+from autowsgr.ui.battle.fleet_change._change import _ShipSelection
+from autowsgr.ui.battle.fleet_change._detect import FleetSnapshot
 from autowsgr.ui.battle.preparation import (
     CLICK_PANEL,
     PANEL_PROBE,
@@ -63,6 +74,40 @@ def _reset_ship_name_aliases():
 def _make_ctx(ctrl: AndroidController, ocr: OCREngine | None = None) -> GameContext:
     """构造 GameContext，用于 BattlePreparationPage 初始化。"""
     return GameContext(ctrl=ctrl, config=MagicMock(), ocr=ocr)
+
+
+def _rule(raw: dict[str, object]) -> FleetSlotRule:
+    """把 API 规则转换成 UI 实际接收的 canonical model。"""
+    dto = FleetRuleRequest.model_validate(raw)
+    return fleet_slot_from_api(dto.model_dump(exclude_none=True))
+
+
+def _candidate_rule(
+    *names: str,
+    min_level: int | None = None,
+) -> FleetSlotRule:
+    """构造保持原顺序的宽泛备选规则。"""
+    return FleetSlotRule(
+        candidates=tuple(
+            ShipSelector(
+                name=name,
+                min_level=min_level,
+                relaxed_constraints=True,
+            )
+            for name in names
+        ),
+    )
+
+
+def _snapshot(
+    names: list[str | None],
+    occupied: list[bool] | None = None,
+) -> FleetSnapshot:
+    """构造不会与测试输入共享列表的舰队快照。"""
+    return FleetSnapshot(
+        names=list(names),
+        occupied=list(occupied) if occupied is not None else [name is not None for name in names],
+    )
 
 
 def _set_pixel(screen: np.ndarray, rx: float, ry: float, rgb: tuple[int, int, int]) -> None:
@@ -343,7 +388,7 @@ class TestContextShipNameMatch:
 
         assert detected == ['可怖', '胡德', '雪风', None, None, None]
 
-    def test_unexpected_pool_match_uses_context_target(self):
+    def test_clear_pool_match_is_not_overwritten_by_context_target(self):
         ctrl = MagicMock(spec=AndroidController)
         ocr = MagicMock()
         expected = ['峰风', 'Z16', 'Z17', 'Z21', '克劳塞维茨', '契卡洛夫']
@@ -360,7 +405,26 @@ class TestContextShipNameMatch:
             expected_names=expected,
         )
 
-        assert detected == expected
+        assert detected[0:5] == ['峰风', 'Z16', 'Z17', 'Z21', '克劳塞维茨']
+        assert detected[5] is not None
+        assert detected[5] != expected[5]
+
+    def test_swapped_close_names_keep_clear_pool_matches(self):
+        ctrl = MagicMock(spec=AndroidController)
+        ocr = MagicMock()
+        centers = [147, 293]
+        ocr.recognize.return_value = [
+            OCRResult(text=text, confidence=0.95, bbox=(x - 20, 2, x + 20, 24))
+            for text, x in zip(['峰风', '雪风'], centers, strict=True)
+        ]
+        page = BattlePreparationPage(_make_ctx(ctrl, ocr))
+
+        detected = page.detect_fleet(
+            np.zeros((720, 1280, 3), dtype=np.uint8),
+            expected_names=['雪风', '峰风', None, None, None, None],
+        )
+
+        assert detected[:2] == ['峰风', '雪风']
 
     def test_unrelated_ocr_does_not_force_slot_target(self):
         ctrl = MagicMock(spec=AndroidController)
@@ -377,6 +441,112 @@ class TestContextShipNameMatch:
 
         assert detected == [None] * 6
 
+    def test_global_target_pool_only_rescues_unmatched_text(self):
+        ctrl = MagicMock(spec=AndroidController)
+        ocr = MagicMock()
+        ocr.recognize.return_value = [
+            OCRResult(text='雪凤', confidence=0.8, bbox=(127, 3, 167, 23)),
+        ]
+        page = BattlePreparationPage(_make_ctx(ctrl, ocr))
+
+        with patch(
+            'autowsgr.ui.battle.fleet_change._detect._fuzzy_match',
+            side_effect=[None, '雪风'],
+        ):
+            detected = page.detect_fleet(
+                np.zeros((720, 1280, 3), dtype=np.uint8),
+                expected_pool=['雪风'],
+            )
+
+        assert detected == ['雪风', None, None, None, None, None]
+
+    def test_global_target_pool_does_not_override_pool_match(self):
+        ctrl = MagicMock(spec=AndroidController)
+        ocr = MagicMock()
+        ocr.recognize.return_value = [
+            OCRResult(text='岛风', confidence=0.8, bbox=(127, 3, 167, 23)),
+        ]
+        page = BattlePreparationPage(_make_ctx(ctrl, ocr))
+
+        with patch(
+            'autowsgr.ui.battle.fleet_change._detect._fuzzy_match',
+            return_value='岛风',
+        ):
+            detected = page.detect_fleet(
+                np.zeros((720, 1280, 3), dtype=np.uint8),
+                expected_pool=['雪风'],
+            )
+
+        assert detected == ['岛风', None, None, None, None, None]
+
+    def test_snapshot_uses_same_screen_for_names_and_occupancy(self):
+        ctrl = MagicMock(spec=AndroidController)
+        ocr = MagicMock()
+        screen = np.zeros((720, 1280, 3), dtype=np.uint8)
+        ctrl.screenshot.return_value = screen
+        page = BattlePreparationPage(_make_ctx(ctrl, ocr))
+        names = ['岛风', None, None, None, None, None]
+        damage = {
+            0: ShipDamageState.NORMAL,
+            **dict.fromkeys(range(1, 6), ShipDamageState.NO_SHIP),
+        }
+
+        with (
+            patch.object(page, 'detect_fleet', return_value=names) as detect,
+            patch(
+                'autowsgr.ui.battle.fleet_change._detect.DetectionMixin.detect_ship_damage',
+                return_value=damage,
+            ) as detect_damage,
+        ):
+            snapshot = page.detect_fleet_snapshot(expected_pool=['岛风'])
+
+        assert snapshot == _snapshot(names)
+        assert detect.call_args.args[0] is screen
+        assert detect.call_args.kwargs == {
+            'expected_names': None,
+            'expected_pool': ['岛风'],
+        }
+        assert detect_damage.call_args.args[0] is screen
+
+    def test_recognized_name_keeps_slot_occupied_when_probe_misses(self):
+        ctrl = MagicMock(spec=AndroidController)
+        ocr = MagicMock()
+        ctrl.screenshot.return_value = np.zeros((720, 1280, 3), dtype=np.uint8)
+        page = BattlePreparationPage(_make_ctx(ctrl, ocr))
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet',
+                return_value=['岛风', None, None, None, None, None],
+            ),
+            patch(
+                'autowsgr.ui.battle.fleet_change._detect.DetectionMixin.detect_ship_damage',
+                return_value=dict.fromkeys(range(6), ShipDamageState.NO_SHIP),
+            ),
+        ):
+            snapshot = page.detect_fleet_snapshot()
+
+        assert snapshot.occupied == [True, False, False, False, False, False]
+
+    def test_initial_snapshot_retries_unknown_occupied_slot(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        first = _snapshot([None] * 6, [True, False, False, False, False, False])
+        second = _snapshot(['岛风', None, None, None, None, None])
+
+        with patch.object(
+            page,
+            'detect_fleet_snapshot',
+            side_effect=[first, second],
+        ) as detect:
+            snapshot = page._detect_initial_snapshot(['岛风'])
+
+        assert snapshot == second
+        assert detect.call_args_list == [
+            call(expected_pool=['岛风']),
+            call(expected_pool=['岛风']),
+        ]
+
     def test_user_ship_name_alias_is_used_for_final_fleet_detection(self):
         ctrl = MagicMock(spec=AndroidController)
         ocr = MagicMock()
@@ -387,14 +557,32 @@ class TestContextShipNameMatch:
         set_user_ship_name_aliases({'契卡洛夫': '85工程'})
 
         try:
-            detected = page.detect_fleet(
-                np.zeros((720, 1280, 3), dtype=np.uint8),
-                expected_names=['契卡洛夫'],
-            )
+            with patch(
+                'autowsgr.ui.battle.fleet_change._detect._log.info',
+            ) as log_info:
+                detected = page.detect_fleet(
+                    np.zeros((720, 1280, 3), dtype=np.uint8),
+                    expected_names=['契卡洛夫'],
+                )
         finally:
             set_user_ship_name_aliases({})
 
         assert detected == ['85工程', None, None, None, None, None]
+        log_info.assert_any_call(
+            '[准备页] 编队 OCR 识别: {}',
+            [
+                {
+                    'slot': 0,
+                    'raw': '契卡洛夫',
+                    'patched': '契卡洛夫',
+                    'matched': '85工程',
+                }
+            ],
+        )
+        log_info.assert_any_call(
+            '[准备页] 当前舰队: {}',
+            ['85工程', None, None, None, None, None],
+        )
 
 
 # ─────────────────────────────────────────────
@@ -434,6 +622,34 @@ class TestDecisiveFleetChangeFeatureGate:
         )
         page._reorder.assert_called_once_with(target_fleet, target_fleet)
 
+    def test_original_flow_changes_first_fleet_before_removing_extra_ship(self):
+        page = MagicMock()
+        fleet_a_b = ['A', 'B', None, None, None, None]
+        fleet_c = ['C', None, None, None, None, None]
+        page.get_selected_fleet.return_value = 1
+        page.detect_fleet.side_effect = [fleet_a_b, fleet_c, fleet_c]
+        page._validate_with_selector.side_effect = [False, True]
+        page._match_existing_members.return_value = ([False] * 6, set())
+        page._change_single_ship.side_effect = ['C', None]
+
+        with patch('autowsgr.ui.decisive.legacy_fleet_change.time.sleep'):
+            assert change_fleet_legacy(page, 1, ['C'])
+
+        actions = [
+            (item.args[0], item.args[1], item.kwargs['slot_occupied'])
+            for item in page._change_single_ship.call_args_list
+        ]
+        assert actions == [(0, 'C', True), (1, None, True)]
+
+    def test_original_flow_rejects_empty_first_fleet(self):
+        page = MagicMock()
+
+        with pytest.raises(ValueError, match='1 队槽位 0 不能为空'):
+            change_fleet_legacy(page, 1, [])
+
+        page.detect_fleet.assert_not_called()
+        page.select_fleet.assert_not_called()
+
     def test_decisive_uses_original_flow_by_default(self):
         page = DecisiveBattlePreparationPage(
             _make_ctx(MagicMock(spec=AndroidController)),
@@ -461,7 +677,7 @@ class TestDecisiveFleetChangeFeatureGate:
         ) as new_change:
             assert page.change_fleet(None, ['A'])
 
-        new_change.assert_called_once_with(None, ['A'])
+        new_change.assert_called_once_with(None, exact_fleet_rules(['A']))
 
 
 # ─────────────────────────────────────────────
@@ -475,21 +691,38 @@ class TestSmartFleetChange:
         set_user_ship_name_aliases({'契卡洛夫': '85工程'})
         old_fleet = ['岛风', None, None, None, None, None]
         target_fleet = ['85工程', None, None, None, None, None]
+        snapshots = [
+            _snapshot(old_fleet),
+            _snapshot(target_fleet),
+            _snapshot(target_fleet),
+            _snapshot(target_fleet),
+        ]
 
         with (
             patch.object(page, 'get_selected_fleet', return_value=1),
             patch.object(
                 page,
-                'detect_fleet',
-                side_effect=[old_fleet, target_fleet, target_fleet, target_fleet],
+                'detect_fleet_snapshot',
+                side_effect=snapshots,
             ),
-            patch.object(page, '_change_single_ship', return_value='85工程') as change_ship,
+            patch.object(
+                page,
+                '_try_select_option',
+                side_effect=lambda _slot, option: _ShipSelection('85工程', option),
+            ) as select_option,
+            patch.object(page, '_change_single_ship', return_value=None) as change_ship,
             patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
         ):
-            assert page.change_fleet(1, [{'candidates': ['契卡洛夫']}])
+            assert page.change_fleet(
+                1,
+                [_rule({'candidates': [{'name': '契卡洛夫'}]})],
+            )
 
-        assert change_ship.call_args.args[:2] == (0, '契卡洛夫')
-        assert change_ship.call_args.kwargs['selector']['candidates'] == ['契卡洛夫']
+        assert select_option.call_args == call(
+            1,
+            ShipSelector(name='契卡洛夫'),
+        )
+        change_ship.assert_called_once_with(0, None, slot_occupied=True)
 
     def test_existing_group_variant_is_reordered_without_reselection(self):
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
@@ -504,65 +737,125 @@ class TestSmartFleetChange:
             patch.object(page, 'get_selected_fleet', return_value=1),
             patch.object(
                 page,
-                'detect_fleet',
-                side_effect=[old_fleet, old_fleet, old_fleet, target_fleet],
+                'detect_fleet_snapshot',
+                side_effect=[
+                    _snapshot(old_fleet),
+                    _snapshot(old_fleet),
+                    _snapshot(old_fleet),
+                    _snapshot(target_fleet),
+                ],
             ),
+            patch.object(
+                page,
+                '_try_select_option',
+                return_value=None,
+            ) as select_option,
             patch.object(page, '_change_single_ship') as change_ship,
             patch.object(page, '_circular_move', side_effect=move_ship) as circular_move,
             patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
         ):
-            assert page.change_fleet(1, [{'candidates': ['契卡洛夫']}, '岛风'])
+            assert page.change_fleet(
+                1,
+                [
+                    _rule({'candidates': [{'name': '契卡洛夫'}]}),
+                    *exact_fleet_rules(['岛风']),
+                ],
+            )
 
+        select_option.assert_not_called()
         change_ship.assert_not_called()
         assert circular_move.call_args.args[:2] == (1, 0)
 
+    def test_candidate_only_reuses_existing_nonpreferred_candidate(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        old_fleet = ['岛风', '扶桑', None, None, None, None]
+        target_fleet = ['扶桑', '岛风', None, None, None, None]
+
+        def move_ship(src: int, dst: int, current: list[str | None]) -> None:
+            current.insert(dst, current.pop(src))
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                side_effect=[
+                    _snapshot(old_fleet),
+                    _snapshot(old_fleet),
+                    _snapshot(old_fleet),
+                    _snapshot(target_fleet),
+                ],
+            ),
+            patch.object(page, '_try_select_option') as select_option,
+            patch.object(page, '_change_single_ship') as change_ship,
+            patch.object(page, '_circular_move', side_effect=move_ship) as circular_move,
+            patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
+        ):
+            assert page.change_fleet(
+                None,
+                [
+                    _candidate_rule('胡德', '扶桑'),
+                    *exact_fleet_rules(['岛风']),
+                ],
+            )
+
+        select_option.assert_not_called()
+        change_ship.assert_not_called()
+        assert circular_move.call_args.args[:2] == (1, 0)
+        assert page.last_changed_fleet == target_fleet
+
     def test_first_fleet_replaces_before_removing_extra_ship(self):
-        """1 队从 AB 改为 C 时，先替换槽位 0，再移除 B。"""
+        """1 队从 AB 改为 C 时，先补入 C，再删除 A/B。"""
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
         fleet_a_b = ['A', 'B', None, None, None, None]
         fleet_c = ['C', None, None, None, None, None]
+        actions: list[tuple[str, int, str | None]] = []
+
+        def select_option(slot: int, option: ShipSelector) -> _ShipSelection:
+            actions.append(('select', slot, option.name))
+            return _ShipSelection(option.name, option)
+
+        def change_ship(
+            slot: int,
+            name: str | None,
+            *,
+            slot_occupied: bool,
+        ) -> None:
+            assert slot_occupied
+            actions.append(('remove', slot, name))
 
         with (
             patch.object(page, 'get_selected_fleet', return_value=1),
             patch.object(
                 page,
-                'detect_fleet',
-                side_effect=[fleet_a_b, fleet_c, fleet_c, fleet_c],
-            ) as detect,
-            patch.object(
-                page,
-                '_change_single_ship',
-                side_effect=['C', None],
-            ) as change_ship,
+                'detect_fleet_snapshot',
+                side_effect=[
+                    _snapshot(fleet_a_b),
+                    _snapshot(fleet_c),
+                    _snapshot(fleet_c),
+                    _snapshot(fleet_c),
+                ],
+            ),
+            patch.object(page, '_try_select_option', side_effect=select_option),
+            patch.object(page, '_change_single_ship', side_effect=change_ship),
             patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
         ):
-            assert page.change_fleet(1, ['C'])
+            assert page.change_fleet(1, exact_fleet_rules(['C']))
 
-        actions = [
-            (item.args[0], item.args[1], item.kwargs['slot_occupied'])
-            for item in change_ship.call_args_list
+        assert actions == [
+            ('select', 2, 'C'),
+            ('remove', 1, None),
+            ('remove', 0, None),
         ]
-        assert actions == [(0, 'C', True), (1, None, True)]
-        assert all(not item.args and not item.kwargs for item in detect.call_args_list)
-
-    def test_first_fleet_slot_zero_cannot_be_empty(self):
-        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
-
-        with (
-            patch.object(page, 'get_selected_fleet', return_value=1),
-            pytest.raises(ValueError, match='1 队槽位 0 不能为空'),
-        ):
-            page.change_fleet(1, [None, 'B'])
 
     def test_first_fleet_cannot_be_empty(self):
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
 
         with (
             patch.object(page, 'get_selected_fleet', return_value=1),
-            patch.object(page, 'detect_fleet') as detect,
+            patch.object(page, 'detect_fleet_snapshot') as detect,
             pytest.raises(ValueError, match='1 队槽位 0 不能为空'),
         ):
-            page.change_fleet(1, [])
+            page.change_fleet(1, ())
 
         detect.assert_not_called()
 
@@ -570,16 +863,20 @@ class TestSmartFleetChange:
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
         target = ['A', 'B', 'C', 'D', 'E', 'F']
 
-        with patch.object(page, 'detect_fleet', return_value=target) as detect:
-            assert page.change_fleet(None, [*target, 'G'])
+        with patch.object(
+            page,
+            'detect_fleet_snapshot',
+            return_value=_snapshot(target),
+        ) as detect:
+            assert page.change_fleet(None, exact_fleet_rules([*target, 'G']))
 
-        detect.assert_called_once_with()
+        detect.assert_called_once_with(expected_pool=target)
 
     def test_duplicate_fixed_names_fail_before_ocr(self):
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
 
-        with patch.object(page, 'detect_fleet') as detect:
-            assert not page.change_fleet(None, ['A', 'A'])
+        with patch.object(page, 'detect_fleet_snapshot') as detect:
+            assert not page.change_fleet(None, exact_fleet_rules(['A', 'A']))
 
         detect.assert_not_called()
 
@@ -588,16 +885,32 @@ class TestSmartFleetChange:
         wrong = ['X', None, None, None, None, None]
 
         with (
-            patch.object(page, 'detect_fleet', return_value=wrong),
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                return_value=_snapshot(wrong),
+            ) as detect,
             patch.object(page, '_full_align') as full_align,
             patch.object(page, '_local_fix') as local_fix,
             patch.object(page, '_reorder'),
             patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
         ):
-            assert not page.change_fleet(None, ['A'])
+            assert not page.change_fleet(None, exact_fleet_rules(['A']))
 
         assert full_align.call_count == 1
         assert local_fix.call_count == 2
+        expected_names = ['A', None, None, None, None, None]
+        assert detect.call_args_list == [
+            call(expected_pool=['A']),
+            call(expected_pool=['A']),
+            call(expected_names=expected_names),
+            call(expected_names=expected_names),
+            call(expected_pool=['A']),
+            call(expected_names=expected_names),
+            call(expected_names=expected_names),
+            call(expected_pool=['A']),
+            call(expected_names=expected_names),
+        ]
 
 
 class TestFleetSlotRules:
@@ -612,31 +925,323 @@ class TestFleetSlotRules:
         ],
     )
     def test_normalize_ship_name(self, raw: object, expected: str | None):
-        assert BattlePreparationPage._normalize_ship_name(raw) == expected
+        assert normalize_ship_name(raw) == expected
 
-    def test_name_and_candidates_form_one_slot_rule(self):
-        selector = BattlePreparationPage._extract_selector(
+    def test_primary_and_candidates_keep_independent_rules(self):
+        selector = _rule(
             {
                 'name': '密苏里',
-                'candidates': ['衣阿华', '密苏里'],
-                'ship_type': 'BB',
+                'candidates': [
+                    {
+                        'name': '衣阿华',
+                        'ship_type': ['BC'],
+                        'min_level': 90,
+                        'max_level': 105,
+                    },
+                    {
+                        'name': '密苏里',
+                        'ship_type': ['BB'],
+                        'min_level': 80,
+                        'max_level': 110,
+                    },
+                ],
+                'ship_type': ['BB'],
                 'min_level': 100,
                 'max_level': 110,
             },
         )
 
-        assert selector == {
-            'candidates': ['密苏里', '衣阿华'],
-            'ship_type': 'bb',
-            'min_level': 100,
-            'max_level': 110,
-        }
+        assert selector.primary == ShipSelector(
+            name='密苏里',
+            ship_types=(ShipType.BB,),
+            min_level=100,
+            max_level=110,
+        )
+        assert selector.candidates == (
+            ShipSelector(
+                name='衣阿华',
+                ship_types=(ShipType.BC,),
+                min_level=90,
+                max_level=105,
+            ),
+            ShipSelector(
+                name='密苏里',
+                ship_types=(ShipType.BB,),
+                min_level=80,
+                max_level=110,
+            ),
+        )
+
+    def test_candidate_only_rules_keep_order_and_relax_constraints(self):
+        rule = _rule(
+            {
+                'candidates': [
+                    {
+                        'name': '胡德',
+                        'ship_type': ['BC'],
+                        'min_level': 90,
+                    },
+                    {
+                        'name': '扶桑',
+                        'ship_type': ['BB'],
+                        'max_level': 110,
+                    },
+                ],
+            },
+        )
+
+        assert rule.primary is None
+        assert rule.candidates == (
+            ShipSelector(
+                name='胡德',
+                ship_types=(ShipType.BC,),
+                min_level=90,
+            ),
+            ShipSelector(
+                name='扶桑',
+                ship_types=(ShipType.BB,),
+                max_level=110,
+            ),
+        )
+
+    def test_existing_strict_primary_is_reselected_for_constraint_validation(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        rule = _rule(
+            {
+                'name': '密苏里',
+                'ship_type': ['BB'],
+                'min_level': 100,
+                'max_level': 110,
+            },
+        )
+        current = ['密苏里', None, None, None, None, None]
+        option = rule.primary
+        assert option is not None
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                side_effect=[_snapshot(current) for _ in range(4)],
+            ),
+            patch.object(
+                page,
+                '_try_select_option',
+                return_value=_ShipSelection('密苏里', option),
+            ) as select_option,
+            patch.object(page, '_change_single_ship') as change_ship,
+            patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
+        ):
+            assert page.change_fleet(None, [rule])
+
+        select_option.assert_called_once_with(
+            0,
+            ShipSelector(
+                name='密苏里',
+                ship_types=(ShipType.BB,),
+                min_level=100,
+                max_level=110,
+            ),
+        )
+        change_ship.assert_not_called()
+
+    def test_existing_candidate_only_ship_requires_its_constraints(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        rule = _rule(
+            {
+                'candidates': [
+                    {
+                        'name': '胡德',
+                        'ship_type': ['BC'],
+                        'min_level': 90,
+                    },
+                ],
+            },
+        )
+        current = ['胡德', None, None, None, None, None]
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                return_value=_snapshot(current),
+            ),
+            patch.object(
+                page,
+                '_try_select_option',
+                return_value=_ShipSelection('胡德', rule.candidates[0]),
+            ) as select_option,
+            patch.object(page, '_change_single_ship') as change_ship,
+        ):
+            assert page.change_fleet(None, [rule])
+
+        select_option.assert_called_once_with(0, rule.candidates[0])
+        change_ship.assert_not_called()
+
+    def test_existing_candidate_does_not_replace_available_strict_primary(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        rule = _rule(
+            {
+                'name': '密苏里',
+                'ship_type': ['BB'],
+                'min_level': 100,
+                'candidates': [{'name': '衣阿华'}],
+            },
+        )
+        current = ['衣阿华', None, None, None, None, None]
+        target = ['密苏里', None, None, None, None, None]
+        primary = rule.primary
+        assert primary is not None
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                side_effect=[
+                    _snapshot(current),
+                    _snapshot(target),
+                    _snapshot(target),
+                    _snapshot(target),
+                ],
+            ),
+            patch.object(
+                page,
+                '_try_select_option',
+                return_value=_ShipSelection('密苏里', primary),
+            ) as select_option,
+            patch.object(page, '_change_single_ship', return_value=None),
+            patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
+        ):
+            assert page.change_fleet(None, [rule])
+
+        select_option.assert_called_once_with(1, primary)
+        assert page.last_changed_fleet == target
+
+    def test_strict_primary_failure_then_reuses_existing_candidate(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        rule = _rule(
+            {
+                'name': '密苏里',
+                'ship_type': ['BB'],
+                'min_level': 100,
+                'candidates': [{'name': '衣阿华'}],
+            },
+        )
+        current = ['衣阿华', None, None, None, None, None]
+        primary = rule.primary
+        assert primary is not None
+
+        with (
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                side_effect=[_snapshot(current) for _ in range(4)],
+            ),
+            patch.object(
+                page,
+                '_try_select_option',
+                return_value=_ShipSelection(None, primary),
+            ) as select_option,
+            patch.object(page, '_change_single_ship') as change_ship,
+            patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
+        ):
+            assert page.change_fleet(None, [rule])
+
+        select_option.assert_called_once_with(1, primary)
+        change_ship.assert_not_called()
+        assert page.last_changed_fleet == current
+
+    def test_primary_identity_is_reserved_from_candidate_only_slot(self):
+        primary_rule = FleetSlotRule(primary=ShipSelector(name='A'))
+        candidate_only = _candidate_rule('A', 'B')
+        assigned = BattlePreparationPage._plan_target_options(
+            [candidate_only, primary_rule, None, None, None, None],
+            ['A', 'B', None, None, None, None],
+        )
+
+        assert BattlePreparationPage._target_names(assigned or []) == [
+            'B',
+            'A',
+            None,
+            None,
+            None,
+            None,
+        ]
+
+    def test_fallback_replans_all_unlocked_candidate_slots(self):
+        selectors: list[FleetSlotRule | None] = [
+            FleetSlotRule(
+                primary=ShipSelector(name='A'),
+                candidates=(ShipSelector(name='B', relaxed_constraints=True),),
+            ),
+            _candidate_rule('B', 'C'),
+            None,
+            None,
+            None,
+            None,
+        ]
+        primary = selectors[0].primary
+        assert primary is not None
+        assigned = BattlePreparationPage._plan_target_options(
+            selectors,
+            ['B', 'C', None, None, None, None],
+            {(0, primary)},
+        )
+
+        assert BattlePreparationPage._target_names(assigned or []) == [
+            'B',
+            'C',
+            None,
+            None,
+            None,
+            None,
+        ]
+
+    def test_same_name_fallback_keeps_exact_candidate_rule(self):
+        rule = _rule(
+            {
+                'name': '密苏里',
+                'ship_type': ['BB'],
+                'min_level': 100,
+                'candidates': [{'name': '密苏里'}],
+            },
+        )
+        primary = rule.primary
+        assert primary is not None
+        assigned = BattlePreparationPage._plan_target_options(
+            [rule, None, None, None, None, None],
+            unavailable={(0, primary)},
+        )
+
+        assert assigned is not None
+        assert assigned[0] == ShipSelector(
+            name='密苏里',
+            relaxed_constraints=False,
+        )
+
+    def test_candidate_only_slots_use_backtracking(self):
+        selectors = [
+            _candidate_rule('胡德', '扶桑'),
+            _candidate_rule('胡德'),
+            None,
+            None,
+            None,
+            None,
+        ]
+        names = [
+            selector.preferred_name if selector is not None else None for selector in selectors
+        ]
+
+        assert BattlePreparationPage._assign_unique_targets(
+            names,
+            selectors,
+        ) == ['扶桑', '胡德', None, None, None, None]
 
     def test_overlapping_priorities_use_backtracking(self):
         names = ['A', 'A', None, None, None, None]
-        selectors: list[dict | None] = [
-            {'candidates': ['A', 'B']},
-            {'candidates': ['A']},
+        selectors: list[FleetSlotRule | None] = [
+            _candidate_rule('A', 'B'),
+            _candidate_rule('A'),
             None,
             None,
             None,
@@ -654,9 +1259,9 @@ class TestFleetSlotRules:
 
     def test_same_candidate_in_two_slots_is_impossible(self):
         names = ['岛风', '岛风', None, None, None, None]
-        selectors: list[dict | None] = [
-            {'candidates': ['岛风']},
-            {'candidates': ['岛风']},
+        selectors: list[FleetSlotRule | None] = [
+            _candidate_rule('岛风'),
+            _candidate_rule('岛风'),
             None,
             None,
             None,
@@ -675,18 +1280,17 @@ class TestFleetSlotRules:
         selected, selector = BattlePreparationPage._select_available_candidate(
             ['岛风', None, None, None, None, None],
             '岛风',
-            {'candidates': ['岛风', '雪风']},
+            _candidate_rule('岛风', '雪风'),
         )
 
         assert selected == '雪风'
-        assert selector is not None
-        assert selector['candidates'] == ['雪风']
+        assert selector == (ShipSelector(name='雪风', relaxed_constraints=True),)
 
     def test_replacing_same_slot_may_keep_current_name(self):
         selected, _selector = BattlePreparationPage._select_available_candidate(
             ['岛风', None, None, None, None, None],
             '岛风',
-            {'candidates': ['岛风', '雪风']},
+            _candidate_rule('岛风', '雪风'),
             slot_to_replace=0,
         )
 
@@ -696,9 +1300,9 @@ class TestFleetSlotRules:
         current = ['炽热', '絮弗伦', '岛风', '黑潮', None, None]
         desired = ['岛风', '黑潮', '阳炎', '早春', '吹雪', '初夏']
         shared = ['岛风', '黑潮', '阳炎', '早春', '吹雪', '初夏']
-        selectors: list[dict | None] = [
-            {'candidates': ['岛风']},
-            *[{'candidates': shared} for _ in range(5)],
+        selectors: list[FleetSlotRule | None] = [
+            _candidate_rule('岛风'),
+            *[_candidate_rule(*shared) for _ in range(5)],
         ]
 
         ok, matched_slots = BattlePreparationPage._match_existing_members(
@@ -719,6 +1323,35 @@ class TestFleetSlotRules:
             [None] * 6,
         )
 
+    def test_strict_constraints_require_selection_verification(self):
+        current = ['密苏里', None, None, None, None, None]
+        selectors: list[FleetSlotRule | None] = [
+            _rule(
+                {
+                    'name': '密苏里',
+                    'ship_type': ['BB'],
+                    'min_level': 100,
+                },
+            ),
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]
+
+        assert not BattlePreparationPage._validate_with_selector(
+            current,
+            current,
+            selectors,
+        )
+        assert BattlePreparationPage._validate_with_selector(
+            current,
+            current,
+            selectors,
+            {0},
+        )
+
     def test_find_wrong_slots(self):
         current = ['X', 'B', 'Y', None, 'E', None]
         desired = ['A', 'B', 'C', None, None, None]
@@ -731,55 +1364,226 @@ class TestFleetSlotRules:
 
 
 class TestFleetAlignment:
+    def test_fleet_change_tries_candidates_in_rule_order(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        primary = ShipSelector(name='U-47')
+        candidate = ShipSelector(name='U-96', relaxed_constraints=True)
+
+        with (
+            patch.object(page, 'click_ship_slot'),
+            patch('autowsgr.ui.utils.wait_for_page'),
+            patch(
+                'autowsgr.ui.choose_ship_page.ChooseShipPage.change_single_ship',
+                side_effect=[None, 'U-96'],
+            ) as change_single_ship,
+        ):
+            selected = page._change_single_ship(
+                0,
+                'U-47',
+                selector=(primary, candidate),
+            )
+
+        assert selected == 'U-96'
+        assert change_single_ship.call_args_list == [
+            call(primary, use_search=True),
+            call(candidate, use_search=True),
+        ]
+
     def test_slot_failure_does_not_borrow_another_slot_candidates(self):
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
         current = [None] * 6
-        names = ['契卡洛夫', '岛风', None, None, None, None]
-        selectors: list[dict | None] = [
-            {'candidates': ['契卡洛夫'], 'min_level': 100},
-            {'candidates': ['岛风', '黑潮'], 'min_level': 100},
+        occupied = [False] * 6
+        selectors: list[FleetSlotRule | None] = [
+            _candidate_rule('契卡洛夫', min_level=100),
+            _candidate_rule('岛风', '黑潮', min_level=100),
             None,
             None,
             None,
             None,
         ]
+        assigned = BattlePreparationPage._plan_target_options(selectors)
+        assert assigned is not None
 
         with (
             patch.object(
                 page,
-                '_change_single_ship',
+                '_try_select_option',
                 side_effect=RuntimeError('未找到契卡洛夫'),
-            ) as change_ship,
+            ) as select_option,
             pytest.raises(RuntimeError, match='契卡洛夫'),
         ):
-            page._full_align(current, names, selectors)
+            page._align_member_set(
+                current,
+                occupied,
+                assigned,
+                selectors,
+                set(),
+                set(),
+                {},
+            )
 
-        assert change_ship.call_count == 1
-        assert change_ship.call_args.args == (0, '契卡洛夫')
-        assert change_ship.call_args.kwargs['selector']['candidates'] == ['契卡洛夫']
+        select_option.assert_called_once_with(
+            0,
+            ShipSelector(
+                name='契卡洛夫',
+                min_level=100,
+                relaxed_constraints=True,
+            ),
+        )
+
+    def test_existing_primary_members_are_kept_until_final_reorder(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        current = ['X', 'A', 'C', 'E', 'Y', 'Z']
+        occupied = [True] * 6
+        selectors: list[FleetSlotRule | None] = list(
+            exact_fleet_rules(['A', 'B', 'C', 'D', 'E', 'F']),
+        )
+        assigned = BattlePreparationPage._plan_target_options(selectors, current)
+        assert assigned is not None
+        selected: list[tuple[int, str]] = []
+
+        def select_option(slot: int, option: ShipSelector) -> _ShipSelection:
+            selected.append((slot, option.name))
+            return _ShipSelection(option.name, option)
+
+        with (
+            patch.object(page, '_try_select_option', side_effect=select_option),
+            patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
+        ):
+            page._align_member_set(
+                current,
+                occupied,
+                assigned,
+                selectors,
+                set(),
+                set(),
+                {},
+            )
+
+        assert selected == [(0, 'B'), (4, 'D'), (5, 'F')]
+        assert current == ['B', 'A', 'C', 'E', 'D', 'F']
+
+        with patch('autowsgr.ui.battle.fleet_change._change.time.sleep'):
+            page._reorder(current, ['A', 'B', 'C', 'D', 'E', 'F'])
+
+        assert current == ['A', 'B', 'C', 'D', 'E', 'F']
+
+    def test_technical_selection_error_does_not_enable_fallback(self):
+        page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
+        rule = FleetSlotRule(
+            primary=ShipSelector(name='A'),
+            candidates=(ShipSelector(name='B', relaxed_constraints=True),),
+        )
+        selectors: list[FleetSlotRule | None] = [rule, None, None, None, None, None]
+        assigned = BattlePreparationPage._plan_target_options(selectors)
+        assert assigned is not None
+        unavailable: set[tuple[int, ShipSelector]] = set()
+
+        with (
+            patch.object(
+                page,
+                '_try_select_option',
+                side_effect=RuntimeError('控制器断开'),
+            ),
+            pytest.raises(RuntimeError, match='控制器断开'),
+        ):
+            page._align_member_set(
+                [None] * 6,
+                [False] * 6,
+                assigned,
+                selectors,
+                set(),
+                unavailable,
+                {},
+            )
+
+        assert unavailable == set()
+        assert assigned[0] == rule.primary
 
     def test_local_fix_replaces_before_removing(self):
         page = BattlePreparationPage(_make_ctx(MagicMock(spec=AndroidController)))
         current = ['A', 'X', 'C', 'D', None, None]
-        desired = ['A', 'B', 'C', None, None, None]
+        occupied = [True, True, True, True, False, False]
+        selectors: list[FleetSlotRule | None] = [
+            *exact_fleet_rules(['A', 'B', 'C']),
+            None,
+            None,
+            None,
+        ]
+        assigned = BattlePreparationPage._plan_target_options(selectors)
+        assert assigned is not None
         actions: list[str] = []
 
         with (
             patch.object(
                 page,
-                '_replace_target',
-                side_effect=lambda *_args: actions.append('replace'),
+                '_try_select_option',
+                side_effect=lambda _slot, option: (
+                    actions.append('replace') or _ShipSelection(option.name, option)
+                ),
             ),
             patch.object(
                 page,
                 '_change_single_ship',
                 side_effect=lambda *_args, **_kwargs: actions.append('remove'),
             ),
+            patch.object(
+                page,
+                'detect_fleet_snapshot',
+                return_value=_snapshot(['A', 'B', 'C', None, None, None]),
+            ),
             patch('autowsgr.ui.battle.fleet_change._change.time.sleep'),
         ):
-            page._local_fix(current, desired, [None] * 6)
+            page._local_fix(
+                current,
+                occupied,
+                assigned,
+                selectors,
+                set(),
+                set(),
+                {},
+                ['A', 'B', 'C'],
+            )
 
-        assert actions == ['replace', 'remove']
+        assert actions[0] == 'replace'
+        assert actions[1:] == ['remove', 'remove']
+
+    def test_unknown_occupied_slot_is_not_treated_as_empty(self):
+        option = ShipSelector(name='A')
+        current = [None, None, None, None, None, None]
+        occupied = [True, False, False, False, False, False]
+
+        assert (
+            BattlePreparationPage._replacement_slot(
+                current,
+                occupied,
+                option,
+                set(),
+                None,
+                set(),
+                0,
+            )
+            == 1
+        )
+
+    def test_unknown_slot_is_used_after_normal_selection_failed(self):
+        option = ShipSelector(name='A')
+        current = [None, 'X', None, None, None, None]
+        occupied = [True, True, False, False, False, False]
+        attempted = {(0, option, 2)}
+
+        assert (
+            BattlePreparationPage._replacement_slot(
+                current,
+                occupied,
+                option,
+                set(),
+                None,
+                attempted,
+                0,
+            )
+            == 0
+        )
 
     def test_reorder_moves_existing_ship(self):
         ctrl = MagicMock(spec=AndroidController)

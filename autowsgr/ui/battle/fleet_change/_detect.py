@@ -15,16 +15,18 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from autowsgr.constants import SHIPNAMES
+from autowsgr.constants import SHIPNAMES, normalize_ship_name
 from autowsgr.infra.logger import get_logger
+from autowsgr.types import ShipDamageState
 from autowsgr.ui.battle.base import BaseBattlePreparation
+from autowsgr.ui.battle.detection import DetectionMixin
 from autowsgr.vision.ocr import (
     _fuzzy_match,
     apply_ship_patches,
 )
-from autowsgr.vision.ocr_rules import normalize_ship_name_suffix
 
 
 # 仅在类型检查时导入运行逻辑不需要的类型。
@@ -49,6 +51,23 @@ _SLOT_X_CENTERS: tuple[float, ...] = (
 )
 
 _SHIP_FUZZY_THRESHOLD: int = 2
+
+
+@dataclass(slots=True)
+class FleetSnapshot:
+    """同一准备页截图中的舰名和槽位占用状态。"""
+
+    names: list[str | None]
+    occupied: list[bool]
+
+    @property
+    def unknown_slots(self) -> list[int]:
+        """返回有舰船但舰名 OCR 未识别的槽位。"""
+        return [
+            slot
+            for slot, (name, occupied) in enumerate(zip(self.names, self.occupied, strict=True))
+            if name is None and occupied
+        ]
 
 
 # 负责识别准备页当前六个舰队槽位。
@@ -82,6 +101,7 @@ class FleetDetectMixin(BaseBattlePreparation):
         screen: np.ndarray | None = None,
         *,
         expected_names: Sequence[str | None] | None = None,
+        expected_pool: Sequence[str] | None = None,
     ) -> list[str | None]:
         """返回长度为六的舰名列表，未占用槽位返回 None。"""
         # 未传入截图时直接获取当前屏幕。
@@ -100,14 +120,16 @@ class FleetDetectMixin(BaseBattlePreparation):
             ),
         )
         expected_slots = (
-            [
-                normalize_ship_name_suffix(name) if isinstance(name, str) and name.strip() else None
-                for name in list(expected_names)[:6]
-            ]
+            [normalize_ship_name(name) for name in list(expected_names)[:6]]
             if expected_names is not None
             else []
         )
         expected_slots += [None] * (6 - len(expected_slots))
+        normalized_pool = [
+            normalized
+            for name in dict.fromkeys(expected_pool or ())
+            if (normalized := normalize_ship_name(name)) is not None
+        ]
         prepared_results = []
         for result in results:
             raw_text = result.text.strip()
@@ -120,6 +142,7 @@ class FleetDetectMixin(BaseBattlePreparation):
             prepared_results.append((result, raw_text, patched_text, pool_match))
 
         ships: list[str | None] = [None] * 6
+        recognized_ocr: list[dict[str, object]] = []
 
         for r, raw_text, text, pool_match in prepared_results:
             # 空文字或没有坐标的 OCR 结果无法对应舰队槽位。
@@ -136,10 +159,21 @@ class FleetDetectMixin(BaseBattlePreparation):
             matched = pool_match
             expected_name = expected_slots[slot]
             # 船池结果与本槽目标不一致时，只允许本槽目标参与消歧。
-            if expected_name is not None and matched != expected_name:
+            if expected_name is not None and matched is None:
                 context_match = self._match_context_ship_name(text, [expected_name])
                 if context_match is not None:
                     matched = context_match
+            # 位置尚未对齐时，全局目标池只能补救完整船池未识别的文字。
+            elif matched is None and normalized_pool:
+                matched = self._match_context_ship_name(text, normalized_pool)
+            recognized_ocr.append(
+                {
+                    'slot': slot,
+                    'raw': raw_text,
+                    'patched': text,
+                    'matched': matched,
+                }
+            )
             # 完整船池和目标上下文都无法识别时跳过该文字。
             if matched is None:
                 _log.debug("[准备页] OCR '{}' -> 无匹配, 跳过", raw_text)
@@ -147,8 +181,33 @@ class FleetDetectMixin(BaseBattlePreparation):
             ships[slot] = matched
             _log.debug("[准备页] 槽位 {} OCR -> '{}'", slot, matched)
 
+        _log.info(
+            '[准备页] 编队 OCR 识别: {}',
+            recognized_ocr,
+        )
         _log.info('[准备页] 当前舰队: {}', ships)
         return ships
+
+    def detect_fleet_snapshot(
+        self,
+        *,
+        expected_names: Sequence[str | None] | None = None,
+        expected_pool: Sequence[str] | None = None,
+    ) -> FleetSnapshot:
+        """使用同一截图识别舰名和槽位占用状态。"""
+        screen = self._ctrl.screenshot()
+        names = self.detect_fleet(
+            screen,
+            expected_names=expected_names,
+            expected_pool=expected_pool,
+        )
+        damage = DetectionMixin.detect_ship_damage(screen)
+        occupied = [
+            names[slot] is not None
+            or damage.get(slot, ShipDamageState.NO_SHIP) != ShipDamageState.NO_SHIP
+            for slot in range(6)
+        ]
+        return FleetSnapshot(names=names, occupied=occupied)
 
     @staticmethod
     def _validate_fleet(

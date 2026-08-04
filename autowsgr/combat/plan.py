@@ -19,6 +19,7 @@ from autowsgr.infra import NodeConfig, load_yaml
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import FightCondition, Formation, RepairMode
 
+from .fleet import FleetPreset, fleet_presets_from_yaml
 from .rules import RuleEngine
 from .state import (
     CombatPhase,
@@ -236,6 +237,8 @@ class CombatPlan:
         出征舰队编号。
     fleet:
         舰队成员名单（换船用）。
+    fleet_presets:
+        GUI 整理后的舰队预设列表。
     repair_mode:
         修理策略。
     fight_condition:
@@ -259,6 +262,7 @@ class CombatPlan:
     """
     fleet_id: int = 1
     fleet: list[str] | None = None
+    fleet_presets: tuple[FleetPreset, ...] | None = None
     repair_mode: RepairMode | list[RepairMode] = RepairMode.severe_damage
     fight_condition: FightCondition = FightCondition.aim
     selected_nodes: list[str] = field(default_factory=list)
@@ -320,6 +324,7 @@ class CombatPlan:
         map_id, entrance = parse_map_value(data.get('map', 1))
         fleet_id = data.get('fleet_id', 1)
         fleet = data.get('fleet')
+        fleet_presets = fleet_presets_from_yaml(data.get('fleet_presets'))
         fight_condition = FightCondition(data.get('fight_condition', 4))
         selected_nodes = data.get('selected_nodes', [])
 
@@ -360,6 +365,7 @@ class CombatPlan:
             entrance=entrance,
             fleet_id=fleet_id,
             fleet=fleet,
+            fleet_presets=fleet_presets,
             repair_mode=repair_mode,
             fight_condition=fight_condition,
             selected_nodes=selected_nodes,

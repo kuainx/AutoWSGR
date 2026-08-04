@@ -49,6 +49,7 @@ except Exception:
 from loguru import logger
 
 from autowsgr.combat import CombatMode, CombatPlan, NodeDecision, RuleEngine
+from autowsgr.combat.fleet import resolve_fleet_selection
 from autowsgr.ops import NormalFightRunner
 from autowsgr.types import ConditionFlag, FightCondition, Formation, RepairMode
 from testing.ops._framework import launch_for_test
@@ -191,7 +192,7 @@ def main() -> None:
     logger.info('=' * 50)
 
     # ── 初始化引擎 ──
-    runner = NormalFightRunner(ctx, plan)
+    runner = NormalFightRunner(ctx, plan, resolve_fleet_selection(plan))
 
     # ── 运行战斗 ──
     results: list = []
@@ -200,6 +201,7 @@ def main() -> None:
 
         # 导航到出征地图页 → 选择地图 → 进入准备页
         result = runner.run()
+        results.append(result)
 
         logger.info(
             '  战斗结果: {} 血量={}',

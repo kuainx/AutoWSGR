@@ -16,8 +16,9 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-from autowsgr.constants import SHIPNAMES
+from autowsgr.constants import SHIPNAMES, normalize_ship_name
 from autowsgr.infra.logger import get_logger
+from autowsgr.types import ShipType
 from autowsgr.vision import (
     MatchStrategy,
     PixelChecker,
@@ -25,7 +26,6 @@ from autowsgr.vision import (
     PixelSignature,
 )
 from autowsgr.vision.ocr import _fuzzy_match
-from autowsgr.vision.ocr_rules import normalize_ship_name_suffix
 
 from .utils import wait_for_page, wait_leave_page
 from .utils.ship_list import LevelOCRRetryNeededError, locate_ship_rows, read_ship_levels
@@ -34,6 +34,7 @@ from .utils.ship_list import LevelOCRRetryNeededError, locate_ship_rows, read_sh
 if TYPE_CHECKING:
     import numpy as np
 
+    from autowsgr.combat.fleet import ShipSelector
     from autowsgr.context import GameContext
 
 
@@ -59,29 +60,6 @@ CLICK_FIRST_RESULT: tuple[float, float] = (183 / 960, 167 / 540)
 _SCROLL_FROM_Y: float = 0.55
 _SCROLL_TO_Y: float = 0.30
 _OCR_MAX_ATTEMPTS: int = 3
-
-_SHIP_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
-    'dd': ('驱逐',),
-    'cl': ('轻巡',),
-    'ca': ('重巡',),
-    'cav': ('航巡',),
-    'clt': ('雷巡',),
-    'bb': ('战列',),
-    'bc': ('战巡',),
-    'bbv': ('航战',),
-    'cv': ('航母',),
-    'cvl': ('轻母',),
-    'av': ('装母',),
-    'ss': ('潜艇',),
-    'ssg': ('导潜',),
-    'cg': ('导巡',),
-    'cgaa': ('防巡',),
-    'ddg': ('导驱',),
-    'ddgaa': ('防驱',),
-    'bm': ('重炮',),
-    'cbg': ('大巡',),
-    'cf': ('旗舰',),
-}
 
 PAGE_SIGNATURE = PixelSignature(
     name='choose_ship_page',
@@ -197,41 +175,32 @@ class ChooseShipPage:
         _log.debug('[UI] 选船 → 移除舰船')
         self._ctrl.click(*CLICK_REMOVE_SHIP)
 
-    def change_single_ship(  # noqa: C901, PLR0912
+    def change_single_ship(
         self,
-        name: str | None,
+        selector: ShipSelector | None,
         *,
         use_search: bool = True,
-        selector: dict | None = None,
     ) -> str | None:
-        """更换/移除当前槽位的舰船。
+        """按一条明确规则更换舰船，或移除当前槽位舰船。
 
         使用 DLL 行定位 + OCR 在选船列表中查找目标舰船并点击。
         最多重试 ``_OCR_MAX_ATTEMPTS`` 次, 每次失败后向上滚动列表。
 
         Parameters
         ----------
-        name:
-            目标舰船名; ``None`` 表示移除当前槽位舰船。
+        selector:
+            FleetChange 已决定好的单条舰船选择规则；``None`` 表示移除。
         use_search:
             是否使用搜索框输入舰船名来过滤列表。
             常规出征为 ``True`` (默认), 决战为 ``False``
             (决战选船界面没有搜索框)。
-        selector:
-            可选规则，支持 ``candidates`` / ``search_name`` /
-            ``ship_type`` / ``min_level`` / ``max_level``。
-            其中 ``search_name`` 用于指定搜索框关键字（仅在
-            ``use_search=True`` 且界面存在搜索框时生效），
-            ``candidates`` 用于限定允许点击的舰船名集合，
-            ``ship_type`` 用于按舰种筛选同名舰船，
-            ``min_level`` / ``max_level`` 用于按等级范围筛选。
 
         Returns
         -------
         str | None
             实际选中的舰船名；移除操作返回 ``None``。
         """
-        if name is None:
+        if selector is None:
             self.click_remove()
             self._wait_leave_current_page()
             return None
@@ -240,81 +209,23 @@ class ChooseShipPage:
             _log.warning('[UI] 未提供 OCR 引擎, 无法识别选船列表')
             return None
 
-        candidates = [name]
-        search_name: str | None = None
-        ship_type: str | None = None
-        min_level: int | None = None
-        max_level: int | None = None
-
-        if isinstance(selector, dict):
-            raw_candidates = selector.get('candidates')
-            if isinstance(raw_candidates, list):
-                parsed = [str(v).strip() for v in raw_candidates if str(v).strip()]
-                if parsed:
-                    candidates = parsed
-            raw_min = selector.get('min_level')
-            raw_max = selector.get('max_level')
-            raw_search = selector.get('search_name')
-            raw_ship_type = selector.get('ship_type')
-            if isinstance(raw_search, str) and raw_search.strip():
-                search_name = self._normalize_search_keyword(raw_search)
-            if isinstance(raw_ship_type, str) and raw_ship_type.strip():
-                ship_type = raw_ship_type.strip().lower()
-            if isinstance(raw_min, int) and raw_min > 0:
-                min_level = raw_min
-            if isinstance(raw_max, int) and raw_max > 0:
-                max_level = raw_max
-
-        if use_search and search_name:
+        search_name = self._normalize_search_keyword(
+            selector.search_name or selector.name,
+        )
+        if use_search:
             self.ensure_search_box()
             self.input_ship_name(search_name)
             self.ensure_dismiss_keyboard()
-            matched = self._click_ship_in_list(
-                name,
-                ship_type=ship_type,
-                min_level=min_level,
-                max_level=max_level,
-            )
-            if matched is not None:
-                self._wait_leave_current_page()
-                return matched
-
-        for candidate in candidates:
-            search_candidate = self._normalize_search_keyword(candidate)
-            if use_search:
-                self.ensure_search_box()
-                self.input_ship_name(search_candidate)
-                self.ensure_dismiss_keyboard()
-            matched = self._click_ship_in_list(
-                candidate,
-                ship_type=ship_type,
-                min_level=min_level,
-                max_level=max_level,
-            )
-            if matched is not None:
-                self._wait_leave_current_page()
-                return matched
-
-        level_hint = ''
-        if min_level is not None or max_level is not None:
-            if min_level is not None and max_level is not None:
-                level_hint = f' (等级限制: {min_level}-{max_level})'
-            elif min_level is not None:
-                level_hint = f' (等级限制: >= {min_level})'
-            else:
-                level_hint = f' (等级限制: <= {max_level})'
-
-        ship_type_hint = ''
-        if ship_type is not None:
-            ship_type_hint = f' (舰种限制: {ship_type})'
-
-        _log.error(
-            '[UI] 未在选船列表中找到可用候选: {}{}{}',
-            candidates,
-            level_hint,
-            ship_type_hint,
+        matched = self._click_ship_in_list(
+            selector.name,
+            ship_type=selector.ship_types or None,
+            min_level=selector.min_level,
+            max_level=selector.max_level,
+            relaxed_constraints=selector.relaxed_constraints,
         )
-        raise RuntimeError(f'未找到满足条件的目标舰船: {candidates}{level_hint}{ship_type_hint}')
+        if matched is not None:
+            self._wait_leave_current_page()
+        return matched
 
     @staticmethod
     def _normalize_hit_entry(hit: object) -> tuple[str, float, float, float]:
@@ -363,13 +274,14 @@ class ChooseShipPage:
             return False
         return not (max_level is not None and level > max_level)
 
-    def _click_ship_in_list(  # noqa: PLR0912
+    def _click_ship_in_list(  # noqa: C901, PLR0912
         self,
         name: str,
         *,
-        ship_type: str | None = None,
+        ship_type: tuple[ShipType, ...] | None = None,
         min_level: int | None = None,
         max_level: int | None = None,
+        relaxed_constraints: bool = False,
     ) -> str | None:
         """在选船列表页使用 DLL 定位 + OCR 识别舰船名并点击目标。
 
@@ -380,6 +292,9 @@ class ChooseShipPage:
         name:
             目标舰船名。
             匹配时会先做舰名归一化（如去除“·改”与尾部括号别名）后再比较。
+        relaxed_constraints:
+            备选舰船使用。舰名命中后只尝试一次等级和舰种校验，
+            约束识别失败或不匹配时仍按舰名选择。
 
         Returns
         -------
@@ -405,16 +320,25 @@ class ChooseShipPage:
                         deduplicate_by_name=False,
                         include_row_key=True,
                     )
-                except LevelOCRRetryNeededError as exc:
-                    _log.warning(
-                        '[UI] 等级 OCR 噪声过高，触发重新识别 (第 {}/{} 次)',
-                        attempt + 1,
-                        _OCR_MAX_ATTEMPTS,
-                    )
-                    if attempt >= _OCR_MAX_ATTEMPTS - 1:
-                        raise RuntimeError('等级 OCR 噪声过高，重试后仍失败') from exc
-                    time.sleep(0.3)
-                    continue
+                except LevelOCRRetryNeededError:
+                    if relaxed_constraints:
+                        _log.warning(
+                            '[UI] 备选舰等级 OCR 失败，继续按舰名校验',
+                        )
+                        raw_levels = []
+                    else:
+                        _log.warning(
+                            '[UI] 等级 OCR 噪声过高，触发重新识别 (第 {}/{} 次)',
+                            attempt + 1,
+                            _OCR_MAX_ATTEMPTS,
+                        )
+                        if attempt >= _OCR_MAX_ATTEMPTS - 1:
+                            _log.error(
+                                '[UI] 等级 OCR 噪声过高，本规则校验失败',
+                            )
+                            return None
+                        time.sleep(0.3)
+                        continue
             else:
                 raw_hits = locate_ship_rows(self._ctx.ocr, screen)
                 raw_levels = []
@@ -423,12 +347,16 @@ class ChooseShipPage:
             level_map: dict[float, dict[str, list[int | None]]] = {}
             for entry in raw_levels:
                 level_name, level, row_key = self._normalize_level_entry(entry)
-                normalized_level_name = self._normalize_ship_name(level_name)
+                normalized_level_name = normalize_ship_name(level_name)
+                if normalized_level_name is None:
+                    continue
                 row_levels = level_map.setdefault(row_key, {})
                 row_levels.setdefault(normalized_level_name, []).append(level)
 
             for matched, cx, cy, row_key in hits:
-                normalized_matched = self._normalize_ship_name(matched)
+                normalized_matched = normalize_ship_name(matched)
+                if normalized_matched is None:
+                    continue
                 if not self._matches_ship_name(name, matched):
                     continue
 
@@ -447,7 +375,8 @@ class ChooseShipPage:
                         min_level if min_level is not None else '-',
                         max_level if max_level is not None else '-',
                     )
-                    continue
+                    if not relaxed_constraints:
+                        continue
 
                 if ship_type is not None:
                     detected_ship_type = self._detect_ship_type_near_hit(
@@ -463,7 +392,8 @@ class ChooseShipPage:
                             detected_ship_type if detected_ship_type is not None else '未知',
                             ship_type,
                         )
-                        continue
+                        if not relaxed_constraints:
+                            continue
 
                 _log.info(
                     "[UI] 选船 DLL+OCR -> '{}' (第 {}/{} 次), 点击 ({:.3f}, {:.3f})",
@@ -495,7 +425,7 @@ class ChooseShipPage:
         cx: float,
         cy: float,
         row_key: float,
-    ) -> str | None:
+    ) -> ShipType | None:
         """在命中卡片附近 OCR 识别舰种。"""
         assert self._ctx.ocr is not None
 
@@ -523,42 +453,34 @@ class ChooseShipPage:
         return None
 
     @staticmethod
-    def _extract_ship_type_from_text(text: str) -> str | None:
+    def _extract_ship_type_from_text(text: str) -> ShipType | None:
         if not text:
             return None
         normalized = text.replace(' ', '')
-        for ship_type, keywords in _SHIP_TYPE_KEYWORDS.items():
-            if any(keyword in normalized for keyword in keywords):
+        for ship_type in ShipType:
+            if ship_type is not ShipType.Other and ship_type.value in normalized:
                 return ship_type
         return None
 
     @staticmethod
-    def _is_ship_type_in_rule(detected: str | None, expected: str) -> bool:
-        if detected is None:
-            return False
-        rule = expected.strip().lower()
-        if rule == 'ss_or_ssg':
-            return detected in {'ss', 'ssg'}
-        return detected == rule
+    def _is_ship_type_in_rule(
+        detected: ShipType | None,
+        expected: tuple[ShipType, ...],
+    ) -> bool:
+        return detected is not None and detected in expected
 
     @staticmethod
     def _normalize_search_keyword(name: str) -> str:
         """保留用户在游戏内使用的自定义舰名作为搜索条件。"""
         return name.strip()
 
-    @staticmethod
-    def _normalize_ship_name(name: str) -> str:
-        return normalize_ship_name_suffix(name)
-
     @classmethod
     def _matches_ship_name(cls, target: str, matched: str) -> bool:
         """比较目标名与 OCR 船池结果，不修改任一原始文本。"""
-        normalized_target = cls._normalize_ship_name(target)
-        normalized_matched = cls._normalize_ship_name(matched)
+        normalized_target = normalize_ship_name(target)
+        normalized_matched = normalize_ship_name(matched)
         if normalized_target == normalized_matched:
             return True
 
         pool_target = _fuzzy_match(target, SHIPNAMES, threshold=0)
-        return (
-            pool_target is not None and cls._normalize_ship_name(pool_target) == normalized_matched
-        )
+        return pool_target is not None and normalize_ship_name(pool_target) == normalized_matched
