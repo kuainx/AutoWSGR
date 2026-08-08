@@ -55,6 +55,10 @@ class _ShipSelection:
     option: ShipSelector | None
 
 
+class _UnresolvedPrimaryError(RuntimeError):
+    """连续 OCR 后仍无法确认唯一主选时终止本次换船。"""
+
+
 # 为普通出征和决战准备页提供同一套智能换船流程。
 class FleetChangeMixin(FleetDetectMixin):
     """准备页换船逻辑。"""
@@ -62,6 +66,8 @@ class FleetChangeMixin(FleetDetectMixin):
     # True 使用搜索框选船，False 直接通过 OCR 列表选船。
     _use_search: bool = True
     _last_changed_fleet: list[str | None] | None = None
+    # 首次快照 (含舰种/等级)，供重规划备选后重新标记已验证槽位。
+    _initial_snapshot: FleetSnapshot | None = None
 
     @property
     def last_changed_fleet(self) -> list[str | None] | None:
@@ -98,7 +104,7 @@ class FleetChangeMixin(FleetDetectMixin):
             raise ValueError('1 队槽位 0 不能为空')
 
         expected_pool = self._ocr_target_pool(selectors)
-        snapshot = self._detect_initial_snapshot(expected_pool)
+        snapshot = self._detect_initial_snapshot(expected_pool, selectors)
         current = snapshot.names
         occupied = snapshot.occupied
         assigned = self._plan_target_options(
@@ -114,8 +120,15 @@ class FleetChangeMixin(FleetDetectMixin):
         )
 
         # Step 4：首次完整调整，后续最多进行两次局部修正。
-        # verified_slots 记录本轮已通过选船页校验舰种和等级的逻辑目标槽位。
+        # verified_slots 记录本轮已通过选船页 (或首次快照) 校验舰种和等级的逻辑目标槽位。
         verified_slots: set[int] = set()
+        self._initial_snapshot = snapshot
+        self._mark_snapshot_verified_slots(snapshot, assigned, verified_slots)
+        deferred_primary_slots = self._deferred_primary_slots(
+            snapshot,
+            selectors,
+            assigned,
+        )
         unavailable: set[tuple[int, ShipSelector]] = set()
         locked: dict[int, ShipSelector] = {}
         for attempt in range(_MAX_SET_RETRIES + 1):
@@ -134,16 +147,21 @@ class FleetChangeMixin(FleetDetectMixin):
             # Step 5：第一轮执行完整对齐，重试轮只处理错误槽位。
             # 第一次调整需要补船、删船并处理槽位压缩。
             if attempt == 0:
-                self._full_align(
-                    current,
-                    occupied,
-                    assigned,
-                    selectors,
-                    verified_slots,
-                    unavailable,
-                    locked,
-                    expected_pool,
-                )
+                try:
+                    self._full_align(
+                        current,
+                        occupied,
+                        assigned,
+                        selectors,
+                        verified_slots,
+                        unavailable,
+                        locked,
+                        expected_pool,
+                        deferred_primary_slots,
+                    )
+                except _UnresolvedPrimaryError as error:
+                    _log.error('[准备页] {}', error)
+                    return False
             # 后续调整只修正 OCR 验证失败的槽位。
             else:
                 _log.info('[准备页] 第 {} 次重试: 局部修正', attempt)
@@ -286,6 +304,25 @@ class FleetChangeMixin(FleetDetectMixin):
         result = assign(0, ())
         return list(result[2]) if result is not None else None
 
+    @staticmethod
+    def _deferred_primary_slots(
+        snapshot: FleetSnapshot,
+        selectors: Sequence[FleetSlotRule | None],
+        assigned: Sequence[ShipSelector | None],
+    ) -> set[int]:
+        """标记身份未知且需要进入主选兜底流程的槽位。"""
+        return {
+            slot
+            for slot, (name, occupied, selector, option) in enumerate(
+                zip(snapshot.names, snapshot.occupied, selectors, assigned, strict=True),
+            )
+            if occupied
+            and name is None
+            and selector is not None
+            and selector.primary is not None
+            and option == selector.primary
+        }
+
     @classmethod
     def _ocr_target_pool(
         cls,
@@ -315,32 +352,165 @@ class FleetChangeMixin(FleetDetectMixin):
             normalize_ship_name(option.name) if option is not None else None for option in assigned
         ]
 
-    def _detect_initial_snapshot(self, expected_pool: Sequence[str]) -> FleetSnapshot:
-        """初次识别舰队；存在未知占用槽位时再识别一次并保守合并。"""
-        first = self.detect_fleet_snapshot(expected_pool=expected_pool)
-        if not first.unknown_slots:
-            return first
+    @staticmethod
+    def _level4_detail_requirements(
+        selectors: Sequence[FleetSlotRule | None],
+    ) -> dict[str, tuple[bool, bool]]:
+        """返回 LEVEL4 需要继续补充舰种、等级的舰名。
 
-        second = self.detect_fleet_snapshot(expected_pool=expected_pool)
-        names = list(first.names)
-        for slot, second_name in enumerate(second.names):
-            if names[slot] is None and second_name is not None:
-                names[slot] = second_name
-            elif (
-                names[slot] is not None
-                and second_name is not None
-                and ship_name_identity(names[slot]) != ship_name_identity(second_name)
+        有主选的槽位只保留主选；识别为备选后必然进入换船，不再补充细节。
+        纯备选槽没有主选，仍需按被选中的备选自身约束完成校验。
+        """
+        requirements: dict[str, tuple[bool, bool]] = {}
+        for selector in selectors:
+            if selector is None:
+                continue
+            options = (selector.primary,) if selector.primary is not None else selector.candidates
+            for option in options:
+                identity = ship_name_identity(option.name)
+                if identity is None:
+                    continue
+                needs_type = bool(option.ship_types)
+                needs_level = option.min_level is not None or option.max_level is not None
+                previous = requirements.get(identity, (False, False))
+                requirements[identity] = (
+                    previous[0] or needs_type,
+                    previous[1] or needs_level,
+                )
+        return requirements
+
+    @staticmethod
+    def _retry_invalid_strict_details(
+        snapshot: FleetSnapshot,
+        selectors: Sequence[FleetSlotRule | None],
+        *,
+        level: str,
+    ) -> FleetSnapshot:
+        """将不符合 strict YAML 的舰种、等级标记为未确认，留给下一阶段重识别。"""
+        requirements: dict[str, list[ShipSelector]] = {}
+        for selector in selectors:
+            if selector is None:
+                continue
+            options = (selector.primary,) if selector.primary is not None else selector.candidates
+            for option in options:
+                if option.relaxed_constraints:
+                    continue
+                identity = ship_name_identity(option.name)
+                if identity is not None:
+                    requirements.setdefault(identity, []).append(option)
+
+        ship_types = list(snapshot.ship_types or [None] * 6)
+        ship_levels = list(snapshot.ship_levels or [None] * 6)
+        changed = False
+        for slot, name in enumerate(snapshot.names):
+            options = requirements.get(ship_name_identity(name) or '')
+            if not options:
+                continue
+
+            type_options = [option for option in options if option.ship_types]
+            ship_type = ship_types[slot]
+            if (
+                ship_type is not None
+                and type_options
+                and not any(ship_type in option.ship_types for option in type_options)
             ):
-                names[slot] = None
-        occupied = [
-            first_occupied or second_occupied
-            for first_occupied, second_occupied in zip(
-                first.occupied,
-                second.occupied,
-                strict=True,
+                _log.info(
+                    '[准备页] {} 槽位 {} 舰种 {} 不符合 strict YAML，下一阶段重识别',
+                    level,
+                    slot + 1,
+                    ship_type,
+                )
+                ship_types[slot] = None
+                changed = True
+
+            level_options = [
+                option
+                for option in options
+                if option.min_level is not None or option.max_level is not None
+            ]
+            ship_level = ship_levels[slot]
+            if (
+                ship_level is not None
+                and level_options
+                and not any(
+                    (option.min_level is None or ship_level >= option.min_level)
+                    and (option.max_level is None or ship_level <= option.max_level)
+                    for option in level_options
+                )
+            ):
+                _log.info(
+                    '[准备页] {} 槽位 {} 等级 {} 不符合 strict YAML，下一阶段重识别',
+                    level,
+                    slot + 1,
+                    ship_level,
+                )
+                ship_levels[slot] = None
+                changed = True
+
+        if not changed:
+            return snapshot
+        return FleetSnapshot(
+            names=list(snapshot.names),
+            occupied=list(snapshot.occupied),
+            ship_types=ship_types,
+            ship_levels=ship_levels,
+        )
+
+    def _detect_initial_snapshot(
+        self,
+        expected_pool: Sequence[str],
+        selectors: Sequence[FleetSlotRule | None],
+    ) -> FleetSnapshot:
+        """通过四次独立截图累计舰队信息，只补仍未确认的字段。
+
+        LEVEL1 全局识别舰名并检测血条；LEVEL2 使用新截图补舰名并首次识别
+        全部有船槽位的舰种、等级；strict 约束不符的字段视为未确认；
+        LEVEL3 再补充一次；LEVEL4 最后补舰名，并只补主选或纯备选规则实际
+        需要的舰种、等级。
+        """
+        snapshot = self.detect_fleet_snapshot(
+            expected_pool=expected_pool,
+        )
+        _log.info('[准备页] LEVEL1 完成: 舰名未知槽位={}', snapshot.unknown_slots)
+
+        _log.info('[准备页] LEVEL2 使用新截图首次识别舰名、舰种和等级')
+        snapshot = self.fill_missing_fleet_snapshot(
+            snapshot,
+            expected_pool=expected_pool,
+        )
+        snapshot = self._retry_invalid_strict_details(
+            snapshot,
+            selectors,
+            level='LEVEL2',
+        )
+
+        if snapshot.has_unknown_details:
+            _log.info(
+                '[准备页] LEVEL3 执行一次补识别: 舰名槽位={}, 舰种槽位={}, 等级槽位={}',
+                snapshot.unknown_slots,
+                snapshot.unknown_type_slots,
+                snapshot.unknown_level_slots,
             )
-        ]
-        return FleetSnapshot(names=names, occupied=occupied)
+            snapshot = self.fill_missing_fleet_snapshot(
+                snapshot,
+                expected_pool=expected_pool,
+            )
+            snapshot = self._retry_invalid_strict_details(
+                snapshot,
+                selectors,
+                level='LEVEL3',
+            )
+
+        _log.info(
+            '[准备页] LEVEL4 最后补识别: 舰名槽位={}',
+            snapshot.unknown_slots,
+        )
+        snapshot = self.fill_missing_fleet_snapshot(
+            snapshot,
+            expected_pool=expected_pool,
+            detail_requirements=self._level4_detail_requirements(selectors),
+        )
+        return snapshot
 
     @classmethod
     def _option_matches_name(
@@ -527,6 +697,84 @@ class FleetChangeMixin(FleetDetectMixin):
             and not option.relaxed_constraints
             and (option.ship_types or option.min_level is not None or option.max_level is not None)
         )
+
+    @classmethod
+    def _snapshot_satisfies_option(
+        cls,
+        snapshot: FleetSnapshot,
+        slot: int,
+        option: ShipSelector,
+    ) -> bool:
+        """强校验: 首次快照是否已从舰种/等级确认该槽位满足规则。
+
+        名称匹配由调用方保证；这里只做约束校验。relaxed (弱校验) 规则
+        不要求选船校验，无需调用本函数，名称匹配即视为放行。
+        """
+        ship_type = snapshot.ship_types[slot] if snapshot.ship_types else None
+        ship_level = snapshot.ship_levels[slot] if snapshot.ship_levels else None
+
+        if option.ship_types and ship_type not in option.ship_types:
+            return False
+        if option.min_level is not None or option.max_level is not None:
+            if ship_level is None:
+                return False
+            if option.min_level is not None and ship_level < option.min_level:
+                return False
+            if option.max_level is not None and ship_level > option.max_level:
+                return False
+        return True
+
+    def _mark_snapshot_verified_slots(
+        self,
+        snapshot: FleetSnapshot,
+        assigned: Sequence[ShipSelector | None],
+        verified_slots: set[int],
+    ) -> None:
+        """用首次快照标记已就位且满足规则的逻辑槽位，跳过选船二次确认。
+
+        已确认无需更换的舰船不再进入点对点选船页更换，避免已就位舰船
+        不在船池中导致选不到 → 重选 → 选不到的无限循环。
+        最终舰队 check 仍由流程末尾的验证兜底。
+
+        assigned 中既包含主选也包含备选；备选同样按自身约束参与校验，
+        重规划改派备选后再次调用本函数即可覆盖备选链路。
+
+        强校验 (strict): 名称匹配后，舰种/等级必须全部符合 YAML 规定才标记，
+        任一约束因 OCR 数据缺失而无法确认时也不标记，落入选船页权威校验；
+        弱校验 (relaxed): 规则本就不要求选船校验，由赋值匹配直接放行。
+        """
+        if snapshot.ship_types is None or snapshot.ship_levels is None:
+            return
+        for target_slot, option in enumerate(assigned):
+            if option is None or not self._requires_selection_validation(option):
+                continue
+            if target_slot in verified_slots:
+                continue
+            # 位置无关匹配: 与 _assignment_locations 一致，先找已就位位置再校验。
+            position = next(
+                (
+                    slot
+                    for slot in range(6)
+                    if snapshot.occupied[slot]
+                    and self._option_matches_name(snapshot.names[slot], option)
+                ),
+                None,
+            )
+            if position is None:
+                continue
+            if not self._snapshot_satisfies_option(snapshot, position, option):
+                _log.info(
+                    '[准备页] 快照校验未通过: 逻辑槽位 {} ({}), 进入选船二次确认',
+                    target_slot,
+                    snapshot.names[position],
+                )
+                continue
+            verified_slots.add(target_slot)
+            _log.info(
+                '[准备页] 快照确认逻辑槽位 {} 已就位 ({}), 跳过选船二次确认',
+                target_slot,
+                snapshot.names[position],
+            )
 
     # 从本槽候选中排除队内同名舰，并返回实际可用于选船的规则。
     @classmethod
@@ -786,6 +1034,178 @@ class FleetChangeMixin(FleetDetectMixin):
             None,
         )
 
+    def _select_deferred_fallback(
+        self,
+        target_slot: int,
+        selector: FleetSlotRule,
+        current: list[str | None],
+        occupied: list[bool],
+        assigned: list[ShipSelector | None],
+        unavailable: set[tuple[int, ShipSelector]],
+    ) -> ShipSelector | None:
+        """在原物理槽位按 YAML 顺序选择一个全局不冲突的备选。"""
+        blocked_identities = {
+            identity
+            for slot, name in enumerate(current)
+            if slot != target_slot
+            and occupied[slot]
+            and (identity := ship_name_identity(name)) is not None
+        }
+        blocked_identities.update(
+            identity
+            for slot, option in enumerate(assigned)
+            if slot != target_slot
+            and option is not None
+            and (identity := ship_name_identity(option.name)) is not None
+        )
+        for candidate in selector.candidates:
+            identity = ship_name_identity(candidate.name)
+            if (
+                identity is None
+                or identity in blocked_identities
+                or (target_slot, candidate) in unavailable
+            ):
+                continue
+
+            _log.info(
+                "[准备页] 槽位 {} 身份未知，先用备选 '{}' 释放原舰船",
+                target_slot,
+                candidate.name,
+            )
+            selection = self._try_select_option(target_slot, candidate)
+            if selection.name is None:
+                unavailable.add((target_slot, candidate))
+                continue
+            if not self._option_matches_name(selection.name, candidate):
+                raise RuntimeError(
+                    f'选船结果 {selection.name!r} 与规则 {candidate.name!r} 不一致',
+                )
+
+            current[target_slot] = selection.name
+            occupied[target_slot] = True
+            time.sleep(0.3)
+            return candidate
+        return None
+
+    def _try_deferred_primary(
+        self,
+        target_slot: int,
+        primary: ShipSelector,
+        current: list[str | None],
+        verified_slots: set[int],
+        locked: dict[int, ShipSelector],
+    ) -> bool:
+        """尝试主选并同步已确认的槽位状态。"""
+        selection = self._try_select_option(target_slot, primary)
+        if selection.name is None:
+            return False
+        if not self._option_matches_name(selection.name, primary):
+            raise RuntimeError(
+                f'选船结果 {selection.name!r} 与规则 {primary.name!r} 不一致',
+            )
+
+        current[target_slot] = selection.name
+        locked[target_slot] = primary
+        verified_slots.discard(target_slot)
+        if self._requires_selection_validation(primary):
+            verified_slots.add(target_slot)
+        time.sleep(0.3)
+        return True
+
+    def _resolve_deferred_primaries(
+        self,
+        current: list[str | None],
+        occupied: list[bool],
+        assigned: list[ShipSelector | None],
+        selectors: list[FleetSlotRule | None],
+        verified_slots: set[int],
+        unavailable: set[tuple[int, ShipSelector]],
+        locked: dict[int, ShipSelector],
+        deferred_primary_slots: set[int],
+    ) -> None:
+        """处理未知主选：有备选时释放回查，无备选时单次搜索。"""
+        for target_slot in sorted(deferred_primary_slots):
+            deferred_primary_slots.discard(target_slot)
+            selector = selectors[target_slot]
+            if (
+                selector is None
+                or selector.primary is None
+                or assigned[target_slot] != selector.primary
+                or not occupied[target_slot]
+                or current[target_slot] is not None
+            ):
+                continue
+
+            primary = selector.primary
+            fallback: ShipSelector | None = None
+            if selector.candidates:
+                fallback = self._select_deferred_fallback(
+                    target_slot,
+                    selector,
+                    current,
+                    occupied,
+                    assigned,
+                    unavailable,
+                )
+                if fallback is None:
+                    _log.warning(
+                        '[准备页] 槽位 {} 没有可用备选，保留原换船流程',
+                        target_slot,
+                    )
+                    continue
+                _log.info(
+                    "[准备页] 槽位 {} 已释放，重新尝试主选 '{}'",
+                    target_slot,
+                    primary.name,
+                )
+            else:
+                _log.info(
+                    "[准备页] 槽位 {} 身份未知且没有备选，最后搜索一次主选 '{}'",
+                    target_slot,
+                    primary.name,
+                )
+
+            if self._try_deferred_primary(
+                target_slot,
+                primary,
+                current,
+                verified_slots,
+                locked,
+            ):
+                continue
+
+            if fallback is None:
+                raise _UnresolvedPrimaryError(
+                    f'槽位 {target_slot} 连续 OCR 后身份仍未知，且船池未找到唯一主选 '
+                    f"'{primary.name}'；无法区分主选已在编队或账号未拥有，停止本次换船",
+                )
+
+            unavailable.add((target_slot, primary))
+            locked[target_slot] = fallback
+            previous = list(assigned)
+            replanned = self._plan_target_options(
+                selectors,
+                current,
+                unavailable,
+                locked,
+            )
+            if replanned is None:
+                raise RuntimeError(
+                    f'目标槽位 {target_slot} 的主选和已选备选无法组成有效舰队',
+                )
+            assigned[:] = replanned
+            for slot, (old, new) in enumerate(zip(previous, replanned, strict=True)):
+                if old != new:
+                    verified_slots.discard(slot)
+            if self._requires_selection_validation(fallback):
+                verified_slots.add(target_slot)
+            if self._initial_snapshot is not None:
+                self._mark_snapshot_verified_slots(
+                    self._initial_snapshot,
+                    assigned,
+                    verified_slots,
+                )
+
     def _align_member_set(
         self,
         current: list[str | None],
@@ -795,8 +1215,21 @@ class FleetChangeMixin(FleetDetectMixin):
         verified_slots: set[int],
         unavailable: set[tuple[int, ShipSelector]],
         locked: dict[int, ShipSelector],
+        deferred_primary_slots: set[int] | None = None,
     ) -> None:
         """只处理成员集合；不拖拽最终顺序，也不删除多余舰船。"""
+        if deferred_primary_slots:
+            self._resolve_deferred_primaries(
+                current,
+                occupied,
+                assigned,
+                selectors,
+                verified_slots,
+                unavailable,
+                locked,
+                deferred_primary_slots,
+            )
+
         attempted: set[tuple[int, ShipSelector, int]] = set()
         for _ in range(48):
             protected, satisfied, target_positions = self._assignment_locations(
@@ -849,6 +1282,14 @@ class FleetChangeMixin(FleetDetectMixin):
                 ):
                     if old != new:
                         verified_slots.discard(slot)
+                # 重规划后新分配的备选若已在队内且满足约束，直接用首次快照
+                # 标记为已验证，避免已就位备选不在船池时反复进选船页重选。
+                if self._initial_snapshot is not None:
+                    self._mark_snapshot_verified_slots(
+                        self._initial_snapshot,
+                        assigned,
+                        verified_slots,
+                    )
                 continue
 
             _log.info(
@@ -925,6 +1366,7 @@ class FleetChangeMixin(FleetDetectMixin):
         unavailable: set[tuple[int, ShipSelector]],
         locked: dict[int, ShipSelector],
         expected_pool: Sequence[str],
+        deferred_primary_slots: set[int] | None = None,
     ) -> None:
         """首次将当前舰队调整为目标成员集合。"""
         self._align_member_set(
@@ -935,6 +1377,7 @@ class FleetChangeMixin(FleetDetectMixin):
             verified_slots,
             unavailable,
             locked,
+            deferred_primary_slots,
         )
         self._remove_extra_members(current, occupied, assigned, verified_slots)
         self._refresh_members(current, occupied, expected_pool)
@@ -946,6 +1389,7 @@ class FleetChangeMixin(FleetDetectMixin):
             verified_slots,
             unavailable,
             locked,
+            deferred_primary_slots,
         )
 
     # OCR 验证失败后，只修正成员集合，不在此阶段拖拽排序。
