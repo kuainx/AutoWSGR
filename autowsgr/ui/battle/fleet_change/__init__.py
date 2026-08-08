@@ -6,7 +6,11 @@
 内部模块:
 
 - ``_detect.py`` -- 准备页舰队 OCR 检测
-- ``_change.py`` -- 更换算法 Mixin
+- ``_rules.py`` -- 舰队规则匹配与校验
+- ``_planning.py`` -- 目标分配与槽位规划
+- ``_selection.py`` -- 船池选择页面操作
+- ``_alignment.py`` -- 舰队成员调整与排序
+- ``_change.py`` -- 换船主流程编排
 """
 
 from autowsgr.ui.battle.fleet_change._change import FleetChangeMixin
