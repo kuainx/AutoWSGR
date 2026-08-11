@@ -411,6 +411,12 @@ def test_selected_material_badge_is_detected() -> None:
     assert has_selected_material(screen)
 
 
+def test_large_live_selected_material_badge_is_detected() -> None:
+    from autowsgr.ui.material_inventory_scanner import has_selected_material
+
+    assert has_selected_material(_fixture('../live-explicit-dayodo-selected.png'))
+
+
 def test_material_scanner_has_no_portrait_or_feature_matching_path() -> None:
     source = Path(r'E:\AutoWSGR-backend\autowsgr\ui\material_inventory_scanner.py').read_text(
         encoding='utf-8'

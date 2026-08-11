@@ -441,14 +441,14 @@ def has_selected_material(screen: np.ndarray) -> bool:
     mask[:, round(width * 0.81) :] = 0
     count, _labels, stats, _centers = cv2.connectedComponentsWithStats(mask)
     minimum_area = round(1200 * height * width / (1080 * 1920))
-    maximum_area = round(6000 * height * width / (1080 * 1920))
+    maximum_area = round(16_000 * height * width / (1080 * 1920))
     candidates: list[tuple[int, int, int, int]] = []
     for index in range(1, count):
         x, y, component_width, component_height, area = map(int, stats[index])
         if (
             minimum_area <= area <= maximum_area
-            and round(35 * width / 1920) <= component_width <= round(110 * width / 1920)
-            and round(35 * height / 1080) <= component_height <= round(110 * height / 1080)
+            and round(35 * width / 1920) <= component_width <= round(150 * width / 1920)
+            and round(35 * height / 1080) <= component_height <= round(150 * height / 1080)
             and 0.55 <= component_width / component_height <= 1.8
             and area / (component_width * component_height) >= 0.35
             and y < round(0.90 * height)
@@ -456,6 +456,12 @@ def has_selected_material(screen: np.ndarray) -> bool:
             candidates.append((x, y, component_width, component_height))
     if not candidates:
         return False
+    large_badge_area = round(6_000 * height * width / (1080 * 1920))
+    if any(
+        component_width * component_height >= large_badge_area
+        for _x, _y, component_width, component_height in candidates
+    ):
+        return True
     card_pitch = round(211 * width / 1920)
     y_tolerance = round(5 * height / 1080)
     for x, y, _component_width, _component_height in candidates:
