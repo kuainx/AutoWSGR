@@ -46,6 +46,15 @@ SHIP_NAME_CORRECTIONS: dict[str, str] = {
     '鳟盹': '鳞鲀',
     '296': 'M-296',
     '维内托': '维托里奥·维内托',
+    '维托里': '维托里奥·维内托',
+    '奥:维内托': '维托里奥·维内托',
+    '7奥:维内托': '维托里奥·维内托',
+    '屋尼.维瓦尔迪': '乌戈里尼·维瓦尔迪',
+    '。艮尼.维瓦尔迪': '乌戈里尼·维瓦尔迪',
+    '艮尼.维瓦尔迪': '乌戈里尼·维瓦尔迪',
+    '昆尼.维瓦尔迪': '乌戈里尼·维瓦尔迪',
+    '新洚四': '新泽西',
+    '冽亚.多利亚': '安德烈亚·多利亚',
     'IA': 'IIIA',
 }
 
@@ -55,6 +64,10 @@ _USER_SHIP_NAME_ALIASES: dict[str, str] = {}
 
 # EasyOCR 会把中文舰名中的间隔号识别成冒号，只修正两个汉字之间的冒号。
 _CJK_COLON_SEPARATOR_RE = re.compile(r'(?<=[\u3400-\u9fff]):(?=[\u3400-\u9fff])')
+_EDGE_ASCII_PUNCTUATION_RE = re.compile(
+    r'^[!"#$%&\'()*+,./:;<=>?@[\\\]^_`{|}~\-。，、；：！？]+|'
+    r'[!"#$%&\'()*+,./:;<=>?@[\\\]^_`{|}~\-。，、；：！？]+$'
+)
 
 SHIP_LEVEL_MIN = 1
 SHIP_LEVEL_MAX = 110
@@ -131,6 +144,7 @@ def expand_ship_name_candidates(candidates: list[str]) -> list[str]:
 
 def apply_ship_name_rules(text: str) -> str:
     """依次应用 OCR 纠错和特殊字符规则。"""
+    text = _EDGE_ASCII_PUNCTUATION_RE.sub('', text.strip())
     for corrections in (_USER_SHIP_NAME_CORRECTIONS, SHIP_NAME_CORRECTIONS):
         for old, new in corrections.items():
             if old in text:
