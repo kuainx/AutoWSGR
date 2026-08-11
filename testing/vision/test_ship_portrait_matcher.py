@@ -92,6 +92,7 @@ def test_identify_filters_by_type_and_canonical_or_search_name(tmp_path: Path) -
 
     assert library.identify(target, allowed_types={ShipType.BB}) is None
     assert library.identify(target, candidate_names={'Beta'}) is None
+    assert [record.ship_id for record in library.records_for_search_name('Alpha Search')] == [1]
     by_name = library.identify(target, candidate_names={'Alpha Search'})
     assert by_name is not None
     assert by_name.record.ship_type is ShipType.ASDG

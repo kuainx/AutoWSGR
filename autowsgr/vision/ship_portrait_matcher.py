@@ -105,6 +105,10 @@ class ShipPortraitLibrary:
             )
         return tuple(records)
 
+    def records_for_search_name(self, name: str) -> tuple[ShipPortraitRecord, ...]:
+        """Return every canonical form rendered with the exact search name."""
+        return tuple(record for record in self.records if record.search_name == name)
+
     @staticmethod
     def _gray(image_rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
         if image_rgb.ndim == 2:

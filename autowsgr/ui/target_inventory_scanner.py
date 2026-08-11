@@ -61,7 +61,12 @@ class TargetShipSnapshot:
 class TargetCardReader(Protocol):
     def identify(self, screen: np.ndarray, card: CardRect) -> TargetCardIdentity | None: ...
 
-    def read_levels(self, screen: np.ndarray, card: CardRect) -> ShipStats | None: ...
+    def read_levels(
+        self,
+        screen: np.ndarray,
+        card: CardRect,
+        identity: TargetCardIdentity,
+    ) -> ShipStats | None: ...
 
 
 class TargetScanDevice(Protocol):
@@ -186,8 +191,10 @@ class TargetInventoryScanner:
         snapshots: list[TargetShipSnapshot] = []
         for card in cards:
             identity = self._reader.identify(screen, card)
-            levels = self._reader.read_levels(screen, card)
-            if identity is None or levels is None:
+            if identity is None:
+                raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
+            levels = self._reader.read_levels(screen, card, identity)
+            if levels is None:
                 raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
             snapshots.append(
                 TargetShipSnapshot(

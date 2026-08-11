@@ -27,11 +27,12 @@ if TYPE_CHECKING:
 
 
 _PORTRAIT_CROP = (0.03, 0.02, 0.97, 0.59)
+_NAME_CROP = (0.02, 0.897, 0.98, 1.0)
 _STRENGTHEN_CROPS = (
-    (0.14, 0.60, 0.24, 0.80),
-    (0.38, 0.60, 0.48, 0.80),
-    (0.62, 0.60, 0.72, 0.80),
-    (0.86, 0.60, 0.96, 0.80),
+    (0.09, 0.58, 0.28, 0.82),
+    (0.33, 0.58, 0.52, 0.82),
+    (0.57, 0.58, 0.76, 0.82),
+    (0.81, 0.58, 0.99, 0.82),
 )
 _TRACK_X_1920 = 1580
 _TRACK_TOP_1080 = 130
@@ -41,6 +42,14 @@ _PAUSE_FILE = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\pause-expedition-dae
 
 class TargetStatFallback(Protocol):
     def __call__(self, image: np.ndarray) -> int | None: ...
+
+
+class TargetNameRecognizer(Protocol):
+    def recognize_ship_name(self, image: np.ndarray, candidates: list[str]) -> str | None: ...
+
+
+class TargetMaxResolver(Protocol):
+    def __call__(self, ship_id: int) -> ShipStats | None: ...
 
 
 def _relative_crop(
@@ -150,6 +159,49 @@ def _topology_digit(crop: np.ndarray) -> int | None:
     return None
 
 
+def _extract_digit_glyph(crop: np.ndarray) -> np.ndarray | None:
+    """Extract and enlarge only the blue glyph, excluding borders and icons."""
+    hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
+    mask = cv2.inRange(hsv, np.array((90, 150, 70)), np.array((125, 255, 255)))
+    mask[: round(mask.shape[0] * 0.18), :] = 0
+    mask[round(mask.shape[0] * 0.88) :, :] = 0
+    mask[:, : round(mask.shape[1] * 0.12)] = 0
+    mask[:, round(mask.shape[1] * 0.94) :] = 0
+    count, labels, stats, _centers = cv2.connectedComponentsWithStats(mask)
+    accepted = [
+        label
+        for label in range(1, count)
+        if 7 <= stats[label, cv2.CC_STAT_HEIGHT] <= round(mask.shape[0] * 0.55)
+        and 2 <= stats[label, cv2.CC_STAT_WIDTH] <= round(mask.shape[1] * 0.50)
+        and stats[label, cv2.CC_STAT_AREA] >= 8
+    ]
+    if not accepted:
+        return None
+    cleaned = np.zeros_like(mask)
+    for label in accepted:
+        cleaned[labels == label] = 255
+    points = cv2.findNonZero(cleaned)
+    if points is None:
+        return None
+    x, y, width, height = cv2.boundingRect(points)
+    glyph = cleaned[y : y + height, x : x + width]
+    enlarged = cv2.resize(
+        glyph,
+        (max(1, width * 8), max(1, height * 8)),
+        interpolation=cv2.INTER_NEAREST,
+    )
+    enlarged_rgb = cv2.cvtColor(enlarged, cv2.COLOR_GRAY2RGB)
+    return cv2.copyMakeBorder(
+        enlarged_rgb,
+        24,
+        24,
+        24,
+        24,
+        cv2.BORDER_CONSTANT,
+        value=(0, 0, 0),
+    )
+
+
 def _is_max(crop: np.ndarray) -> bool:
     hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
     orange = cv2.inRange(hsv, np.array((5, 150, 140)), np.array((35, 255, 255)))
@@ -164,10 +216,27 @@ def _is_max(crop: np.ndarray) -> bool:
 class CetusTargetCardReader:
     portraits: ShipPortraitLibrary
     ocr: OCREngine | None = None
+    max_resolver: TargetMaxResolver | None = None
 
     def identify(self, screen: np.ndarray, card: CardRect) -> TargetCardIdentity | None:
         portrait = _relative_crop(screen, card, _PORTRAIT_CROP)
         match = self.portraits.identify(portrait)
+        if match is None and self.ocr is not None:
+            search_names = sorted({record.search_name for record in self.portraits.records})
+            rendered_name = self.ocr.recognize_ship_name(
+                _relative_crop(screen, card, _NAME_CROP),
+                search_names,
+            )
+            if rendered_name is not None:
+                candidates = self.portraits.records_for_search_name(rendered_name)
+                if candidates:
+                    match = self.portraits.identify(
+                        portrait,
+                        candidate_names={rendered_name},
+                        min_good_matches=12,
+                        min_ratio=0.015,
+                        ambiguity_margin=4,
+                    )
         if match is None:
             return None
         return TargetCardIdentity(
@@ -179,21 +248,45 @@ class CetusTargetCardReader:
             portrait_match_ratio=match.ratio,
         )
 
-    def _read_stat(self, crop: np.ndarray) -> int | None:
-        if _is_cross(crop):
+    def _read_stat(self, crop: np.ndarray, maximum: int) -> int | None:
+        if maximum == 0 or _is_cross(crop):
             return 0
         if _is_max(crop):
-            return None
+            return maximum
         topology = _topology_digit(crop)
         if topology is not None:
             return topology
         if self.ocr is None:
             return None
-        value = self.ocr.recognize_number(crop)
+        glyph = _extract_digit_glyph(crop)
+        if glyph is None:
+            return None
+        value = self.ocr.recognize_number(glyph)
         return value if value is not None and 0 <= value <= 999 else None
 
-    def read_levels(self, screen: np.ndarray, card: CardRect) -> ShipStats | None:
-        values = [self._read_stat(_relative_crop(screen, card, bounds)) for bounds in _STRENGTHEN_CROPS]
+    def read_levels(
+        self,
+        screen: np.ndarray,
+        card: CardRect,
+        identity: TargetCardIdentity,
+    ) -> ShipStats | None:
+        maximum = None if self.max_resolver is None else self.max_resolver(identity.ship_id)
+        if maximum is None:
+            return None
+        maximum_values = (
+            maximum.firepower,
+            maximum.torpedo,
+            maximum.armor,
+            maximum.anti_air,
+        )
+        values = [
+            self._read_stat(_relative_crop(screen, card, bounds), field_maximum)
+            for bounds, field_maximum in zip(
+                _STRENGTHEN_CROPS,
+                maximum_values,
+                strict=True,
+            )
+        ]
         if any(value is None for value in values):
             return None
         firepower, torpedo, armor, anti_air = values
@@ -250,6 +343,7 @@ def scan_live_target_inventory(
     portraits: ShipPortraitLibrary,
     *,
     ocr: OCREngine | None = None,
+    max_resolver: TargetMaxResolver | None = None,
     max_scrolls: int = 80,
 ) -> list[TargetShipSnapshot]:
     """Run a target-only, scrollbar-only scan on the verified Cetus device."""
@@ -257,7 +351,7 @@ def scan_live_target_inventory(
     if not _PAUSE_FILE.exists():
         raise TargetInventoryScanError(f'远征暂停文件不存在: {_PAUSE_FILE}')
     adapter = CetusTargetScanDevice(device)
-    reader = CetusTargetCardReader(portraits, ocr)
+    reader = CetusTargetCardReader(portraits, ocr, max_resolver)
     result = TargetInventoryScanner(adapter, reader).scan_all(max_scrolls=max_scrolls)
     device.verify_cetus()
     return result

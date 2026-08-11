@@ -74,7 +74,12 @@ class _Reader:
             return None
         return TargetCardIdentity(1, '舰', ShipType.DD, 1, 20, 0.2)
 
-    def read_levels(self, _screen: np.ndarray, _card: CardRect) -> ShipStats | None:
+    def read_levels(
+        self,
+        _screen: np.ndarray,
+        _card: CardRect,
+        _identity: TargetCardIdentity,
+    ) -> ShipStats | None:
         return ShipStats()
 
 
