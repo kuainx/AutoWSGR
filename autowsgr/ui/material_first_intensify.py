@@ -1,0 +1,204 @@
+"""Fresh material-first intensify navigation.
+
+This module intentionally owns its coordinates, visual predicates and state
+machine. It does not depend on the legacy intensify page controller or the
+generic page navigation graph.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING
+
+import cv2
+import numpy as np
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from autowsgr.emulator.controller import Controller
+
+
+class MaterialFirstState(StrEnum):
+    MAIN = 'main'
+    SIDEBAR = 'sidebar'
+    INTENSIFY_HOME = 'intensify_home'
+    MATERIAL_SELECTOR = 'material_selector'
+
+
+class MaterialFirstNavigationError(RuntimeError):
+    """Raised when a visual transition cannot be proven."""
+
+
+@dataclass(frozen=True)
+class MaterialSelectorEvidence:
+    cyan_edge_pixels: int
+    confirm_blue_ratio: float
+    panel_dark_ratio: float
+
+
+_CLICK_OPEN_SIDEBAR = (0.0490, 0.8981)
+_CLICK_SIDEBAR_INTENSIFY = (0.1563, 0.5000)
+_CLICK_INTENSIFY_SUBMENU = (0.3750, 0.5000)
+_CLICK_INTENSIFY_TAB = (0.1875, 0.0463)
+_CLICK_MATERIAL_SLOT = (0.2630, 0.3380)
+
+_MAIN_PROBES = (
+    (0.6453, 0.9375, (52, 115, 168)),
+    (0.8126, 0.8681, (213, 206, 180)),
+    (0.9696, 0.8903, (121, 130, 135)),
+    (0.0570, 0.8847, (251, 252, 255)),
+)
+_SIDEBAR_PROBES = (
+    (0.0417, 0.0806),
+    (0.0422, 0.2102),
+    (0.0453, 0.3463),
+    (0.0406, 0.4676),
+    (0.0396, 0.6028),
+    (0.0432, 0.7231),
+)
+_TAB_PROBES = ((0.1539, 0.0472), (0.2719, 0.0625), (0.4039, 0.0528))
+
+
+def _pixel(screen: np.ndarray, x: float, y: float) -> np.ndarray:
+    height, width = screen.shape[:2]
+    return screen[min(height - 1, round(y * height)), min(width - 1, round(x * width))].astype(
+        np.int16
+    )
+
+
+def _near(actual: np.ndarray, expected: tuple[int, int, int], tolerance: float) -> bool:
+    return float(np.linalg.norm(actual - np.asarray(expected, dtype=np.int16))) <= tolerance
+
+
+def is_main_screen(screen: np.ndarray) -> bool:
+    """Recognize the clean main screen from four independent RGB probes."""
+    return all(_near(_pixel(screen, x, y), color, 30.0) for x, y, color in _MAIN_PROBES)
+
+
+def is_sidebar_screen(screen: np.ndarray) -> bool:
+    """Recognize the six-item sidebar without importing its old controller."""
+    matches = 0
+    for x, y in _SIDEBAR_PROBES:
+        value = _pixel(screen, x, y)
+        if _near(value, (57, 57, 57), 30.0) or _near(value, (0, 160, 232), 30.0):
+            matches += 1
+    return matches >= 5
+
+
+def is_intensify_home_screen(screen: np.ndarray) -> bool:
+    """Recognize the first intensify tab before opening either selector."""
+    first, second, third = (_pixel(screen, *point) for point in _TAB_PROBES)
+    first_blue = _near(first, (15, 132, 228), 35.0)
+    others_dark = int(second.max()) < 80 and int(third.max()) < 80
+    return first_blue and others_dark and not is_material_selector_screen(screen)
+
+
+def material_selector_evidence(screen: np.ndarray) -> MaterialSelectorEvidence:
+    """Measure visual evidence unique to the material selector."""
+    height, width = screen.shape[:2]
+    hsv = cv2.cvtColor(screen, cv2.COLOR_RGB2HSV)
+
+    grid = hsv[round(height * 0.11) : round(height * 0.96), : round(width * 0.81)]
+    cyan = cv2.inRange(
+        grid,
+        np.array((85, 120, 90), dtype=np.uint8),
+        np.array((115, 255, 255), dtype=np.uint8),
+    )
+
+    confirm = hsv[
+        round(height * 0.84) : round(height * 0.97),
+        round(width * 0.84) : round(width * 0.98),
+    ]
+    confirm_blue = cv2.inRange(
+        confirm,
+        np.array((90, 100, 100), dtype=np.uint8),
+        np.array((120, 255, 255), dtype=np.uint8),
+    )
+
+    panel = screen[
+        round(height * 0.11) : round(height * 0.82),
+        round(width * 0.83) : round(width * 0.99),
+    ]
+    panel_dark = np.max(panel, axis=2) < 100
+    return MaterialSelectorEvidence(
+        cyan_edge_pixels=int(np.count_nonzero(cyan)),
+        confirm_blue_ratio=float(np.mean(confirm_blue > 0)),
+        panel_dark_ratio=float(np.mean(panel_dark)),
+    )
+
+
+def is_material_selector_screen(screen: np.ndarray) -> bool:
+    """Recognize material selection without OCR or ship identity work."""
+    evidence = material_selector_evidence(screen)
+    return (
+        evidence.cyan_edge_pixels >= 4_000
+        and evidence.confirm_blue_ratio >= 0.35
+        and evidence.panel_dark_ratio >= 0.20
+    )
+
+
+class MaterialFirstIntensifyController:
+    """Navigate from main screen to material selector, then stop."""
+
+    def __init__(
+        self,
+        ctrl: Controller,
+        *,
+        timeout: float = 6.0,
+        interval: float = 0.25,
+        stable_frames: int = 2,
+    ) -> None:
+        self._ctrl = ctrl
+        self._timeout = timeout
+        self._interval = interval
+        self._stable_frames = stable_frames
+
+    def _wait_stable(
+        self,
+        state: MaterialFirstState,
+        predicate: Callable[[np.ndarray], bool],
+    ) -> np.ndarray:
+        deadline = time.monotonic() + self._timeout
+        stable = 0
+        last: np.ndarray | None = None
+        while time.monotonic() < deadline:
+            screen = self._ctrl.screenshot()
+            if predicate(screen):
+                stable += 1
+                last = screen
+                if stable >= self._stable_frames:
+                    return last
+            else:
+                stable = 0
+                last = None
+            time.sleep(self._interval)
+        raise MaterialFirstNavigationError(f'未连续稳定识别页面: {state.value}')
+
+    def enter_intensify_home_from_main(self) -> np.ndarray:
+        """Execute only MAIN -> sidebar -> intensify home, then stop."""
+        self._wait_stable(MaterialFirstState.MAIN, is_main_screen)
+
+        self._ctrl.click(*_CLICK_OPEN_SIDEBAR)
+        self._wait_stable(MaterialFirstState.SIDEBAR, is_sidebar_screen)
+
+        self._ctrl.click(*_CLICK_SIDEBAR_INTENSIFY)
+        time.sleep(1.0)
+        self._ctrl.click(*_CLICK_INTENSIFY_SUBMENU)
+        self._wait_stable(MaterialFirstState.INTENSIFY_HOME, is_intensify_home_screen)
+
+        self._ctrl.click(*_CLICK_INTENSIFY_TAB)
+        return self._wait_stable(MaterialFirstState.INTENSIFY_HOME, is_intensify_home_screen)
+
+    def enter_material_selector_from_main(self) -> MaterialSelectorEvidence:
+        """Enter the material selector directly without requiring a target ship."""
+        self.enter_intensify_home_from_main()
+        self._ctrl.click(*_CLICK_MATERIAL_SLOT)
+        screen = self._wait_stable(
+            MaterialFirstState.MATERIAL_SELECTOR,
+            is_material_selector_screen,
+        )
+        return material_selector_evidence(screen)
