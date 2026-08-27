@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 import zipfile
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -294,7 +296,9 @@ def test_wsg_ncc_data_zip_loader_reads_codebook_and_metadata(tmp_path: Path) -> 
     engine = MagicMock()
     with pytest.MonkeyPatch.context() as monkeypatch:
         cascade = MagicMock(return_value=engine)
-        monkeypatch.setattr('cascade_ncc.CascadeRecognizer', cascade)
+        cascade_module = types.ModuleType('cascade_ncc')
+        cascade_module.CascadeRecognizer = cascade
+        monkeypatch.setitem(sys.modules, 'cascade_ncc', cascade_module)
         WsgNccShipCardRecognizer.from_data_root(
             archive_path,
             manifest_path=_manifest(tmp_path),
