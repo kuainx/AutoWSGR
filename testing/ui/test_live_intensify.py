@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -17,7 +18,7 @@ from autowsgr.ui.live_intensify import (
 from autowsgr.vision.ocr import OCRResult
 
 
-_ROOT = Path(r'C:\Users\23264\AppData\Local\Temp\kilo')
+_ROOT = Path(os.environ.get('AUTOWSGR_LIVE_FIXTURE_ROOT', 'testing/fixtures/live-intensify'))
 
 
 def _fixture(name: str) -> np.ndarray:

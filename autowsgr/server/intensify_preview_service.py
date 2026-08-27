@@ -74,10 +74,19 @@ class IntensifyPreviewService:
         except IntensifySnapshotStoreError as error:
             raise IntensifyPreviewSessionUnavailableError('强化快照会话不可用') from error
 
-        if not any(
-            target.ref == command.selected_target_ref for target in session.target_snapshot.targets
-        ):
+        selected_targets = tuple(
+            target
+            for target in session.target_snapshot.targets
+            if target.ref == command.selected_target_ref
+        )
+        if len(selected_targets) != 1:
             raise IntensifyPreviewSelectionError('强化目标选择不可用')
+        selected_snapshot = type(session.target_snapshot)(
+            targets=selected_targets,
+            total=1,
+            complete=True,
+            revision=session.target_snapshot.revision,
+        )
 
         try:
             strengthen = ShipStrengthenDataResolver.from_source(self._strengthen_path)
@@ -92,7 +101,7 @@ class IntensifyPreviewService:
                 rarities,
             )
             preview = intensify_candidate_preview(
-                session.target_snapshot,
+                selected_snapshot,
                 materials,
                 strengthen,
                 command.policy,
@@ -103,7 +112,7 @@ class IntensifyPreviewService:
         if command.selected_material_refs:
             try:
                 preview = intensify_candidate_preview(
-                    session.target_snapshot,
+                    selected_snapshot,
                     materials,
                     strengthen,
                     command.policy,
@@ -112,12 +121,4 @@ class IntensifyPreviewService:
             except MaterialInventoryScanError as error:
                 raise IntensifyPreviewSelectionError('强化素材选择不可用') from error
 
-        payload = serialize_intensify_candidate_preview(preview)
-        payload['targets'] = [
-            target
-            for target in payload['targets']
-            if target['ref'] == command.selected_target_ref.value
-        ]
-        if len(payload['targets']) != 1:
-            raise IntensifyPreviewSelectionError('强化目标选择不可用')
-        return payload
+        return serialize_intensify_candidate_preview(preview)

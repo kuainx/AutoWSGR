@@ -49,19 +49,41 @@ class NamedPortraitMatcher:
 
     def _load_records(self) -> tuple[NamedPortraitRecord, ...]:
         manifest = json.loads((self._root / 'manifest.json').read_text(encoding='utf-8'))
+        entries = manifest.get('ships') if isinstance(manifest, dict) else None
+        if not isinstance(entries, list) or not entries:
+            raise ValueError('舰船资源 manifest 缺少非空 ships 列表')
         records: list[NamedPortraitRecord] = []
-        for entry in manifest.get('ships', []):
+        seen_ids: set[int] = set()
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise TypeError(f'舰船资源 manifest 条目格式错误: {index}')
             portrait = entry.get('portrait')
             type_value = _SHIP_TYPE_CODES.get(str(entry.get('ship_type', '')).lower())
-            if not portrait or type_value is None:
-                continue
+            ship_id = entry.get('id')
+            name = entry.get('name')
+            if (
+                isinstance(ship_id, bool)
+                or not isinstance(ship_id, int)
+                or not isinstance(name, str)
+                or not name.strip()
+                or not isinstance(portrait, str)
+                or not portrait.strip()
+                or type_value is None
+            ):
+                raise ValueError(f'舰船资源 manifest 条目无效: {index}')
+            portrait_path = self._root / portrait
+            if not portrait_path.is_file():
+                raise ValueError(f'舰船资源头像不存在: {portrait}')
+            if ship_id in seen_ids:
+                raise ValueError(f'舰船资源 manifest ID 重复: {ship_id}')
+            seen_ids.add(ship_id)
             records.append(
                 NamedPortraitRecord(
-                    ship_id=int(entry['id']),
-                    name=str(entry['name']),
-                    search_name=str(entry.get('search_name') or entry['name']),
+                    ship_id=ship_id,
+                    name=name.strip(),
+                    search_name=str(entry.get('search_name') or name).strip(),
                     ship_type=ShipType(type_value),
-                    portrait_path=self._root / str(portrait),
+                    portrait_path=portrait_path,
                 )
             )
         return tuple(records)
@@ -86,11 +108,12 @@ class NamedPortraitMatcher:
         if cached is not None:
             return cached
         image = cv2.imread(str(record.portrait_path), cv2.IMREAD_UNCHANGED)
-        if image is None:
-            result = (0, None)
-        else:
-            conversion = cv2.COLOR_BGRA2RGBA if image.shape[2] == 4 else cv2.COLOR_BGR2RGB
-            result = self._describe(cv2.cvtColor(image, conversion))
+        if image is None or image.ndim != 3 or image.shape[2] not in (3, 4):
+            raise ValueError(f'舰船资源头像不可读取: {record.portrait_path}')
+        conversion = cv2.COLOR_BGRA2RGBA if image.shape[2] == 4 else cv2.COLOR_BGR2RGB
+        result = self._describe(cv2.cvtColor(image, conversion))
+        if result[1] is None or result[0] < 2:
+            raise ValueError(f'舰船资源头像缺少可用特征: {record.portrait_path}')
         self._descriptor_cache[record.portrait_path] = result
         return result
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import zipfile
 from dataclasses import dataclass
@@ -78,16 +79,27 @@ def _canonical_ships(manifest_path: Path) -> dict[int, tuple[str, ShipType]]:
     if not isinstance(raw, dict) or not isinstance(raw.get('ships'), list):
         raise ShipCardRecognitionError('规范舰船 manifest 缺少 ships 列表')
     result: dict[int, tuple[str, ShipType]] = {}
-    for ship in raw['ships']:
+    for index, ship in enumerate(raw['ships']):
         if not isinstance(ship, dict):
-            continue
+            raise ShipCardRecognitionError(f'规范舰船 manifest 条目格式错误: {index}')
         ship_id = ship.get('id')
         name = ship.get('name')
         type_code = ship.get('ship_type')
         type_value = _SHIP_TYPE_CODES.get(str(type_code).lower())
-        if not isinstance(ship_id, int) or not isinstance(name, str) or type_value is None:
-            continue
-        result[ship_id] = (name, ShipType(type_value))
+        if (
+            isinstance(ship_id, bool)
+            or not isinstance(ship_id, int)
+            or ship_id < 0
+            or not isinstance(name, str)
+            or not name.strip()
+            or type_value is None
+        ):
+            raise ShipCardRecognitionError(f'规范舰船 manifest 条目无效: {index}')
+        if ship_id in result:
+            raise ShipCardRecognitionError(f'规范舰船 manifest ID 重复: {ship_id}')
+        result[ship_id] = (name.strip(), ShipType(type_value))
+    if not result:
+        raise ShipCardRecognitionError('规范舰船 manifest 没有有效舰船')
     return result
 
 
@@ -115,7 +127,9 @@ def _load_metadata(
         if ship_type_value is None:
             canonical_identity = canonical.get(ship_id)
             if canonical_identity is None:
-                continue
+                raise ShipCardRecognitionError(
+                    f'WSG-NCC metadata 身份不在规范 manifest 中: {key}/{ship_id}'
+                )
             canonical_name, ship_type = canonical_identity
             name = canonical_name
         else:
@@ -204,6 +218,14 @@ class WsgNccShipCardRecognizer:
             if not isinstance(match, (list, tuple)) or len(match) not in (3, 4):
                 raise ShipCardRecognitionError('WSG-NCC 匹配结果格式错误')
             _value, score, key = match[:3]
+            try:
+                confidence = float(score)
+            except (TypeError, ValueError) as exc:
+                raise ShipCardRecognitionError('WSG-NCC 匹配置信度格式错误') from exc
+            if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+                raise ShipCardRecognitionError('WSG-NCC 匹配置信度必须是有限的 0..1 数值')
+            if confidence < self._MIN_CONFIDENCE:
+                continue
             normalized_key = self._normalize_match_key(key)
             metadata = self._metadata.get(normalized_key)
             if metadata is None:
@@ -212,7 +234,7 @@ class WsgNccShipCardRecognizer:
                 ship_id=metadata.ship_id,
                 name=metadata.name,
                 ship_type=metadata.ship_type,
-                confidence=float(score),
+                confidence=confidence,
                 match_key=normalized_key,
             )
         return None

@@ -231,7 +231,12 @@ def matching_target_row_index(
 
 def assign_target_occurrences(
     cards: list[TargetShipSnapshot],
+    *,
+    screen_width: int = 1920,
+    screen_height: int = 1080,
 ) -> list[TargetShipSnapshot]:
+    if screen_width < 1 or screen_height < 1:
+        raise ValueError('目标舰截图尺寸必须大于 0')
     revision_payload = '|'.join(
         f'{card.scan_step}:{card.ship_id}:{card.visual_hash}' for card in cards
     )
@@ -242,14 +247,22 @@ def assign_target_occurrences(
         occurrence = occurrences.get(card.ship_id, 0)
         occurrences[card.ship_id] = occurrence + 1
         center_x, center_y = card.card.center
-        row = 0 if center_y < 540 else 1
-        column = index % 7
+        row = 0 if center_y < screen_height / 2 else 1
+        viewport_rows = target_viewport_rows(
+            [item for item in cards if item.scan_step == card.scan_step]
+        )
+        column = next(
+            column_index
+            for viewport_row in viewport_rows
+            for column_index, item in enumerate(viewport_row)
+            if item is card
+        )
         result.append(
             replace(
                 card,
                 ref=SelectionRef(
                     f'target:{revision}:{card.scan_step}:{row}:{column}:'
-                    f'{center_x / 1920:.4f}:{center_y / 1080:.4f}'
+                    f'{center_x / screen_width:.4f}:{center_y / screen_height:.4f}'
                 ),
                 global_index=index,
                 occurrence=occurrence,
@@ -331,15 +344,18 @@ class TargetInventoryScanner:
         previous: list[TargetShipSnapshot],
         *,
         scan_step: int,
+        max_attempts: int = 12,
     ) -> tuple[list[TargetShipSnapshot], np.ndarray]:
-        """Advance until the previous trailing row leads a viewport with new cards."""
+        """Advance within a bounded physical-input budget to one logical viewport."""
+        if max_attempts < 1:
+            raise ValueError('目标舰物理滚动尝试次数必须大于 0')
         previous_rows = target_viewport_rows(previous)
         if not previous_rows:
             raise TargetInventoryScanError('目标舰视口没有完整锚点行')
         anchor = previous_rows[-1]
         last_anchor_index = len(previous_rows) - 1
         last_anchor_top = anchor[0].card.top
-        while True:
+        for _attempt in range(max_attempts):
             screen = self._device.advance_target_list()
             current = self.read_viewport(screen, scan_step=scan_step)
             current_rows = target_viewport_rows(current)
@@ -349,7 +365,9 @@ class TargetInventoryScanner:
             current_anchor_top = current_rows[anchor_index][0].card.top
             progressed = anchor_index < last_anchor_index or current_anchor_top < last_anchor_top
             if not progressed:
-                raise TargetInventoryScanError('目标舰列表滚动没有产生可观测进度')
+                if max_attempts == 12:
+                    raise TargetInventoryScanError('目标舰列表滚动没有产生可观测进度')
+                continue
             overlap = target_page_overlap_size(previous, current)
             if anchor_index == 0 and len(current) > overlap:
                 return current, screen
@@ -357,6 +375,7 @@ class TargetInventoryScanner:
                 raise TargetInventoryScanError('目标舰列表到底前未形成完整重叠视口')
             last_anchor_index = anchor_index
             last_anchor_top = current_anchor_top
+        raise TargetInventoryScanError(f'目标舰逻辑视口超过物理滚动尝试次数: {max_attempts}')
 
     def navigate_to_viewport(self, viewport_steps: int) -> list[TargetShipSnapshot]:
         """Replay identity-gated logical target rows from the list top."""
@@ -381,7 +400,11 @@ class TargetInventoryScanner:
         previous = self.read_viewport(initial_screen, scan_step=0)
         accumulated = list(previous)
         if self._device.target_list_at_bottom(initial_screen):
-            return assign_target_occurrences(accumulated)
+            return assign_target_occurrences(
+                accumulated,
+                screen_width=initial_screen.shape[1],
+                screen_height=initial_screen.shape[0],
+            )
         for scan_step in range(1, max_scrolls + 1):
             current, screen = self.advance_overlapping_viewport(
                 previous,
@@ -390,7 +413,11 @@ class TargetInventoryScanner:
             accumulated = merge_overlapping_target_pages(accumulated, current)
             previous = current
             if self._device.target_list_at_bottom(screen):
-                return assign_target_occurrences(accumulated)
+                return assign_target_occurrences(
+                    accumulated,
+                    screen_width=screen.shape[1],
+                    screen_height=screen.shape[0],
+                )
         raise TargetInventoryScanError(f'目标舰列表扫描超过最大滚动次数: {max_scrolls}')
 
     def scan_snapshot(self, *, max_scrolls: int = 80) -> TargetInventorySnapshot:

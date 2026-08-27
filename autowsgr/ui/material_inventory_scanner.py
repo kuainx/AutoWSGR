@@ -377,13 +377,45 @@ class MaterialViewportReader:
         return self.recognize_captures((self.capture(screen),))[0]
 
 
+def merge_viewport_identities(
+    accumulated: Sequence[tuple[int, str]],
+    current: Sequence[tuple[int, str]],
+    *,
+    minimum_overlap: int = 7,
+) -> tuple[tuple[tuple[int, str], ...], int]:
+    """Merge by canonical ID and display name, never by display name alone."""
+    left = tuple(accumulated)
+    right = tuple(current)
+    if not left:
+        return right, 0
+    maximum = min(len(left), len(right))
+    overlap = next(
+        (size for size in range(maximum, 0, -1) if left[-size:] == right[:size]),
+        0,
+    )
+    if 0 < overlap < minimum_overlap or (overlap == 0 and left[-1][1] == right[0][1]):
+        raise MaterialInventoryScanError('相邻素材视口无法建立规范身份序列衔接')
+    merged = left + right[overlap:]
+    closed: set[tuple[int, str]] = set()
+    previous: tuple[int, str] | None = None
+    for identity in merged:
+        if identity == previous:
+            continue
+        if identity in closed:
+            raise MaterialInventoryScanError('素材规范身份未保持单一连续分组')
+        if previous is not None:
+            closed.add(previous)
+        previous = identity
+    return merged, overlap
+
+
 def merge_viewport_names(
     accumulated: Sequence[str],
     current: Sequence[str],
     *,
     minimum_overlap: int = 7,
 ) -> tuple[tuple[str, ...], int]:
-    """Merge by the longest accumulated suffix/current prefix overlap."""
+    """Compatibility helper for non-authoritative name-only callers and tests."""
     left = tuple(accumulated)
     right = tuple(current)
     if not left:
@@ -571,23 +603,26 @@ class MaterialInventoryScanner:
             screen = stable_screens[-1]
             if viewport_count == 1 and not self._stepper.is_top(screen):
                 raise MaterialInventoryScanError('素材扫描必须从滚动条顶部开始')
-            captures.append(self._reader.capture_best(stable_screens))
+            captured = self._reader.capture_best(stable_screens)
             thumb = self._stepper.thumb_bottom(screen)
             no_thumb_move = previous_thumb is not None and thumb == previous_thumb
             at_bottom = self._stepper.is_bottom(screen)
             if no_thumb_move and not at_bottom:
                 raise MaterialInventoryScanError('滚动条在未到底时没有移动')
+            if not (at_bottom and no_thumb_move):
+                captures.append(captured)
             stagnant = stagnant + 1 if at_bottom and no_thumb_move else 0
             if stagnant >= self._stagnant_limit:
+                if not captures:
+                    raise MaterialInventoryScanError('素材库存没有权威视口证据')
                 viewports = self._reader.recognize_captures(captures)
                 revision_payload = '|'.join(
-                    f'{viewport_index}:{name}'
+                    f'{viewport_index}:{ship_id}:{name}'
                     for viewport_index, viewport in enumerate(viewports)
-                    for name in viewport.names
+                    for ship_id, name in zip(viewport.ship_ids, viewport.names, strict=True)
                 )
                 revision = hashlib.sha256(revision_payload.encode()).hexdigest()[:16]
-                accumulated: tuple[str, ...] = ()
-                accumulated_ids: tuple[int, ...] = ()
+                accumulated: tuple[tuple[int, str], ...] = ()
                 refs: tuple[str, ...] = ()
                 for viewport_index, viewport in enumerate(viewports):
                     if len(viewport.ship_ids) != len(viewport.names):
@@ -598,19 +633,20 @@ class MaterialInventoryScanner:
                     )
                     if len(viewport_refs) != len(viewport.names):
                         raise MaterialInventoryScanError('素材位置数量与舰名数量不一致')
-                    merged_names, overlap = merge_viewport_names(
+                    merged, overlap = merge_viewport_identities(
                         accumulated,
-                        viewport.names,
+                        tuple(zip(viewport.ship_ids, viewport.names, strict=True)),
                         minimum_overlap=1,
                     )
-                    accumulated = merged_names
-                    accumulated_ids += viewport.ship_ids[overlap:]
+                    accumulated = merged
                     refs += viewport_refs[overlap:]
+                ship_ids = tuple(ship_id for ship_id, _name in accumulated)
+                names = tuple(name for _ship_id, name in accumulated)
                 return MaterialInventorySnapshot(
-                    accumulated,
-                    accumulated_ids,
+                    names,
+                    ship_ids,
                     len(accumulated),
-                    viewport_count,
+                    len(viewports),
                     refs,
                 )
             self._stepper.advance(thumb_bottom=thumb, screen_height=screen.shape[0])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -28,7 +29,7 @@ from autowsgr.ui.target_inventory_scanner import (
 from autowsgr.vision.ship_card_recognizer import ShipCardIdentity
 
 
-_ROOT = Path(r'C:\Users\23264\AppData\Local\Temp\kilo')
+_ROOT = Path(os.environ.get('AUTOWSGR_LIVE_FIXTURE_ROOT', 'testing/fixtures/live-intensify'))
 
 
 def test_target_thumb_supports_short_live_thumb() -> None:
@@ -44,7 +45,7 @@ def test_target_thumb_supports_short_live_thumb() -> None:
 def test_saved_chitose_stat_glyphs_distinguish_one_cross_zero_and_other() -> None:
     paths = [_ROOT / f'target-strength-tight-{index}.png' for index in range(4)]
     if not all(path.exists() for path in paths):
-        return
+        pytest.skip(f'live Chitose stat fixtures unavailable under {_ROOT}')
     crops = [cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB) for path in paths]
     assert _topology_digit(crops[0]) == 1
     assert _is_cross(crops[1])
@@ -68,7 +69,7 @@ def test_saved_oyodo_armor_cross_is_recognized() -> None:
 def test_saved_multi_digit_and_eight_glyphs_do_not_collapse_to_zero() -> None:
     paths = [_ROOT / f'target-1509-stat-{index}.png' for index in range(4)]
     if not all(path.exists() for path in paths):
-        return
+        pytest.skip(f'live multi-digit fixtures unavailable under {_ROOT}')
     crops = [cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB) for path in paths]
 
     assert _topology_digit(crops[0]) is None
@@ -79,7 +80,7 @@ def test_saved_multi_digit_and_eight_glyphs_do_not_collapse_to_zero() -> None:
 def test_stable_card_hash_excludes_scrolling_name_ticker() -> None:
     paths = [_ROOT / 'target-354-top.png', _ROOT / 'target-354-bottom.png']
     if not all(path.exists() for path in paths):
-        return
+        pytest.skip(f'live target hash fixtures unavailable under {_ROOT}')
     cards = [cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB) for path in paths]
 
     assert _stable_card_hash(cards[0]) == _stable_card_hash(cards[1])
@@ -148,7 +149,7 @@ class _NamedPortraits:
 def test_reader_recovers_saved_chitose_strength_vector() -> None:
     paths = [_ROOT / f'target-strength-tight-{index}.png' for index in range(4)]
     if not all(path.exists() for path in paths):
-        return
+        pytest.skip(f'live Chitose vector fixtures unavailable under {_ROOT}')
     reader = CetusTargetCardReader(_NoIdentities(), _FallbackOcr())
     crops = [cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB) for path in paths]
     values = [
@@ -237,18 +238,18 @@ def test_target_scan_device_returns_exact_frame_after_one_scroll_quantum() -> No
         scroll_amount=-0.25,
     )
     screen = np.full((10, 10, 3), 7, dtype=np.uint8)
-    adapter.screenshot = MagicMock(return_value=screen)
+    adapter.screenshot = MagicMock(side_effect=(screen.copy(), screen.copy()))
 
     result = adapter.advance_target_list()
 
-    assert result is screen
+    assert np.array_equal(result, screen)
     scroll.scroll.assert_called_once_with(
         0.5,
         0.5,
         vertical=-0.25,
         delay=False,
     )
-    adapter.screenshot.assert_called_once_with()
+    assert adapter.screenshot.call_count == 2
 
 
 def test_live_target_scan_returns_formal_snapshot_after_reverifying_device(

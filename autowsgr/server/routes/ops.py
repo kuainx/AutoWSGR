@@ -26,6 +26,8 @@ from autowsgr.server.schemas import (
     ApiResponse,
     IntensifyRequest,
     IntensifySnapshotPreviewRequest,
+    IntensifySnapshotPreviewResponse,
+    IntensifySnapshotSessionResponse,
 )
 from autowsgr.server.serializers import (
     serialize_intensify_material_inventory,
@@ -46,9 +48,12 @@ _INTENSIFY_UNAVAILABLE = (
 )
 
 
-@router.post('/api/intensify/snapshot-sessions', response_model=ApiResponse)
+@router.post(
+    '/api/intensify/snapshot-sessions',
+    response_model=ApiResponse[IntensifySnapshotSessionResponse],
+)
 @exclusive_device_operation('api:intensify-snapshot-scan')
-async def intensify_snapshot_session() -> ApiResponse:
+async def intensify_snapshot_session() -> ApiResponse[IntensifySnapshotSessionResponse]:
     """Scan both complete inventories and publish one short-lived read-only session."""
     try:
         context = get_context()
@@ -91,8 +96,13 @@ async def intensify_preview(request: IntensifyRequest) -> ApiResponse:
     )
 
 
-@router.post('/api/intensify/snapshot-preview', response_model=ApiResponse)
-async def intensify_snapshot_preview(request: IntensifySnapshotPreviewRequest) -> ApiResponse:
+@router.post(
+    '/api/intensify/snapshot-preview',
+    response_model=ApiResponse[IntensifySnapshotPreviewResponse],
+)
+async def intensify_snapshot_preview(
+    request: IntensifySnapshotPreviewRequest,
+) -> ApiResponse[IntensifySnapshotPreviewResponse]:
     """Preview exact server-owned inventory occurrences without touching the device."""
     command = IntensifyPreviewCommand(
         session_id=request.session_id,

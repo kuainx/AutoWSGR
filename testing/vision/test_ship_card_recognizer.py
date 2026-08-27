@@ -152,6 +152,24 @@ def test_wsg_ncc_adapter_fails_closed_for_empty_or_unknown_match(
     assert recognizer.recognize([np.zeros((405, 192, 3), dtype=np.uint8)]) == [None]
 
 
+@pytest.mark.parametrize('score', [float('nan'), float('inf'), -0.1, 1.1, 'bad'])
+def test_wsg_ncc_adapter_rejects_malformed_confidence(tmp_path: Path, score: object) -> None:
+    engine = MagicMock()
+    engine.recognize.return_value = [[(None, score, '1/84/XM_NORMAL_84.png')]]
+    recognizer = WsgNccShipCardRecognizer('unused', _metadata(tmp_path), engine=engine)
+
+    with pytest.raises(ShipCardRecognitionError, match='置信度'):
+        recognizer.recognize([np.zeros((405, 192, 3), dtype=np.uint8)])
+
+
+def test_wsg_ncc_adapter_rejects_engine_score_below_threshold(tmp_path: Path) -> None:
+    engine = MagicMock()
+    engine.recognize.return_value = [[(None, 0.69, '1/84/XM_NORMAL_84.png')]]
+    recognizer = WsgNccShipCardRecognizer('unused', _metadata(tmp_path), engine=engine)
+
+    assert recognizer.recognize([np.zeros((405, 192, 3), dtype=np.uint8)]) == [None]
+
+
 def test_wsg_ncc_adapter_rejects_non_uint8_or_bgr_ambiguity(tmp_path: Path) -> None:
     recognizer = WsgNccShipCardRecognizer('unused', _metadata(tmp_path), engine=MagicMock())
     with pytest.raises(ShipCardRecognitionError, match='uint8 RGB/RGBA'):
@@ -222,7 +240,6 @@ def test_wsg_ncc_adapter_enriches_private_metadata_from_manifest(tmp_path: Path)
         json.dumps(
             {
                 '1/84/XM_NORMAL_84.png': {'shipIndex': 84, 'title': '天后'},
-                '1/9999/XM_NORMAL_9999.png': {'shipIndex': 9999, 'title': None},
             },
             ensure_ascii=False,
         ),
@@ -248,6 +265,22 @@ def test_wsg_ncc_adapter_enriches_private_metadata_from_manifest(tmp_path: Path)
     assert identity.ship_id == 84
     assert identity.name == '天后'
     assert identity.ship_type is ShipType.DD
+
+
+def test_wsg_ncc_metadata_rejects_identity_missing_from_manifest(tmp_path: Path) -> None:
+    metadata = tmp_path / 'gallery_meta.json'
+    metadata.write_text(
+        json.dumps({'1/9999/XM_NORMAL_9999.png': {'shipIndex': 9999, 'title': None}}),
+        encoding='utf-8',
+    )
+
+    with pytest.raises(ShipCardRecognitionError, match='不在规范 manifest'):
+        WsgNccShipCardRecognizer(
+            'unused',
+            metadata,
+            manifest_path=_manifest(tmp_path),
+            engine=MagicMock(),
+        )
 
 
 def test_wsg_ncc_data_zip_loader_reads_codebook_and_metadata(tmp_path: Path) -> None:

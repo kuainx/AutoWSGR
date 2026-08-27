@@ -101,6 +101,18 @@ def test_occurrences_preserve_duplicate_targets() -> None:
     assert [item.global_index for item in positioned] == [0, 1, 2]
 
 
+def test_occurrence_refs_normalize_with_actual_screen_dimensions() -> None:
+    card = replace(_snapshot(7), card=CardRect(100, 50, 300, 250))
+
+    positioned = assign_target_occurrences(
+        [card],
+        screen_width=800,
+        screen_height=400,
+    )
+
+    assert positioned[0].ref.value.endswith(':0.2500:0.3750')
+
+
 def test_target_inventory_snapshot_is_complete_immutable_and_revision_bound() -> None:
     positioned = tuple(assign_target_occurrences([_snapshot(7), _snapshot(7), _snapshot(8)]))
     revision = positioned[0].ref.value.split(':')[1]
@@ -262,6 +274,22 @@ def test_intermediate_clipped_observation_does_not_consume_logical_scan_step() -
     assert {item.scan_step for item in result} == {0}
     assert scanner.read_viewport.call_args_list[0].kwargs['scan_step'] == 1
     assert scanner.read_viewport.call_args_list[1].kwargs['scan_step'] == 1
+
+
+def test_advance_attempt_budget_bounds_physical_scroll_inputs() -> None:
+    previous = _rows(tuple(range(1, 8)), tuple(range(8, 15)))
+    first_row = _rows(tuple(range(8, 15)))
+    first_row = [replace(item, card=replace(item.card, top=120, bottom=320)) for item in first_row]
+    device = MagicMock()
+    device.advance_target_list.return_value = np.zeros((1, 1, 3), dtype=np.uint8)
+    device.target_list_at_bottom.return_value = False
+    scanner = TargetInventoryScanner(device, _Reader(), settle_seconds=0)
+    scanner.read_viewport = MagicMock(return_value=first_row)
+
+    with pytest.raises(TargetInventoryScanError, match='物理滚动尝试次数: 2'):
+        scanner.advance_overlapping_viewport(previous, scan_step=1, max_attempts=2)
+
+    assert device.advance_target_list.call_count == 2
 
 
 def test_advance_rejects_unchanged_non_bottom_viewport() -> None:

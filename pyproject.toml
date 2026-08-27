@@ -28,7 +28,6 @@ dependencies = [
     "uvicorn[standard]>=0.23.0",
     "websockets>=11.0",
     "retry>=0.9.2",
-    "cascade-ncc @ git+https://github.com/CV-souryu/WSG-NCC.git@939e0dcf8c45df4892638acce1c7ff6f4cd07c55",
 ]
 
 [dependency-groups]
@@ -47,9 +46,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "autowsgr/__init__.py"
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.codespell]
 ignore-words = "docs/spelling_wordlist.txt"

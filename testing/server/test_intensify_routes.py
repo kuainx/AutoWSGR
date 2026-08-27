@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from autowsgr.server import main as server_main
 from autowsgr.server.device_lease import device_operation_lease
 from autowsgr.server.intensify_preview_dependencies import IntensifyPreviewConfigurationError
 from autowsgr.server.intensify_preview_service import (
@@ -313,6 +314,24 @@ def test_snapshot_preview_request_rejects_blank_exact_values(
 
     with pytest.raises(ValidationError, match=r'不能为空|非空字符串列表'):
         IntensifySnapshotPreviewRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ('path', 'model_name'),
+    [
+        ('/api/intensify/snapshot-sessions', 'IntensifySnapshotSessionResponse'),
+        ('/api/intensify/snapshot-preview', 'IntensifySnapshotPreviewResponse'),
+    ],
+)
+def test_snapshot_openapi_exposes_typed_data(path: str, model_name: str) -> None:
+    schema = server_main.app.openapi()
+    response_schema = schema['paths'][path]['post']['responses']['200']['content'][
+        'application/json'
+    ]['schema']
+    response_model_name = response_schema['$ref'].rsplit('/', 1)[-1]
+    data_schema = schema['components']['schemas'][response_model_name]['properties']['data']
+
+    assert model_name in str(data_schema)
 
 
 def test_intensify_execute_fails_closed_without_touching_device() -> None:

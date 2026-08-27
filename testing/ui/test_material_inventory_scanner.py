@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -15,13 +16,17 @@ from autowsgr.ui.material_inventory_scanner import (
     MaterialInventoryScanError,
     MaterialInventoryScanner,
     MaterialViewportReader,
+    merge_viewport_identities,
     merge_viewport_names,
     scan_material_inventory_from_main,
 )
 from autowsgr.vision.ship_card_recognizer import ShipCardIdentity
 
 
-_FIXTURE_ROOT = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\live-material-rebuild')
+_LIVE_FIXTURE_ROOT = Path(
+    os.environ.get('AUTOWSGR_LIVE_FIXTURE_ROOT', 'testing/fixtures/live-intensify')
+)
+_FIXTURE_ROOT = _LIVE_FIXTURE_ROOT / 'live-material-rebuild'
 
 
 def _fixture(name: str) -> np.ndarray:
@@ -134,10 +139,8 @@ def test_capture_excludes_top_row_without_a_complete_card_height() -> None:
 
 
 def test_capture_excludes_row_without_complete_cyan_card_top() -> None:
-    clipped_path = Path(
-        r'C:\Users\23264\AppData\Local\Temp\kilo\intensify-material-identity-failure\crop-57.png'
-    )
-    complete_path = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\material-selected.png')
+    clipped_path = _LIVE_FIXTURE_ROOT / 'intensify-material-identity-failure' / 'crop-57.png'
+    complete_path = _LIVE_FIXTURE_ROOT / 'material-selected.png'
     if not clipped_path.exists() or not complete_path.exists():
         pytest.skip('live clipped/complete material fixtures unavailable')
     clipped = cv2.cvtColor(cv2.imread(str(clipped_path)), cv2.COLOR_BGR2RGB)
@@ -301,7 +304,7 @@ def test_scanner_merges_views_and_stops_after_stagnation() -> None:
     ctrl.screenshot.side_effect = [np.zeros((10, 10, 3), dtype=np.uint8)] * 6
     reader = MagicMock()
     reader.capture_best.side_effect = [MagicMock(), MagicMock(), MagicMock()]
-    reader.recognize_captures.return_value = [
+    reader.recognize_captures.side_effect = lambda captures: [
         MagicMock(
             names=('A', 'B', 'C'),
             ship_ids=(1, 2, 3),
@@ -314,13 +317,7 @@ def test_scanner_merges_views_and_stops_after_stagnation() -> None:
             row_lengths=(2,),
             positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3), (0, 2, 0.3, 0.3)),
         ),
-        MagicMock(
-            names=('B', 'C', 'D'),
-            ship_ids=(2, 3, 4),
-            row_lengths=(2,),
-            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3), (0, 2, 0.3, 0.3)),
-        ),
-    ]
+    ][: len(captures)]
     stepper = MagicMock()
     stepper.thumb_bottom.side_effect = [100, 200, 200]
     stepper.is_top.return_value = True
@@ -341,10 +338,38 @@ def test_scanner_merges_views_and_stops_after_stagnation() -> None:
     assert snapshot.names == ('A', 'B', 'C', 'D')
     assert snapshot.total == 4
     assert snapshot.ship_ids == (1, 2, 3, 4)
-    assert snapshot.viewport_count == 3
+    assert snapshot.viewport_count == 2
     assert len(snapshot.refs) == snapshot.total
     assert stepper.advance.call_count == 2
     reader.recognize_captures.assert_called_once()
+
+
+def test_scanner_rejects_same_name_different_id_boundary_as_ambiguous() -> None:
+    ctrl = MagicMock()
+    ctrl.screenshot.side_effect = [np.zeros((10, 10, 3), dtype=np.uint8)] * 6
+    reader = MagicMock()
+    reader.capture_best.side_effect = [MagicMock(), MagicMock(), MagicMock()]
+    reader.recognize_captures.return_value = [
+        MagicMock(names=('同名',), ship_ids=(1,), positions=((0, 0, 0.1, 0.3),)),
+        MagicMock(names=('同名',), ship_ids=(2,), positions=((0, 0, 0.2, 0.3),)),
+    ]
+    stepper = MagicMock()
+    stepper.thumb_bottom.side_effect = [100, 200, 200]
+    stepper.is_top.return_value = True
+    stepper.is_bottom.side_effect = [False, True, True]
+    scanner = MaterialInventoryScanner(
+        ctrl,
+        reader,
+        stepper,
+        is_material_screen=lambda _screen: True,
+        stagnant_limit=1,
+        settle_seconds=0,
+        sample_count=2,
+        sample_interval_seconds=0,
+    )
+
+    with pytest.raises(MaterialInventoryScanError, match='规范身份'):
+        scanner.scan(max_viewports=5)
 
 
 def test_scanner_samples_multiple_frames_per_scroll_position() -> None:
@@ -499,6 +524,15 @@ def test_single_name_overlap_coalesces_sorted_boundary_group() -> None:
     assert merged == ('A', 'B', 'B', 'C')
 
 
+def test_authoritative_overlap_rejects_same_name_with_different_ship_id() -> None:
+    with pytest.raises(MaterialInventoryScanError, match='无法建立'):
+        merge_viewport_identities(
+            ((1, '同名舰'), (2, '同名舰')),
+            ((3, '同名舰'), (4, '新舰')),
+            minimum_overlap=1,
+        )
+
+
 @pytest.mark.parametrize(
     'fixture',
     [
@@ -532,7 +566,7 @@ def test_large_live_selected_material_badge_is_detected() -> None:
 def test_live_unselected_material_card_decoration_is_not_a_sequence_badge() -> None:
     from autowsgr.ui.material_inventory_scanner import has_selected_material
 
-    path = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\material-unselected-after-toggle.png')
+    path = _LIVE_FIXTURE_ROOT / 'material-unselected-after-toggle.png'
     if not path.exists():
         pytest.skip(f'live unselected material fixture not available: {path}')
     screen = cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)

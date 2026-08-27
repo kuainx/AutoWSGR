@@ -116,12 +116,9 @@ def test_material_selector_requires_confirm_button() -> None:
 
 
 def test_target_selector_is_not_material_selector() -> None:
-    import cv2
-
-    screen = cv2.cvtColor(
-        cv2.imread(r'C:\Users\23264\AppData\Local\Temp\kilo\target-1917.png'),
-        cv2.COLOR_BGR2RGB,
-    )
+    screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    screen[135:1034, :1550] = (15, 45, 70)
+    screen[135:260, 1580] = (192, 193, 195)
 
     assert not is_material_selector_screen(screen)
 

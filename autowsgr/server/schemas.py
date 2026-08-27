@@ -435,6 +435,94 @@ TaskStartRequest = (
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+class IntensifyStatsResponse(BaseModel):
+    """One public intensify stat vector."""
+
+    firepower: int
+    torpedo: int
+    armor: int
+    anti_air: int = Field(alias='antiAir')
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
+class IntensifyTargetOccurrenceResponse(BaseModel):
+    """One immutable target occurrence exposed for explicit selection."""
+
+    ref: str
+    ship_id: int = Field(alias='shipId')
+    identity: str
+    occurrence: int
+    current: IntensifyStatsResponse
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
+class IntensifyMaterialOccurrenceResponse(BaseModel):
+    """One immutable material occurrence exposed for explicit selection."""
+
+    ref: str
+    ship_id: int = Field(alias='shipId')
+    identity: str
+    index: int
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
+class IntensifySnapshotSessionResponse(BaseModel):
+    """Read-only paired inventory session returned by the snapshot scan."""
+
+    session_id: str = Field(alias='sessionId')
+    created_at: str = Field(alias='createdAt')
+    expires_at: str = Field(alias='expiresAt')
+    target_total: int = Field(alias='targetTotal')
+    target_revision: str = Field(alias='targetRevision')
+    material_total: int = Field(alias='materialTotal')
+    material_viewport_count: int = Field(alias='materialViewportCount')
+    targets: list[IntensifyTargetOccurrenceResponse]
+    materials: list[IntensifyMaterialOccurrenceResponse]
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
+class IntensifyTargetCandidateResponse(IntensifyTargetOccurrenceResponse):
+    """Selected target occurrence with read-only projection data."""
+
+    maximum: IntensifyStatsResponse
+    deficit: IntensifyStatsResponse
+    projected_gains: IntensifyStatsResponse = Field(alias='projectedGains')
+    projected: IntensifyStatsResponse
+    needs_intensify: bool = Field(alias='needsIntensify')
+
+
+class IntensifyMaterialCandidateResponse(BaseModel):
+    """One material occurrence and its read-only eligibility result."""
+
+    ref: str
+    identity: str
+    index: int
+    contribution: IntensifyStatsResponse
+    rarity: int
+    requires_confirmation: bool = Field(alias='requiresConfirmation')
+    eligible: bool
+    reason: str
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
+class IntensifySnapshotPreviewResponse(BaseModel):
+    """Non-executable projection for one exact target selection."""
+
+    target_revision: str = Field(alias='targetRevision')
+    material_revision: str = Field(alias='materialRevision')
+    execution_path: Literal['direct', 'confirmation_required'] | None = Field(alias='executionPath')
+    executable: Literal[False]
+    targets: list[IntensifyTargetCandidateResponse]
+    materials: list[IntensifyMaterialCandidateResponse]
+
+    model_config = {'populate_by_name': True, 'extra': 'forbid'}
+
+
 class TaskProgress(BaseModel):
     """任务进度。"""
 

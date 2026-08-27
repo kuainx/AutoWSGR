@@ -138,6 +138,29 @@ def test_preview_service_uses_authoritative_session_and_returns_stable_json(
     assert store.get(session.session_id) is session
 
 
+def test_preview_service_ignores_missing_data_for_unselected_target(tmp_path: Path) -> None:
+    store = IntensifySnapshotStore()
+    session = store.create(_target_snapshot(), _material_snapshot())
+    strengthen, manifest = _write_sources(tmp_path)
+    records = json.loads(strengthen.read_text(encoding='utf-8'))
+    strengthen.write_text(
+        json.dumps([record for record in records if record['id'] != 10000812]),
+        encoding='utf-8',
+    )
+    service = IntensifyPreviewService(store, strengthen, manifest)
+
+    payload = service.preview(
+        IntensifyPreviewCommand(
+            session_id=session.session_id,
+            selected_target_ref=SelectionRef('target:target-rev:0:0:0:0.1000:0.2000'),
+            policy=IntensifyPolicy(frozenset({'素材舰'})),
+            selected_material_refs=(),
+        )
+    )
+
+    assert [target['shipId'] for target in payload['targets']] == [7]
+
+
 def test_preview_service_hides_unknown_and_expired_session_distinction(tmp_path: Path) -> None:
     strengthen, manifest = _write_sources(tmp_path)
     service = IntensifyPreviewService(IntensifySnapshotStore(), strengthen, manifest)

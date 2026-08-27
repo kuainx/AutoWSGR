@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
@@ -423,10 +424,29 @@ class CetusTargetScanDevice:
             self._swipe_track((top + bottom) // 2, target_top, screen.shape[0])
         raise TargetInventoryScanError('目标列表回顶超过最大尝试次数')
 
+    @staticmethod
+    def _frame_digest(screen: np.ndarray) -> bytes:
+        """Hash the target list body without trusting one transient animation frame."""
+        body = np.ascontiguousarray(screen[:, : round(screen.shape[1] * 0.82)])
+        return hashlib.blake2b(body, digest_size=16).digest()
+
     def advance_target_list(self) -> np.ndarray:
         self._scroll_input.scroll(0.5, 0.5, vertical=self._scroll_amount, delay=False)
-        time.sleep(0.03)
-        return self.screenshot()
+        deadline = time.monotonic() + 1.5
+        previous_digest: bytes | None = None
+        stable = 0
+        while time.monotonic() < deadline:
+            screen = self.screenshot()
+            digest = self._frame_digest(screen)
+            if digest == previous_digest:
+                stable += 1
+                if stable >= 2:
+                    return screen
+            else:
+                previous_digest = digest
+                stable = 1
+            time.sleep(0.08)
+        raise TargetInventoryScanError('目标舰列表滚动后未稳定到可验证帧')
 
     @staticmethod
     def _target_list_at_bottom(screen: np.ndarray) -> bool:
