@@ -35,8 +35,8 @@ MAT_A_REF = SelectionRef('material:0')
 MAT_B_REF = SelectionRef('material:1')
 GAINS = ShipStats(armor=1, anti_air=3)
 TARGET = TargetObservation(TARGET_REF, 'No.570', 110, ShipStats(armor=16, anti_air=28))
-MAT_A = MaterialOccurrence(MAT_A_REF, 'No.474', 0)
-MAT_B = MaterialOccurrence(MAT_B_REF, 'No.474', 1)
+MAT_A = MaterialOccurrence(MAT_A_REF, 'No.474', 0, rarity=3)
+MAT_B = MaterialOccurrence(MAT_B_REF, 'No.474', 1, rarity=4)
 
 
 def _inventory(
@@ -172,9 +172,10 @@ class _Rig:
         self.control.cancel_confirmation.side_effect = self._cancel
         self.control.clear_materials.side_effect = self._clear
         self.control.confirm_irreversible_once.side_effect = self._confirm
+        self.control.execute_without_confirmation_once.side_effect = self._confirm
         self.pending_materials: list[MaterialOccurrence] = []
         self.selected_target: TargetObservation | None = None
-        self.plan = _plan(inventory, MAT_A_REF)
+        self.plan = _plan(inventory, inventory.occurrences[0].ref)
 
     def state(self) -> IntensifyUiState:
         return self.state_value
@@ -188,7 +189,7 @@ class _Rig:
 
     def outcome(self) -> IntensifyOutcomeObservation:
         assert self.home_value.target is not None
-        return IntensifyOutcomeObservation(self.home_value.target, (MAT_A_REF,))
+        return IntensifyOutcomeObservation(self.home_value.target)
 
     def inventory(self) -> MaterialInventoryObservation:
         return self.inventory_value
@@ -233,10 +234,11 @@ class _Rig:
 
     def _confirm(self) -> None:
         self.state_value = IntensifyUiState.HOME
+        consumed = {item.ref for item in self.plan.materials}
         remaining = tuple(
             replace(item, index=index)
             for index, item in enumerate(
-                item for item in self.inventory_value.occurrences if item.ref != MAT_A_REF
+                item for item in self.inventory_value.occurrences if item.ref not in consumed
             )
         )
         self.inventory_value = MaterialInventoryObservation(remaining, True, 'scan-2')
@@ -248,8 +250,9 @@ class _Rig:
         )
 
 
-def test_dry_run_opens_and_cancels_confirmation_then_clears_materials() -> None:
-    rig = _Rig(_inventory(MAT_A, MAT_B))
+def test_high_rarity_dry_run_opens_and_cancels_confirmation_then_clears_materials() -> None:
+    rig = _Rig(_inventory(MAT_B))
+    rig.plan = _plan(rig.inventory_value, MAT_B_REF)
 
     evidence = IntensifyWorkflow(rig, rig.control).dry_run(rig.plan)
 
@@ -258,6 +261,45 @@ def test_dry_run_opens_and_cancels_confirmation_then_clears_materials() -> None:
     rig.control.confirm_irreversible_once.assert_not_called()
     rig.control.cancel_confirmation.assert_called_once_with()
     rig.control.clear_materials.assert_called_once_with()
+
+
+def test_low_rarity_dry_run_verifies_preview_without_clicking_intensify() -> None:
+    rig = _Rig(_inventory(MAT_A))
+
+    evidence = IntensifyWorkflow(rig, rig.control).dry_run(rig.plan)
+
+    assert evidence.cancelled
+    assert evidence.clean_after_cancel
+    rig.control.open_confirmation.assert_not_called()
+    rig.control.confirm_irreversible_once.assert_not_called()
+    rig.control.execute_without_confirmation_once.assert_not_called()
+    rig.control.clear_materials.assert_called_once_with()
+
+
+def test_low_rarity_execute_clicks_directly_without_waiting_for_confirmation() -> None:
+    rig = _Rig(_inventory(MAT_A))
+    workflow = IntensifyWorkflow(rig, rig.control)
+    authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
+
+    result = workflow.execute(rig.plan, authorization)
+
+    rig.control.open_confirmation.assert_not_called()
+    rig.control.confirm_irreversible_once.assert_not_called()
+    rig.control.execute_without_confirmation_once.assert_called_once_with()
+    assert result.target_after.stats == TARGET.stats + GAINS
+
+
+def test_high_rarity_execute_requires_confirmation_path() -> None:
+    rig = _Rig(_inventory(MAT_B))
+    rig.plan = _plan(rig.inventory_value, MAT_B_REF)
+    workflow = IntensifyWorkflow(rig, rig.control)
+    authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
+
+    workflow.execute(rig.plan, authorization)
+
+    assert rig.control.open_confirmation.call_count == 2
+    rig.control.confirm_irreversible_once.assert_called_once_with()
+    rig.control.execute_without_confirmation_once.assert_not_called()
 
 
 def test_dry_run_fails_before_input_when_inventory_is_stale() -> None:
@@ -285,6 +327,29 @@ def test_preview_mismatch_never_opens_confirmation() -> None:
 
     rig.control.open_confirmation.assert_not_called()
     rig.control.confirm_irreversible_once.assert_not_called()
+    rig.control.clear_materials.assert_called_once_with()
+
+
+def test_confirmation_mismatch_is_cancelled_and_materials_are_cleared() -> None:
+    rig = _Rig(_inventory(MAT_B))
+    original = rig.control.open_confirmation.side_effect
+
+    def wrong_confirmation() -> None:
+        original()
+        assert rig.confirmation_value is not None
+        rig.confirmation_value = replace(
+            rig.confirmation_value,
+            gains=ShipStats(armor=99),
+        )
+
+    rig.control.open_confirmation.side_effect = wrong_confirmation
+
+    with pytest.raises(IntensifyWorkflowError, match='确认弹窗收益'):
+        IntensifyWorkflow(rig, rig.control).dry_run(rig.plan)
+
+    rig.control.cancel_confirmation.assert_called_once_with()
+    rig.control.clear_materials.assert_called_once_with()
+    rig.control.confirm_irreversible_once.assert_not_called()
 
 
 def test_authorization_requires_matching_clean_dry_run() -> None:
@@ -311,6 +376,7 @@ def test_clean_but_forged_dry_run_evidence_cannot_authorize() -> None:
 
 def test_execute_confirms_once_and_validates_exact_consumption() -> None:
     rig = _Rig(_inventory(MAT_A, MAT_B))
+    rig.plan = _plan(rig.inventory_value, MAT_B_REF)
     workflow = IntensifyWorkflow(rig, rig.control)
     evidence = workflow.dry_run(rig.plan)
     authorization = authorize_intensify(rig.plan, evidence)
@@ -319,7 +385,7 @@ def test_execute_confirms_once_and_validates_exact_consumption() -> None:
 
     rig.control.confirm_irreversible_once.assert_called_once_with()
     assert result.target_after.stats == TARGET.stats + GAINS
-    assert result.inventory_after.occurrences == (replace(MAT_B, index=0),)
+    assert result.inventory_after.occurrences == (replace(MAT_A, index=0),)
 
     with pytest.raises(IntensifyWorkflowError, match='授权已使用'):
         workflow.execute(rig.plan, authorization)
@@ -327,7 +393,7 @@ def test_execute_confirms_once_and_validates_exact_consumption() -> None:
 
 
 def test_authorization_is_marked_used_before_postcondition_failure() -> None:
-    rig = _Rig(_inventory(MAT_A))
+    rig = _Rig(_inventory(MAT_B))
     workflow = IntensifyWorkflow(rig, rig.control)
     authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
     original_confirm = rig.control.confirm_irreversible_once.side_effect
@@ -350,7 +416,7 @@ def test_authorization_is_marked_used_before_postcondition_failure() -> None:
 
 
 def test_authorization_cannot_replay_through_fresh_workflow_instance() -> None:
-    rig = _Rig(_inventory(MAT_A))
+    rig = _Rig(_inventory(MAT_B))
     evidence = IntensifyWorkflow(rig, rig.control).dry_run(rig.plan)
     authorization = authorize_intensify(rig.plan, evidence)
     IntensifyWorkflow(rig, rig.control).execute(rig.plan, authorization)
@@ -360,12 +426,15 @@ def test_authorization_cannot_replay_through_fresh_workflow_instance() -> None:
 
 
 def test_authorization_is_atomically_claimed_across_concurrent_workflows() -> None:
-    rig = _Rig(_inventory(MAT_A))
+    rig = _Rig(_inventory(MAT_B))
     authorization = authorize_intensify(
         rig.plan,
         IntensifyWorkflow(rig, rig.control).dry_run(rig.plan),
     )
-    workflows = [IntensifyWorkflow(rig, rig.control), IntensifyWorkflow(rig, rig.control)]
+    workflows = [
+        IntensifyWorkflow(rig, rig.control),
+        IntensifyWorkflow(rig, rig.control),
+    ]
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         outcomes = list(
@@ -399,18 +468,54 @@ def test_changed_target_observation_fails_before_material_selection() -> None:
     rig.control.open_material_selector.assert_not_called()
 
 
-def test_wrong_duplicate_consumption_receipt_is_rejected() -> None:
+def test_post_scan_inventory_must_match_removal_at_planned_occurrence() -> None:
+    distinct = replace(MAT_A, identity='No.100')
     rig = _Rig(_inventory(MAT_A, MAT_B))
+    rig.inventory_value = _inventory(distinct, MAT_B)
+    rig.plan = _plan(rig.inventory_value, MAT_B_REF)
     workflow = IntensifyWorkflow(rig, rig.control)
     authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
-    rig.outcome = MagicMock(
-        return_value=IntensifyOutcomeObservation(
-            replace(TARGET, stats=TARGET.stats + GAINS),
-            (MAT_B_REF,),
-        )
-    )
+    original_confirm = rig.control.confirm_irreversible_once.side_effect
 
-    with pytest.raises(IntensifyWorkflowError, match='exact occurrence'):
+    def wrong_removal() -> None:
+        original_confirm()
+        rig.inventory_value = MaterialInventoryObservation(
+            (replace(MAT_B, index=0),),
+            True,
+            'scan-2',
+        )
+
+    rig.control.confirm_irreversible_once.side_effect = wrong_removal
+
+    with pytest.raises(IntensifyWorkflowError, match='库存变化'):
+        workflow.execute(rig.plan, authorization)
+
+
+def test_post_scan_duplicate_identity_proves_count_but_not_physical_card() -> None:
+    rig = _Rig(_inventory(MAT_A, MAT_B))
+    rig.plan = _plan(rig.inventory_value, MAT_B_REF)
+    workflow = IntensifyWorkflow(rig, rig.control)
+    authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
+
+    result = workflow.execute(rig.plan, authorization)
+
+    assert tuple(item.identity for item in result.inventory_after.occurrences) == ('No.474',)
+    assert result.inventory_after.revision != result.inventory_before.revision
+
+
+def test_post_scan_inventory_requires_fresh_revision() -> None:
+    rig = _Rig(_inventory(MAT_A))
+    workflow = IntensifyWorkflow(rig, rig.control)
+    authorization = authorize_intensify(rig.plan, workflow.dry_run(rig.plan))
+    original_confirm = rig.control.execute_without_confirmation_once.side_effect
+
+    def stale_rescan() -> None:
+        original_confirm()
+        rig.inventory_value = replace(rig.inventory_value, revision='scan-1')
+
+    rig.control.execute_without_confirmation_once.side_effect = stale_rescan
+
+    with pytest.raises(IntensifyWorkflowError, match='revision 未变化'):
         workflow.execute(rig.plan, authorization)
 
 
@@ -438,6 +543,7 @@ class _AdapterController:
     def __init__(self, recognition: _AdapterRecognition) -> None:
         self.recognition = recognition
         self.clicks: list[tuple[float, float]] = []
+        self.direct_intensify = False
 
     def click(self, x: float, y: float) -> None:
         self.clicks.append((x, y))
@@ -445,7 +551,9 @@ class _AdapterController:
             (0.1070, 0.5093): IntensifyUiState.TARGET_SELECTOR,
             (0.2630, 0.3380): IntensifyUiState.MATERIAL_SELECTOR,
             (0.9115, 0.9000): IntensifyUiState.HOME,
-            (0.8715, 0.8220): IntensifyUiState.CONFIRMATION,
+            (0.8715, 0.8220): (
+                IntensifyUiState.HOME if self.direct_intensify else IntensifyUiState.CONFIRMATION
+            ),
             (0.4, 0.7): IntensifyUiState.HOME,
             (0.6, 0.7): IntensifyUiState.HOME,
         }
@@ -523,3 +631,26 @@ def test_verified_control_refuses_second_irreversible_click() -> None:
         adapter.confirm_irreversible_once()
 
     assert ctrl.clicks == [(0.6, 0.7)]
+
+
+def test_verified_control_executes_low_rarity_path_from_home_once() -> None:
+    recognition = _AdapterRecognition()
+    ctrl = _AdapterController(recognition)
+    ctrl.direct_intensify = True
+    operator = _AdapterOperator(recognition, IntensifyUiState.HOME)
+    adapter = VerifiedIntensifyControl(
+        ctrl,
+        recognition,  # type: ignore[arg-type]
+        operator,
+        operator,
+        ConfirmationCoordinates(cancel=(0.4, 0.7), confirm=(0.6, 0.7)),
+        interval=0,
+        stable_frames=1,
+    )
+
+    adapter.execute_without_confirmation_once()
+
+    assert ctrl.clicks == [(0.8715, 0.8220)]
+    recognition.state_value = IntensifyUiState.HOME
+    with pytest.raises(IntensifyWorkflowError, match='点击过'):
+        adapter.execute_without_confirmation_once()

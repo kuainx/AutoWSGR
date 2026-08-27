@@ -122,6 +122,16 @@ class TestScrcpyControllerControlFlow:
         assert calls[0].args[1:3] == (0.1, 0.2)  # 起点
         assert calls[-1].args[1:3] == (0.9, 0.8)  # 终点
 
+    def test_scroll_routes_fractional_delta_to_protocol_injector(
+        self,
+        ctrl: ScrcpyController,
+    ) -> None:
+        ctrl._inject_scroll = MagicMock()
+
+        ctrl.scroll(0.5, 0.6, vertical=-0.25, delay=False)
+
+        ctrl._inject_scroll.assert_called_once_with(0.5, 0.6, horizontal=0.0, vertical=-0.25)
+
     def test_long_tap_down_then_up_same_point(self, ctrl: ScrcpyController):
         """long_tap = 同一点 DOWN → 保持 → UP。"""
         ctrl._inject_touch = MagicMock()

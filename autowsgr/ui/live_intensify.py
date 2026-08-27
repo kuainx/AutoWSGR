@@ -7,15 +7,17 @@ page transition before another input.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from autowsgr.ui.intensify_workflow import (
     ConfirmationCoordinates,
     IntensifyUiState,
     IntensifyWorkflowError,
     SelectionRef,
+    ShipStats,
     VerifiedIntensifyControl,
 )
 from autowsgr.ui.material_first_intensify import (
@@ -29,8 +31,104 @@ from autowsgr.ui.material_inventory_scanner import (
 )
 
 
+if TYPE_CHECKING:
+    import numpy as np
+
+    from autowsgr.ui.target_inventory_scanner import TargetCardReader
+    from autowsgr.vision.ocr import OCREngine
+
+
 _COLUMN_CENTERS = (0.0948, 0.2047, 0.3146, 0.4250, 0.5349, 0.6448, 0.7547)
 _ROW_CENTERS = (0.3343, 0.7352)
+_HOME_STAT_CROPS = (
+    (0.865, 0.145, 0.945, 0.215),
+    (0.865, 0.265, 0.945, 0.335),
+    (0.865, 0.385, 0.945, 0.455),
+    (0.855, 0.505, 0.945, 0.575),
+)
+_HOME_INTENSIFY_BUTTON_CROP = (0.835, 0.675, 0.955, 0.805)
+_HOME_CURRENT_RE = re.compile(r'^\d{1,3}$')
+_HOME_GAIN_RE = re.compile(r'^\+\d{1,3}$')
+_HOME_OCR_MIN_CONFIDENCE = 0.80
+
+
+@dataclass(frozen=True, slots=True)
+class IntensifyHomePanelObservation:
+    current: ShipStats
+    gains: ShipStats
+    can_intensify: bool
+
+
+def _normalized_crop(
+    screen: np.ndarray,
+    bounds: tuple[float, float, float, float],
+) -> np.ndarray:
+    x1, y1, x2, y2 = bounds
+    height, width = screen.shape[:2]
+    return screen[
+        round(height * y1) : round(height * y2),
+        round(width * x1) : round(width * x2),
+    ]
+
+
+def read_intensify_home_panel(
+    screen: np.ndarray,
+    ocr: OCREngine,
+) -> IntensifyHomePanelObservation:
+    """Read the four current-stat and ``+N`` pairs from a verified home screenshot."""
+    import cv2
+    import numpy as np
+
+    if not is_intensify_home_screen(screen):
+        raise IntensifyWorkflowError('当前不是可验证的强化首页')
+    rows = [_normalized_crop(screen, bounds) for bounds in _HOME_STAT_CROPS]
+    crops = []
+    for row in rows:
+        current_right = round(row.shape[1] * 0.52)
+        gain_left = round(row.shape[1] * 0.48)
+        crops.extend((row[:, :current_right], row[:, gain_left:]))
+    prepared = [cv2.resize(crop, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC) for crop in crops]
+    batches = ocr.recognize_batch(prepared, allowlist='0123456789+')
+    if len(batches) != len(prepared):
+        raise IntensifyWorkflowError('强化主页属性面板 OCR 返回数量异常')
+    pairs: list[tuple[int, int]] = []
+    for index, row in enumerate(rows):
+        current_results = batches[index * 2]
+        gain_results = batches[index * 2 + 1]
+        current_text = [result for result in current_results if result.text.strip()]
+        gain_text = [result for result in gain_results if result.text.strip()]
+        current = [
+            result
+            for result in current_text
+            if _HOME_CURRENT_RE.fullmatch(result.text.strip())
+            and result.confidence >= _HOME_OCR_MIN_CONFIDENCE
+        ]
+        gains = [
+            result
+            for result in gain_text
+            if _HOME_GAIN_RE.fullmatch(result.text.strip())
+            and result.confidence >= _HOME_OCR_MIN_CONFIDENCE
+        ]
+        if len(current) == 1 and len(gains) == 1:
+            pairs.append((int(current[0].text), int(gains[0].text[1:])))
+            continue
+        hsv = cv2.cvtColor(row, cv2.COLOR_RGB2HSV)
+        blue = cv2.inRange(hsv, np.array((90, 150, 70)), np.array((125, 255, 255)))
+        if not current_text and not gain_text and float(np.mean(blue > 0)) < 0.01:
+            pairs.append((0, 0))
+            continue
+        raise IntensifyWorkflowError('强化主页属性面板存在无法可靠识别的数值')
+    current = ShipStats(*(pair[0] for pair in pairs))
+    gains = ShipStats(*(pair[1] for pair in pairs))
+    button = _normalized_crop(screen, _HOME_INTENSIFY_BUTTON_CROP)
+    button_hsv = cv2.cvtColor(button, cv2.COLOR_RGB2HSV)
+    blue_button = cv2.inRange(
+        button_hsv,
+        np.array((90, 100, 100)),
+        np.array((125, 255, 255)),
+    )
+    can_intensify = gains != ShipStats() and float(np.mean(blue_button > 0)) >= 0.15
+    return IntensifyHomePanelObservation(current, gains, can_intensify)
 
 
 class LiveSemanticLedger(Protocol):
@@ -103,18 +201,32 @@ class LiveIntensifyStateRecognition:
 
 
 class FixedTargetOperator:
-    """Select a fixed visible target card from a revision-bound first viewport."""
+    """Reach and select one revision-bound target occurrence."""
 
-    def __init__(self, device: AdbLosslessMaterialDevice, revision: str) -> None:
+    def __init__(
+        self,
+        device: AdbLosslessMaterialDevice,
+        revision: str,
+        scroll_input: object,
+        reader: TargetCardReader,
+    ) -> None:
         self._device = device
         self._revision = revision
+        from autowsgr.ui.live_target_inventory import CetusTargetScanDevice
+        from autowsgr.ui.target_inventory_scanner import TargetInventoryScanner
+
+        self._scanner = TargetInventoryScanner(
+            CetusTargetScanDevice(device, scroll_input=scroll_input),
+            reader,
+        )
 
     def select(self, ref: SelectionRef) -> None:
         parsed = GridSelectionRef.parse(ref, 'target')
-        if parsed.revision != self._revision or parsed.viewport_steps != 0:
-            raise IntensifyWorkflowError('目标引用不是当前已验证首屏 revision')
+        if parsed.revision != self._revision:
+            raise IntensifyWorkflowError('目标引用 revision 已过期')
         if not is_target_selector(self._device.screenshot()):
             raise IntensifyWorkflowError('当前不是目标选择页')
+        self._scanner.navigate_to_viewport(parsed.viewport_steps)
         assert parsed.x is not None
         assert parsed.y is not None
         self._device.click(parsed.x, parsed.y)
@@ -159,6 +271,8 @@ def create_live_intensify_control(
     device: AdbLosslessMaterialDevice,
     recognition: LiveSemanticLedger,
     *,
+    scroll_input: object,
+    target_reader: TargetCardReader,
     target_revision: str,
     material_revision: str,
 ) -> VerifiedIntensifyControl:
@@ -167,14 +281,14 @@ def create_live_intensify_control(
     return VerifiedIntensifyControl(
         device,
         recognition,
-        FixedTargetOperator(device, target_revision),
+        FixedTargetOperator(device, target_revision, scroll_input, target_reader),
         FixedMaterialOperator(device, material_revision),
         ConfirmationCoordinates(cancel=(0.620, 0.568), confirm=(0.380, 0.568)),
     )
 
 
 def is_target_selector(screen: object) -> bool:
-    """Recognize current target selector from its mutually exclusive right controls."""
+    """Recognize a target selector with both its controls and card structure."""
     import cv2
     import numpy as np
 
@@ -197,7 +311,14 @@ def is_target_selector(screen: object) -> bool:
         np.array((90, 100, 100)),
         np.array((120, 255, 255)),
     )
-    return float(np.mean(blue_switch > 0)) > 0.20 and float(np.mean(blue_confirm > 0)) < 0.20
+    controls_match = (
+        float(np.mean(blue_switch > 0)) > 0.20 and float(np.mean(blue_confirm > 0)) < 0.20
+    )
+    if not controls_match:
+        return False
+    from autowsgr.ui.target_inventory_scanner import detect_complete_target_cards
+
+    return bool(detect_complete_target_cards(image))
 
 
 def is_intensify_confirmation(screen: object) -> bool:

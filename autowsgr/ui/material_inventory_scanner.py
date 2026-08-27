@@ -1,36 +1,34 @@
-"""Read-only material inventory scanning from native name-bar bands.
+"""Read-only material inventory scanning from native card geometry.
 
-The scanner deliberately avoids portrait matching and card-area gestures.  It
-uses the Rust-backed blue name-bar locator, fixed material-grid columns, one
-batched OCR call per viewport, and ADB shell taps on the right scrollbar.
+The scanner uses the Rust-backed blue name-bar locator only as geometry,
+fixed material-grid columns, batched complete-card identity recognition, and
+ADB shell taps on the right scrollbar.
 """
 
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import adbutils
 import cv2
 import numpy as np
 
-from autowsgr.constants import SHIPNAMES
 from autowsgr.ui.material_first_intensify import (
     MaterialFirstIntensifyController,
     is_material_selector_screen,
 )
 from autowsgr.ui.utils.ship_list import LEGACY_LIST_WIDTH, to_legacy_format
-from autowsgr.vision import apply_ship_patches, get_api_dll
-from autowsgr.vision.ocr import OCRResult, _edit_distance, _fuzzy_match
+from autowsgr.vision import get_api_dll
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from autowsgr.emulator.controller import Controller
-    from autowsgr.vision import OCREngine
+    from autowsgr.vision.ship_card_recognizer import ShipCardRecognizer
 
 
 _COLUMN_LEFTS_1920 = (86, 297, 508, 719, 930, 1141, 1352)
@@ -43,10 +41,7 @@ _NAME_COLOR_BGR = np.asarray(
 _NAME_COLOR_DISTANCE = 20.0
 _MIN_SLOT_BLUE_PIXELS = 80
 _PACK_ROW_GAP = 8
-_OCR_SCALE = 1.5
-_OCR_SLOT_SIZE = (round(_CARD_WIDTH_1920 * _OCR_SCALE), round(42 * _OCR_SCALE))
-_OCR_HORIZONTAL_PADDING = 32
-_PAUSE_FILE = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\pause-expedition-daemon')
+_CARD_HEIGHT_1080 = 405
 
 
 class MaterialInventoryScanError(RuntimeError):
@@ -58,17 +53,20 @@ class MaterialViewport:
     """One viewport's ordered ship-name occurrences."""
 
     names: tuple[str, ...]
+    ship_ids: tuple[int, ...]
     row_lengths: tuple[int, ...]
     bands: tuple[tuple[int, int], ...]
+    positions: tuple[tuple[int, int, float, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class CapturedMaterialViewport:
-    """Geometry-only viewport captured before the single inventory OCR call."""
+    """Geometry-only viewport captured before identity recognition."""
 
     crops: tuple[np.ndarray, ...]
     row_lengths: tuple[int, ...]
     bands: tuple[tuple[int, int], ...]
+    screen_height: int = 1080
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,9 +74,11 @@ class MaterialInventorySnapshot:
     """A complete material inventory assembled from overlapping viewports."""
 
     names: tuple[str, ...]
+    ship_ids: tuple[int, ...]
     total: int
     viewport_count: int
-    acquisition_method: str = 'native-name-bands+adb-scrollbar'
+    refs: tuple[str, ...] = ()
+    acquisition_method: str = 'native-card-geometry+wsg-ncc+adb-scrollbar'
 
 
 class NativeLocate(Protocol):
@@ -89,8 +89,8 @@ class AdbLosslessMaterialDevice:
     """Minimal ADB-only screenshot/input adapter for material scanning."""
 
     def __init__(self, serial: str, *, adb_device: object | None = None) -> None:
-        if serial != '127.0.0.1:16416':
-            raise MaterialInventoryScanError(f'素材扫描只允许 Cetus 设备 127.0.0.1:16416: {serial}')
+        if not serial:
+            raise MaterialInventoryScanError('素材扫描必须显式指定 ADB serial')
         self._serial = serial
         self._device = adb_device or adbutils.adb.device(serial=serial)
         self._resolution: tuple[int, int] | None = None
@@ -118,13 +118,16 @@ class AdbLosslessMaterialDevice:
         if delay:
             time.sleep(0.3)
 
+    def key_event(self, key_code: int, *, delay: bool = True) -> None:
+        self._device.shell(f'input keyevent {key_code}')
+        if delay:
+            time.sleep(0.3)
+
     def verify_cetus(self) -> None:
         product = self.shell('getprop ro.product.name').strip()
         model = self.shell('getprop ro.product.model').strip()
         if product != 'Cetus' or model != 'CET-AL00':
             raise MaterialInventoryScanError(f'设备身份不匹配: product={product}, model={model}')
-        if not _PAUSE_FILE.exists():
-            raise MaterialInventoryScanError(f'远征暂停文件不存在: {_PAUSE_FILE}')
 
 
 def _name_blue_mask(image_rgb: np.ndarray) -> np.ndarray:
@@ -133,31 +136,16 @@ def _name_blue_mask(image_rgb: np.ndarray) -> np.ndarray:
     return np.min(distances, axis=2) < _NAME_COLOR_DISTANCE
 
 
-def _normalize_ocr_name(result: OCRResult, candidates: list[str] | None = None) -> str | None:
-    text = apply_ship_patches(result.text.strip())
-    pool = candidates or SHIPNAMES
-    if not text:
-        return None
-    direct = _fuzzy_match(text, pool)
-    if direct is not None or len(text) < 3:
-        return direct
-    affix_matches = {
-        name
-        for name in pool
-        if len(name) > len(text)
-        and (
-            _edit_distance(text, name[: len(text)]) <= 1
-            or _edit_distance(text, name[-len(text) :]) <= 1
-        )
-    }
-    return next(iter(affix_matches)) if len(affix_matches) == 1 else None
-
-
 class MaterialViewportReader:
-    """Convert one material-selector screenshot into an ordered name sequence."""
+    """Convert material screenshots into ordered canonical identities."""
 
-    def __init__(self, ocr: OCREngine, *, locate: NativeLocate | None = None) -> None:
-        self._ocr = ocr
+    def __init__(
+        self,
+        identities: ShipCardRecognizer,
+        *,
+        locate: NativeLocate | None = None,
+    ) -> None:
+        self._identities = identities
         self._locate = locate or get_api_dll().locate
 
     def locate_name_bands(self, screen: np.ndarray) -> tuple[tuple[int, int], ...]:
@@ -185,6 +173,19 @@ class MaterialViewportReader:
             (round(left * scale), round((left + _CARD_WIDTH_1920) * scale))
             for left in _COLUMN_LEFTS_1920
         )
+
+    @staticmethod
+    def _has_complete_card_top(crop: np.ndarray) -> bool:
+        if crop.shape[0] < 8 or crop.shape[1] < 2:
+            return False
+        hsv = cv2.cvtColor(crop[:8], cv2.COLOR_RGB2HSV)
+        cyan = cv2.inRange(
+            hsv,
+            np.array((85, 100, 80), dtype=np.uint8),
+            np.array((120, 255, 255), dtype=np.uint8),
+        )
+        full_rows = sum(np.count_nonzero(row) >= round(crop.shape[1] * 0.90) for row in cyan)
+        return full_rows >= 2
 
     def _present_slots(
         self,
@@ -244,42 +245,26 @@ class MaterialViewportReader:
             raise MaterialInventoryScanError('舰名蓝条中没有固定列卡位证据')
 
         row_crops: list[list[np.ndarray]] = [[] for _band in bands]
+        clipped_rows: set[int] = set()
+        card_height = round(_CARD_HEIGHT_1080 * screen.shape[0] / 1080)
         for row, _column, left, top, right, bottom in slots:
-            crop = cv2.resize(
-                screen[top:bottom, left:right],
-                _OCR_SLOT_SIZE,
-                interpolation=cv2.INTER_CUBIC,
-            )
-            background = tuple(int(value) for value in np.median(crop, axis=(0, 1)))
-            padded = cv2.copyMakeBorder(
-                crop,
-                0,
-                0,
-                _OCR_HORIZONTAL_PADDING,
-                _OCR_HORIZONTAL_PADDING,
-                cv2.BORDER_CONSTANT,
-                value=background,
-            )
-            hsv = cv2.cvtColor(padded, cv2.COLOR_RGB2HSV)
-            text_mask = ((hsv[:, :, 1] < 105) & (hsv[:, :, 2] > 150)).astype(np.uint8) * 255
-            text_mask = cv2.morphologyEx(
-                text_mask,
-                cv2.MORPH_OPEN,
-                np.ones((2, 2), dtype=np.uint8),
-            )
-            text_only = np.full_like(padded, 255)
-            text_only[text_mask > 0] = 0
-            row_crops[row].append(text_only)
+            if bottom < card_height:
+                clipped_rows.add(row)
+            name_band = cv2.cvtColor(screen[top:bottom, left:right], cv2.COLOR_RGB2GRAY)
+            edge_margin = max(1, round(3 * screen.shape[0] / 1080))
+            if np.any(name_band[:edge_margin] > 240) or np.any(name_band[-edge_margin:] > 240):
+                clipped_rows.add(row)
+            card_top = max(0, bottom - card_height)
+            crop = screen[card_top:bottom, left:right].copy()
+            if not self._has_complete_card_top(crop):
+                clipped_rows.add(row)
+            row_crops[row].append(crop)
 
         complete_crops: list[np.ndarray] = []
         complete_lengths: list[int] = []
         complete_bands: list[tuple[int, int]] = []
-        for band, crops in zip(bands, row_crops, strict=True):
-            greys = [cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY) for crop in crops]
-            edge_margin = 3
-            touches_top = all(np.any(grey[:edge_margin] < 80) for grey in greys)
-            touches_bottom = all(np.any(grey[-edge_margin:] < 80) for grey in greys)
-            if touches_top or touches_bottom:
+        for row, (band, crops) in enumerate(zip(bands, row_crops, strict=True)):
+            if row in clipped_rows or not crops:
                 continue
             complete_crops.extend(crops)
             complete_lengths.append(len(crops))
@@ -290,64 +275,103 @@ class MaterialViewportReader:
             tuple(complete_crops),
             tuple(complete_lengths),
             tuple(complete_bands),
+            screen.shape[0],
         )
 
     def capture_best(
         self,
         screens: Sequence[np.ndarray],
     ) -> CapturedMaterialViewport:
-        """Keep the most text-rich name-bar crop from geometry-identical frames."""
+        """Keep the sharpest complete-card crop from geometry-identical frames."""
         captures = tuple(self.capture(screen) for screen in screens)
         geometry = (captures[0].row_lengths, captures[0].bands)
         if any((capture.row_lengths, capture.bands) != geometry for capture in captures[1:]):
             raise MaterialInventoryScanError('稳定帧之间的舰名栏几何不一致')
 
-        def text_score(crop: np.ndarray) -> int:
-            grey = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
-            return int(np.count_nonzero(grey < 80))
+        def detail_score(crop: np.ndarray) -> float:
+            return float(cv2.Laplacian(crop, cv2.CV_32F).var())
 
         crops = tuple(
-            max((capture.crops[index] for capture in captures), key=text_score)
+            max((capture.crops[index] for capture in captures), key=detail_score)
             for index in range(len(captures[0].crops))
         )
-        return CapturedMaterialViewport(crops, *geometry)
+        return CapturedMaterialViewport(crops, *geometry, captures[0].screen_height)
 
     def recognize_captures(
         self,
         captures: Sequence[CapturedMaterialViewport],
     ) -> tuple[MaterialViewport, ...]:
         crops = [crop for capture in captures for crop in capture.crops]
-        batch_results = self._ocr.recognize_batch(crops)
+        batch_results = self._identities.recognize(crops)
         if len(batch_results) != len(crops):
-            raise MaterialInventoryScanError('批量 OCR 返回数量与舰名栏数量不一致')
+            raise MaterialInventoryScanError('船卡识别返回数量与船卡数量不一致')
         viewports: list[MaterialViewport] = []
         cursor = 0
         for capture in captures:
             count = len(capture.crops)
             viewport_results = batch_results[cursor : cursor + count]
             cursor += count
-            names = self._normalize_results(viewport_results)
-            viewports.append(MaterialViewport(names, capture.row_lengths, capture.bands))
+            names: list[str] = []
+            ship_ids: list[int] = []
+            recognized_row_lengths: list[int] = []
+            positions: list[tuple[int, int, float, float]] = []
+            row_cursor = 0
+            for row, row_length in enumerate(capture.row_lengths):
+                row_results = viewport_results[row_cursor : row_cursor + row_length]
+                row_names = self._normalize_results(row_results)
+                row_cursor += row_length
+                names.extend(row_names)
+                ship_ids.extend(self._ship_ids(row_results))
+                recognized_row_lengths.append(len(row_names))
+                _band_top, band_bottom = capture.bands[row]
+                card_height = round(_CARD_HEIGHT_1080 * capture.screen_height / 1080)
+                center_y = (band_bottom - card_height / 2) / capture.screen_height
+                for column, identity in enumerate(row_results):
+                    if identity is None:
+                        continue
+                    left = _COLUMN_LEFTS_1920[column]
+                    positions.append(
+                        (
+                            row,
+                            column,
+                            (left + _CARD_WIDTH_1920 / 2) / 1920,
+                            center_y,
+                        )
+                    )
+            viewports.append(
+                MaterialViewport(
+                    tuple(names),
+                    tuple(ship_ids),
+                    tuple(recognized_row_lengths),
+                    capture.bands,
+                    tuple(positions),
+                )
+            )
         return tuple(viewports)
 
     @staticmethod
-    def _normalize_results(batch_results: Sequence[Sequence[OCRResult]]) -> tuple[str, ...]:
-        normalized: list[str | None] = []
-        for index, results in enumerate(batch_results):
-            if not results:
-                raise MaterialInventoryScanError(f'舰名栏 {index} 没有 OCR 结果')
-            result = max(results, key=lambda item: item.confidence)
-            if not result.text.strip():
-                raise MaterialInventoryScanError(f'舰名栏 {index} 无法唯一 OCR 归一化')
-            normalized.append(_normalize_ocr_name(result))
-        for index, name in enumerate(normalized):
-            if name is None:
-                result = max(batch_results[index], key=lambda item: item.confidence)
+    def _normalize_results(batch_results: Sequence[object | None]) -> tuple[str, ...]:
+        names: list[str] = []
+        for index, identity in enumerate(batch_results):
+            if identity is None:
                 raise MaterialInventoryScanError(
-                    f'舰名栏 {index} 无法唯一 OCR 归一化: raw={result.text!r}, '
-                    f'confidence={result.confidence:.3f}'
+                    f'船卡 {index} 低于识别阈值或身份未知，拒绝宣称素材库存完整'
                 )
-        return tuple(normalized)  # type: ignore[return-value]
+            name = getattr(identity, 'name', None)
+            if not isinstance(name, str) or not name:
+                raise MaterialInventoryScanError(f'船卡 {index} 缺少规范舰名')
+            names.append(name)
+        return tuple(names)
+
+    @staticmethod
+    def _ship_ids(batch_results: Sequence[object | None]) -> tuple[int, ...]:
+        ship_ids: list[int] = []
+        for index, identity in enumerate(batch_results):
+            ship_id = None if identity is None else getattr(identity, 'ship_id', None)
+            if isinstance(ship_id, bool) or not isinstance(ship_id, int) or ship_id < 0:
+                raise MaterialInventoryScanError(f'船卡 {index} 缺少规范舰船 ID')
+            ship_ids.append(ship_id)
+        return tuple(ship_ids)
 
     def read(self, screen: np.ndarray) -> MaterialViewport:
         return self.recognize_captures((self.capture(screen),))[0]
@@ -369,9 +393,20 @@ def merge_viewport_names(
         (size for size in range(maximum, 0, -1) if left[-size:] == right[:size]),
         0,
     )
-    if overlap < minimum_overlap:
+    if 0 < overlap < minimum_overlap:
         raise MaterialInventoryScanError('相邻素材视口无法建立舰名序列衔接')
-    return left + right[overlap:], overlap
+    merged = left + right[overlap:]
+    closed: set[str] = set()
+    previous: str | None = None
+    for name in merged:
+        if name == previous:
+            continue
+        if name in closed:
+            raise MaterialInventoryScanError('素材舰名未保持单一连续分组')
+        if previous is not None:
+            closed.add(previous)
+        previous = name
+    return merged, overlap
 
 
 class AdbScrollbarStepper:
@@ -456,6 +491,15 @@ def has_selected_material(screen: np.ndarray) -> bool:
             candidates.append((x, y, component_width, component_height))
     if not candidates:
         return False
+    minimum_badge_width = round(60 * width / 1920)
+    minimum_badge_height = round(60 * height / 1080)
+    candidates = [
+        candidate
+        for candidate in candidates
+        if candidate[2] >= minimum_badge_width and candidate[3] >= minimum_badge_height
+    ]
+    if not candidates:
+        return False
     large_badge_area = round(6_000 * height * width / (1080 * 1920))
     if any(
         component_width * component_height >= large_badge_area
@@ -536,14 +580,39 @@ class MaterialInventoryScanner:
             stagnant = stagnant + 1 if at_bottom and no_thumb_move else 0
             if stagnant >= self._stagnant_limit:
                 viewports = self._reader.recognize_captures(captures)
+                revision_payload = '|'.join(
+                    f'{viewport_index}:{name}'
+                    for viewport_index, viewport in enumerate(viewports)
+                    for name in viewport.names
+                )
+                revision = hashlib.sha256(revision_payload.encode()).hexdigest()[:16]
                 accumulated: tuple[str, ...] = ()
-                for viewport in viewports:
-                    accumulated, _overlap = merge_viewport_names(
+                accumulated_ids: tuple[int, ...] = ()
+                refs: tuple[str, ...] = ()
+                for viewport_index, viewport in enumerate(viewports):
+                    if len(viewport.ship_ids) != len(viewport.names):
+                        raise MaterialInventoryScanError('素材舰船 ID 数量与舰名数量不一致')
+                    viewport_refs = tuple(
+                        f'material:{revision}:{viewport_index}:{row}:{column}:{x:.4f}:{y:.4f}'
+                        for row, column, x, y in viewport.positions
+                    )
+                    if len(viewport_refs) != len(viewport.names):
+                        raise MaterialInventoryScanError('素材位置数量与舰名数量不一致')
+                    merged_names, overlap = merge_viewport_names(
                         accumulated,
                         viewport.names,
-                        minimum_overlap=max(viewport.row_lengths),
+                        minimum_overlap=1,
                     )
-                return MaterialInventorySnapshot(accumulated, len(accumulated), viewport_count)
+                    accumulated = merged_names
+                    accumulated_ids += viewport.ship_ids[overlap:]
+                    refs += viewport_refs[overlap:]
+                return MaterialInventorySnapshot(
+                    accumulated,
+                    accumulated_ids,
+                    len(accumulated),
+                    viewport_count,
+                    refs,
+                )
             self._stepper.advance(thumb_bottom=thumb, screen_height=screen.shape[0])
             time.sleep(self._settle_seconds)
             previous_thumb = thumb
@@ -552,14 +621,29 @@ class MaterialInventoryScanner:
 
 def scan_material_inventory_from_main(
     device: AdbLosslessMaterialDevice,
-    ocr: OCREngine,
+    identities: ShipCardRecognizer,
     *,
     max_viewports: int = 24,
 ) -> MaterialInventorySnapshot:
     """Navigate from main to the material selector, then perform a read-only scan."""
     device.verify_cetus()
     MaterialFirstIntensifyController(device).enter_material_selector_from_main()
-    reader = MaterialViewportReader(ocr)
+    return scan_material_inventory_from_selector(
+        device,
+        identities,
+        max_viewports=max_viewports,
+    )
+
+
+def scan_material_inventory_from_selector(
+    device: AdbLosslessMaterialDevice,
+    identities: ShipCardRecognizer,
+    *,
+    max_viewports: int = 24,
+) -> MaterialInventorySnapshot:
+    """Scan an already verified, unselected material selector without navigating."""
+    device.verify_cetus()
+    reader = MaterialViewportReader(identities)
     stepper = AdbScrollbarStepper(device)
     scanner = MaterialInventoryScanner(device, reader, stepper)
     snapshot = scanner.scan(max_viewports=max_viewports)

@@ -84,12 +84,23 @@ class MaterialOccurrence:
     identity: str
     index: int
     contribution: ShipStats = ShipStats()
+    rarity: int = 1
 
     def __post_init__(self) -> None:
         if self.index < 0:
             raise ValueError('素材 occurrence 索引不能为负数')
         if not self.identity:
             raise ValueError('素材 identity 不能为空')
+        if (
+            isinstance(self.rarity, bool)
+            or not isinstance(self.rarity, int)
+            or not 1 <= self.rarity <= 6
+        ):
+            raise ValueError('素材星级必须是 1 到 6 的整数')
+
+    @property
+    def requires_confirmation(self) -> bool:
+        return self.rarity >= 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +130,7 @@ class MaterialInventoryObservation:
                     'identity': item.identity,
                     'index': item.index,
                     'contribution': _stats_payload(item.contribution),
+                    'rarity': item.rarity,
                 }
                 for item in self.occurrences
             ],
@@ -177,10 +189,9 @@ class ConfirmationObservation:
 
 @dataclass(frozen=True, slots=True)
 class IntensifyOutcomeObservation:
-    """Semantic result receipt proving which exact selector references were consumed."""
+    """Semantic result receipt for the strengthened target on the resulting home page."""
 
     target: TargetObservation
-    consumed_material_refs: tuple[SelectionRef, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +257,8 @@ class IntensifyControlPort(Protocol):
     def clear_materials(self) -> None: ...
 
     def confirm_irreversible_once(self) -> None: ...
+
+    def execute_without_confirmation_once(self) -> None: ...
 
 
 class SelectionOperator(Protocol):
@@ -365,6 +378,14 @@ class VerifiedIntensifyControl:
             raise IntensifyWorkflowError('不可逆确认已由控制适配器点击过')
         self._irreversible_clicked = True
         self._click(self._confirmation_coordinates.confirm)
+        self._wait(IntensifyUiState.HOME)
+
+    def execute_without_confirmation_once(self) -> None:
+        self._require(IntensifyUiState.HOME)
+        if self._irreversible_clicked:
+            raise IntensifyWorkflowError('不可逆强化已由控制适配器点击过')
+        self._irreversible_clicked = True
+        self._click(self._INTENSIFY)
         self._wait(IntensifyUiState.HOME)
 
 
@@ -504,9 +525,7 @@ class IntensifyWorkflow:
     """Drive one verified dry-run or explicitly authorized irreversible operation."""
 
     def __init__(
-        self,
-        recognition: IntensifyRecognitionPort,
-        control: IntensifyControlPort,
+        self, recognition: IntensifyRecognitionPort, control: IntensifyControlPort
     ) -> None:
         self._recognition = recognition
         self._control = control
@@ -514,18 +533,37 @@ class IntensifyWorkflow:
     def dry_run(self, plan: IntensifyPlan) -> DryRunEvidence:
         _require_validated_plan(plan)
         self._require_inventory(plan.inventory_fingerprint)
-        self._prepare_preview(plan)
-        self._control.open_confirmation()
-        self._require_state(IntensifyUiState.CONFIRMATION)
-        self._verify_confirmation(plan)
-        self._control.cancel_confirmation()
-        self._require_state(IntensifyUiState.HOME)
-        self._control.clear_materials()
-        clean = self._require_clean_home()
-        self._require_inventory(plan.inventory_fingerprint)
+        try:
+            self._prepare_preview(plan)
+            if _requires_confirmation(plan):
+                self._control.open_confirmation()
+                self._require_state(IntensifyUiState.CONFIRMATION)
+                self._verify_confirmation(plan)
+                self._control.cancel_confirmation()
+                self._require_state(IntensifyUiState.HOME)
+            self._control.clear_materials()
+            clean = self._require_clean_home()
+            self._require_inventory(plan.inventory_fingerprint)
+        except Exception:
+            self._recover_reversible_dry_run()
+            raise
         proof = secrets.token_urlsafe(32)
         _DRY_RUN_PROOFS[proof] = (plan.fingerprint, plan.inventory_fingerprint)
         return DryRunEvidence(plan.fingerprint, plan.inventory_fingerprint, True, clean, proof)
+
+    def _recover_reversible_dry_run(self) -> None:
+        """Best-effort cleanup after evidence rejection; never confirms the operation."""
+        try:
+            state = self._recognition.state()
+            if state == IntensifyUiState.CONFIRMATION:
+                self._control.cancel_confirmation()
+                state = self._recognition.state()
+            if state == IntensifyUiState.HOME:
+                self._control.clear_materials()
+        except Exception:
+            # Preserve the original evidence failure. A caller must treat cleanup
+            # uncertainty as fail-closed and inspect the page before any new input.
+            return
 
     def execute(
         self,
@@ -536,13 +574,15 @@ class IntensifyWorkflow:
         _claim_authorization(plan, authorization)
         inventory_before = self._require_inventory(plan.inventory_fingerprint)
         self._prepare_preview(plan)
-        self._control.open_confirmation()
-        self._require_state(IntensifyUiState.CONFIRMATION)
-        self._verify_confirmation(plan)
-        self._require_inventory(plan.inventory_fingerprint)
-
-        # Authorization was atomically claimed before any UI input. Exceptions must never retry it.
-        self._control.confirm_irreversible_once()
+        if _requires_confirmation(plan):
+            self._control.open_confirmation()
+            self._require_state(IntensifyUiState.CONFIRMATION)
+            self._verify_confirmation(plan)
+            self._require_inventory(plan.inventory_fingerprint)
+            self._control.confirm_irreversible_once()
+        else:
+            self._require_inventory(plan.inventory_fingerprint)
+            self._control.execute_without_confirmation_once()
 
         self._require_state(IntensifyUiState.HOME)
         home_after = self._recognition.home()
@@ -630,14 +670,14 @@ class IntensifyWorkflow:
     ) -> None:
         if outcome.target != home.target:
             raise IntensifyWorkflowError('强化结果回执与首页目标不一致')
-        if outcome.consumed_material_refs != tuple(item.ref for item in plan.materials):
-            raise IntensifyWorkflowError('强化结果回执中的 exact occurrence 与计划不一致')
         if home.target is None or home.target.ref != plan.target.ref:
             raise IntensifyWorkflowError('强化后目标舰不一致')
         if home.target.stats != plan.target.stats + plan.expected_gains:
             raise IntensifyWorkflowError('强化后目标属性不符合预期')
         if home.materials:
             raise IntensifyWorkflowError('强化后素材槽未清空')
+        if after.revision == before.revision:
+            raise IntensifyWorkflowError('强化后素材库存 revision 未变化')
         consumed = {item.ref for item in plan.materials}
         expected_remaining = tuple(item for item in before.occurrences if item.ref not in consumed)
         expected_remaining_identities = tuple(item.identity for item in expected_remaining)
@@ -713,6 +753,7 @@ def _plan_fingerprint(
                 'identity': item.identity,
                 'index': item.index,
                 'contribution': _stats_payload(item.contribution),
+                'rarity': item.rarity,
             }
             for item in materials
         ],
@@ -723,6 +764,10 @@ def _plan_fingerprint(
         'inventory': inventory_fingerprint,
     }
     return _fingerprint(payload)
+
+
+def _requires_confirmation(plan: IntensifyPlan) -> bool:
+    return any(item.requires_confirmation for item in plan.materials)
 
 
 def _claim_authorization(

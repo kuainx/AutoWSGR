@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
@@ -38,8 +39,8 @@ class TargetCardIdentity:
     name: str
     ship_type: ShipType
     visual_hash: int
-    portrait_good_matches: int
-    portrait_match_ratio: float
+    identity_confidence: float
+    identity_match_key: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,15 +52,58 @@ class TargetShipSnapshot:
     levels: ShipStats
     card: CardRect
     visual_hash: int
-    portrait_good_matches: int
-    portrait_match_ratio: float
+    identity_confidence: float
+    identity_match_key: str
     scan_step: int = 0
     global_index: int = -1
     occurrence: int = -1
 
 
+@dataclass(frozen=True, slots=True)
+class TargetInventorySnapshot:
+    """A proven-complete, revision-bound target inventory."""
+
+    targets: tuple[TargetShipSnapshot, ...]
+    total: int
+    complete: bool
+    revision: str
+    acquisition_method: str = 'complete-card-geometry+wsg-ncc+scrcpy-scroll'
+
+    def __post_init__(self) -> None:
+        if not self.complete:
+            raise ValueError('部分目标库存不能构造完整快照')
+        if not self.revision:
+            raise ValueError('目标库存 revision 不能为空')
+        if not self.targets:
+            raise ValueError('目标库存快照不能为空')
+        if self.total != len(self.targets):
+            raise ValueError('目标库存总数与 occurrence 数量不一致')
+        if tuple(item.global_index for item in self.targets) != tuple(range(self.total)):
+            raise ValueError('目标库存 global_index 必须连续')
+        refs = tuple(item.ref.value for item in self.targets)
+        if len(set(refs)) != len(refs):
+            raise ValueError('目标库存引用必须唯一')
+        revisions: set[str] = set()
+        occurrences: dict[int, int] = {}
+        for item in self.targets:
+            parts = item.ref.value.split(':')
+            if len(parts) != 7 or parts[0] != 'target':
+                raise ValueError(f'目标库存引用格式错误: {item.ref.value}')
+            revisions.add(parts[1])
+            expected_occurrence = occurrences.get(item.ship_id, 0)
+            if item.occurrence != expected_occurrence:
+                raise ValueError('目标库存 occurrence 索引必须连续')
+            occurrences[item.ship_id] = expected_occurrence + 1
+        if revisions != {self.revision}:
+            raise ValueError('目标库存包含多个 revision 或与聚合 revision 不一致')
+
+
 class TargetCardReader(Protocol):
-    def identify(self, screen: np.ndarray, card: CardRect) -> TargetCardIdentity | None: ...
+    def identify_all(
+        self,
+        screen: np.ndarray,
+        cards: tuple[CardRect, ...],
+    ) -> tuple[TargetCardIdentity, ...]: ...
 
     def read_levels(
         self,
@@ -74,33 +118,41 @@ class TargetScanDevice(Protocol):
 
     def rewind_target_list(self) -> None: ...
 
-    def advance_target_list(self) -> None: ...
+    def advance_target_list(self) -> np.ndarray: ...
+
+    def target_list_at_bottom(self, screen: np.ndarray) -> bool: ...
 
 
 def visual_hash_distance(left: int, right: int) -> int:
     return (left ^ right).bit_count()
 
 
-def merge_overlapping_target_pages(
+def same_target_card(
+    left: TargetShipSnapshot,
+    right: TargetShipSnapshot,
+    *,
+    max_hash_distance: int = 6,
+) -> bool:
+    return (
+        left.ship_id == right.ship_id
+        and visual_hash_distance(left.visual_hash, right.visual_hash) <= max_hash_distance
+    )
+
+
+def target_page_overlap_size(
     accumulated: list[TargetShipSnapshot],
     current: list[TargetShipSnapshot],
     *,
     max_hash_distance: int = 6,
-) -> list[TargetShipSnapshot]:
-    """Append only after finding one unique longest suffix/prefix alignment."""
-    if not accumulated:
-        return list(current)
-
-    def same(left: TargetShipSnapshot, right: TargetShipSnapshot) -> bool:
-        return left.ship_id == right.ship_id and visual_hash_distance(
-            left.visual_hash, right.visual_hash
-        ) <= max_hash_distance
-
+) -> int:
+    """Return the unique longest suffix/prefix overlap between two observations."""
+    if not accumulated or not current:
+        return 0
     overlaps = [
         size
         for size in range(1, min(len(accumulated), len(current)) + 1)
         if all(
-            same(left, right)
+            same_target_card(left, right, max_hash_distance=max_hash_distance)
             for left, right in zip(accumulated[-size:], current[:size], strict=True)
         )
     ]
@@ -114,29 +166,91 @@ def merge_overlapping_target_pages(
         start
         for start in range(len(accumulated) - longest + 1)
         if all(
-            same(left, right)
-            for left, right in zip(
-                accumulated[start : start + longest], signature, strict=True
-            )
+            same_target_card(left, right, max_hash_distance=max_hash_distance)
+            for left, right in zip(accumulated[start : start + longest], signature, strict=True)
         )
     ]
     if starts != [len(accumulated) - longest]:
         raise TargetInventoryScanError(f'目标舰列表滚动重叠存在歧义: {starts}')
-    return [*accumulated, *current[longest:]]
+    return longest
+
+
+def merge_overlapping_target_pages(
+    accumulated: list[TargetShipSnapshot],
+    current: list[TargetShipSnapshot],
+    *,
+    max_hash_distance: int = 6,
+) -> list[TargetShipSnapshot]:
+    """Append only after finding one unique longest suffix/prefix alignment."""
+    if not accumulated:
+        return list(current)
+    overlap = target_page_overlap_size(
+        accumulated,
+        current,
+        max_hash_distance=max_hash_distance,
+    )
+    return [*accumulated, *current[overlap:]]
+
+
+def target_viewport_rows(
+    viewport: list[TargetShipSnapshot],
+) -> tuple[tuple[TargetShipSnapshot, ...], ...]:
+    """Group one row-major complete-card viewport without assuming seven columns."""
+    if not viewport:
+        return ()
+    tolerance = max(
+        1,
+        round(max(item.card.bottom - item.card.top for item in viewport) * 0.08),
+    )
+    rows: list[list[TargetShipSnapshot]] = []
+    row_top: int | None = None
+    for item in viewport:
+        if row_top is None or abs(item.card.top - row_top) > tolerance:
+            rows.append([item])
+            row_top = item.card.top
+        else:
+            rows[-1].append(item)
+    return tuple(tuple(row) for row in rows)
+
+
+def matching_target_row_index(
+    rows: tuple[tuple[TargetShipSnapshot, ...], ...],
+    anchor: tuple[TargetShipSnapshot, ...],
+) -> int | None:
+    """Locate one ordered identity row, rejecting duplicate anchor matches."""
+    matches = [
+        index
+        for index, row in enumerate(rows)
+        if len(row) == len(anchor)
+        and all(same_target_card(left, right) for left, right in zip(anchor, row, strict=True))
+    ]
+    if len(matches) > 1:
+        raise TargetInventoryScanError(f'目标舰列表完整锚点行存在歧义: {matches}')
+    return matches[0] if matches else None
 
 
 def assign_target_occurrences(
     cards: list[TargetShipSnapshot],
 ) -> list[TargetShipSnapshot]:
+    revision_payload = '|'.join(
+        f'{card.scan_step}:{card.ship_id}:{card.visual_hash}' for card in cards
+    )
+    revision = hashlib.sha256(revision_payload.encode()).hexdigest()[:16]
     occurrences: dict[int, int] = {}
     result: list[TargetShipSnapshot] = []
     for index, card in enumerate(cards):
         occurrence = occurrences.get(card.ship_id, 0)
         occurrences[card.ship_id] = occurrence + 1
+        center_x, center_y = card.card.center
+        row = 0 if center_y < 540 else 1
+        column = index % 7
         result.append(
             replace(
                 card,
-                ref=SelectionRef(f'target:{card.ship_id}:{occurrence}'),
+                ref=SelectionRef(
+                    f'target:{revision}:{card.scan_step}:{row}:{column}:'
+                    f'{center_x / 1920:.4f}:{center_y / 1080:.4f}'
+                ),
                 global_index=index,
                 occurrence=occurrence,
             )
@@ -161,7 +275,7 @@ def detect_complete_target_cards(screen: np.ndarray) -> tuple[CardRect, ...]:
         left, top, box_width, box_height = cv2.boundingRect(contour)
         if not (expected_width * 0.82 <= box_width <= expected_width * 1.18):
             continue
-        if not (expected_height * 0.82 <= box_height <= expected_height * 1.18):
+        if not (expected_height * 0.97 <= box_height <= expected_height * 1.18):
             continue
         right = left + box_width
         bottom = top + box_height
@@ -188,11 +302,11 @@ class TargetInventoryScanner:
         cards = detect_complete_target_cards(screen)
         if not cards:
             raise TargetInventoryScanError('无法定位目标舰完整卡片')
+        identities = self._reader.identify_all(screen, cards)
+        if len(identities) != len(cards):
+            raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
         snapshots: list[TargetShipSnapshot] = []
-        for card in cards:
-            identity = self._reader.identify(screen, card)
-            if identity is None:
-                raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
+        for card, identity in zip(cards, identities, strict=True):
             levels = self._reader.read_levels(screen, card, identity)
             if levels is None:
                 raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
@@ -205,30 +319,89 @@ class TargetInventoryScanner:
                     levels=levels,
                     card=card,
                     visual_hash=identity.visual_hash,
-                    portrait_good_matches=identity.portrait_good_matches,
-                    portrait_match_ratio=identity.portrait_match_ratio,
+                    identity_confidence=identity.identity_confidence,
+                    identity_match_key=identity.identity_match_key,
                     scan_step=scan_step,
                 )
             )
         return snapshots
+
+    def advance_overlapping_viewport(
+        self,
+        previous: list[TargetShipSnapshot],
+        *,
+        scan_step: int,
+    ) -> tuple[list[TargetShipSnapshot], np.ndarray]:
+        """Advance until the previous trailing row leads a viewport with new cards."""
+        previous_rows = target_viewport_rows(previous)
+        if not previous_rows:
+            raise TargetInventoryScanError('目标舰视口没有完整锚点行')
+        anchor = previous_rows[-1]
+        last_anchor_index = len(previous_rows) - 1
+        last_anchor_top = anchor[0].card.top
+        while True:
+            screen = self._device.advance_target_list()
+            current = self.read_viewport(screen, scan_step=scan_step)
+            current_rows = target_viewport_rows(current)
+            anchor_index = matching_target_row_index(current_rows, anchor)
+            if anchor_index is None:
+                raise TargetInventoryScanError('目标舰列表滚动丢失完整锚点行')
+            current_anchor_top = current_rows[anchor_index][0].card.top
+            progressed = anchor_index < last_anchor_index or current_anchor_top < last_anchor_top
+            if not progressed:
+                raise TargetInventoryScanError('目标舰列表滚动没有产生可观测进度')
+            overlap = target_page_overlap_size(previous, current)
+            if anchor_index == 0 and len(current) > overlap:
+                return current, screen
+            if self._device.target_list_at_bottom(screen):
+                raise TargetInventoryScanError('目标舰列表到底前未形成完整重叠视口')
+            last_anchor_index = anchor_index
+            last_anchor_top = current_anchor_top
+
+    def navigate_to_viewport(self, viewport_steps: int) -> list[TargetShipSnapshot]:
+        """Replay identity-gated logical target rows from the list top."""
+        if viewport_steps < 0:
+            raise ValueError('目标舰视口步数不能为负数')
+        self._device.rewind_target_list()
+        time.sleep(self._settle_seconds)
+        previous = self.read_viewport(self._device.screenshot(), scan_step=0)
+        for scan_step in range(1, viewport_steps + 1):
+            previous, _screen = self.advance_overlapping_viewport(
+                previous,
+                scan_step=scan_step,
+            )
+        return previous
 
     def scan_all(self, *, max_scrolls: int = 80) -> list[TargetShipSnapshot]:
         if max_scrolls < 1:
             raise ValueError('目标舰最大滚动次数必须大于 0')
         self._device.rewind_target_list()
         time.sleep(self._settle_seconds)
-        accumulated = self.read_viewport(self._device.screenshot(), scan_step=0)
-        stagnant = 0
+        initial_screen = self._device.screenshot()
+        previous = self.read_viewport(initial_screen, scan_step=0)
+        accumulated = list(previous)
+        if self._device.target_list_at_bottom(initial_screen):
+            return assign_target_occurrences(accumulated)
         for scan_step in range(1, max_scrolls + 1):
-            self._device.advance_target_list()
-            time.sleep(self._settle_seconds)
-            current = self.read_viewport(self._device.screenshot(), scan_step=scan_step)
-            merged = merge_overlapping_target_pages(accumulated, current)
-            if len(merged) == len(accumulated):
-                stagnant += 1
-                if stagnant >= 2:
-                    return assign_target_occurrences(accumulated)
-            else:
-                accumulated = merged
-                stagnant = 0
+            current, screen = self.advance_overlapping_viewport(
+                previous,
+                scan_step=scan_step,
+            )
+            accumulated = merge_overlapping_target_pages(accumulated, current)
+            previous = current
+            if self._device.target_list_at_bottom(screen):
+                return assign_target_occurrences(accumulated)
         raise TargetInventoryScanError(f'目标舰列表扫描超过最大滚动次数: {max_scrolls}')
+
+    def scan_snapshot(self, *, max_scrolls: int = 80) -> TargetInventorySnapshot:
+        """Return the immutable aggregate only after ``scan_all`` proves completion."""
+        targets = tuple(self.scan_all(max_scrolls=max_scrolls))
+        if not targets:
+            raise TargetInventoryScanError('完整目标库存不能为空')
+        revision = targets[0].ref.value.split(':')[1]
+        return TargetInventorySnapshot(
+            targets=targets,
+            total=len(targets),
+            complete=True,
+            revision=revision,
+        )

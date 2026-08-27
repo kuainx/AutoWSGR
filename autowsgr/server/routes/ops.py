@@ -10,7 +10,28 @@ from pydantic import BaseModel
 
 from autowsgr.infra.logger import get_logger
 from autowsgr.server.device_lease import exclusive_device_operation
-from autowsgr.server.schemas import ApiResponse
+from autowsgr.server.intensify_preview_dependencies import (
+    IntensifyPreviewConfigurationError,
+    get_intensify_preview_service,
+    get_intensify_snapshot_scan_service,
+)
+from autowsgr.server.intensify_preview_service import (
+    IntensifyPreviewCommand,
+    IntensifyPreviewDataError,
+    IntensifyPreviewSelectionError,
+    IntensifyPreviewSessionUnavailableError,
+)
+from autowsgr.server.intensify_snapshot_scan_service import IntensifySnapshotScanError
+from autowsgr.server.schemas import (
+    ApiResponse,
+    IntensifyRequest,
+    IntensifySnapshotPreviewRequest,
+)
+from autowsgr.server.serializers import (
+    serialize_intensify_material_inventory,
+    serialize_intensify_target_inventory,
+)
+from autowsgr.ui.intensify_workflow import IntensifyPolicy, SelectionRef
 
 from ..main import get_context
 
@@ -18,6 +39,94 @@ from ..main import get_context
 _log = get_logger('server')
 
 router = APIRouter(tags=['ops'])
+
+
+_INTENSIFY_UNAVAILABLE = (
+    '强化执行尚未接入可验证的主页收益、确认弹窗和结果回执识别；已安全中止且未操作设备'
+)
+
+
+@router.post('/api/intensify/snapshot-sessions', response_model=ApiResponse)
+@exclusive_device_operation('api:intensify-snapshot-scan')
+async def intensify_snapshot_session() -> ApiResponse:
+    """Scan both complete inventories and publish one short-lived read-only session."""
+    try:
+        context = get_context()
+        service = get_intensify_snapshot_scan_service(context)
+        session = await asyncio.to_thread(service.create_session)
+        targets = serialize_intensify_target_inventory(session.target_snapshot)
+        materials = serialize_intensify_material_inventory(session.material_snapshot)
+    except (IntensifyPreviewConfigurationError, IntensifySnapshotScanError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return ApiResponse(
+        success=True,
+        data={
+            'sessionId': session.session_id,
+            'createdAt': session.created_at.isoformat(),
+            'expiresAt': session.expires_at.isoformat(),
+            'targetTotal': session.target_snapshot.total,
+            'targetRevision': session.target_snapshot.revision,
+            'materialTotal': session.material_snapshot.total,
+            'materialViewportCount': session.material_snapshot.viewport_count,
+            'targets': targets,
+            'materials': materials,
+        },
+        message='强化目标与素材库存只读快照已创建；未选择舰船且不可执行',
+    )
+
+
+@router.post('/api/intensify/preview', response_model=ApiResponse)
+async def intensify_preview(request: IntensifyRequest) -> ApiResponse:
+    """Validate a manual policy without acquiring or reading the shared device."""
+    return ApiResponse(
+        success=True,
+        data={
+            **request.model_dump(),
+            'executable': False,
+            'reason': _INTENSIFY_UNAVAILABLE,
+        },
+        message='强化策略已校验；当前执行链保持关闭',
+    )
+
+
+@router.post('/api/intensify/snapshot-preview', response_model=ApiResponse)
+async def intensify_snapshot_preview(request: IntensifySnapshotPreviewRequest) -> ApiResponse:
+    """Preview exact server-owned inventory occurrences without touching the device."""
+    command = IntensifyPreviewCommand(
+        session_id=request.session_id,
+        selected_target_ref=SelectionRef(request.selected_target_ref),
+        policy=IntensifyPolicy(
+            frozenset(request.allowed_material_identities),
+            maximum_materials=request.maximum_materials,
+        ),
+        selected_material_refs=tuple(
+            SelectionRef(value) for value in request.selected_material_refs
+        ),
+    )
+    try:
+        service = get_intensify_preview_service()
+        payload = await asyncio.to_thread(service.preview, command)
+    except IntensifyPreviewSessionUnavailableError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except IntensifyPreviewSelectionError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except (IntensifyPreviewConfigurationError, IntensifyPreviewDataError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return ApiResponse(
+        success=True,
+        data=payload,
+        message='强化快照候选预览已生成；未操作设备且不可执行',
+    )
+
+
+@router.post('/api/intensify', response_model=ApiResponse)
+@exclusive_device_operation('api:intensify')
+async def intensify_action(request: IntensifyRequest) -> ApiResponse:
+    """Fail closed until all irreversible-operation semantic evidence is available."""
+    _log.warning('[API] 强化执行被安全边界拒绝: target={}', request.target_ship)
+    return ApiResponse(success=False, error=_INTENSIFY_UNAVAILABLE)
 
 
 # ── 远征收取 ──

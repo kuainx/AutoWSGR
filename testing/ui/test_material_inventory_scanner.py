@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
+from autowsgr.types import ShipType
 from autowsgr.ui.material_inventory_scanner import (
     AdbLosslessMaterialDevice,
     AdbScrollbarStepper,
@@ -14,11 +15,10 @@ from autowsgr.ui.material_inventory_scanner import (
     MaterialInventoryScanError,
     MaterialInventoryScanner,
     MaterialViewportReader,
-    _normalize_ocr_name,
     merge_viewport_names,
     scan_material_inventory_from_main,
 )
-from autowsgr.vision.ocr import OCRResult
+from autowsgr.vision.ship_card_recognizer import ShipCardIdentity
 
 
 _FIXTURE_ROOT = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\live-material-rebuild')
@@ -34,41 +34,54 @@ def _fixture(name: str) -> np.ndarray:
 def _material_screen(*, row_columns: tuple[int, ...] = (7, 7)) -> np.ndarray:
     screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
     name_color = (18, 98, 162)
+    frame_color = (0, 170, 235)
     row_tops = (520, 952)
     for row, columns in enumerate(row_columns):
         for column in range(columns):
             left = 86 + column * 211
             screen[row_tops[row] : row_tops[row] + 42, left : left + 192] = name_color
+            card_top = row_tops[row] + 41 - 405
+            screen[card_top : card_top + 4, left : left + 192] = frame_color
     return screen
 
 
-def test_viewport_reader_uses_native_bands_and_one_ocr_call() -> None:
-    ocr = MagicMock()
-    ocr.recognize_batch.return_value = [
-        [OCRResult('霞飞', 0.99)],
-        [OCRResult('企业', 0.99)],
-        [OCRResult('U-96', 0.99)],
+def _identity(name: str, ship_id: int) -> ShipCardIdentity:
+    return ShipCardIdentity(ship_id, name, ShipType.DD, 0.9, f'gallery/{ship_id}.png')
+
+
+def test_viewport_reader_uses_native_bands_and_one_identity_call() -> None:
+    identities = MagicMock()
+    identities.recognize.return_value = [
+        _identity('霞飞', 1),
+        _identity('企业', 2),
+        _identity('U-96', 3),
     ]
     locate = MagicMock(return_value=[[346, 374], [634, 662], [663, 664]])
-    reader = MaterialViewportReader(ocr, locate=locate)
+    reader = MaterialViewportReader(identities, locate=locate)
 
     viewport = reader.read(_material_screen(row_columns=(2, 1)))
 
     assert viewport.names == ('霞飞', '企业', 'U-96')
+    assert viewport.ship_ids == (1, 2, 3)
     assert viewport.row_lengths == (2, 1)
+    assert [position[:2] for position in viewport.positions] == [(0, 0), (0, 1), (1, 0)]
+    expected_centers = ((0.0948, 0.3319), (0.2047, 0.3319), (0.0948, 0.7319))
+    for position, expected in zip(viewport.positions, expected_centers, strict=True):
+        assert position[2] == pytest.approx(expected[0], abs=0.0001)
+        assert position[3] == pytest.approx(expected[1], abs=0.0001)
     locate.assert_called_once()
     assert locate.call_args.args[0].shape == (720, 1048, 3)
-    assert ocr.recognize_batch.call_count == 1
-    assert [image.shape for image in ocr.recognize_batch.call_args.args[0]] == [
-        (63, 352, 3),
-        (63, 352, 3),
-        (63, 352, 3),
+    assert identities.recognize.call_count == 1
+    assert [image.shape for image in identities.recognize.call_args.args[0]] == [
+        (405, 192, 3),
+        (405, 192, 3),
+        (405, 192, 3),
     ]
 
 
-def test_capture_best_selects_text_richer_crop_per_slot() -> None:
+def test_capture_best_selects_sharper_crop_per_slot() -> None:
     reader = MaterialViewportReader(MagicMock())
-    sparse = np.full((63, 352, 3), 255, dtype=np.uint8)
+    sparse = np.full((405, 192, 3), 128, dtype=np.uint8)
     rich = sparse.copy()
     rich[20:40, 80:180] = 0
     reader.capture = MagicMock(
@@ -101,6 +114,40 @@ def test_capture_excludes_rows_whose_text_is_clipped_at_vertical_edge() -> None:
     assert len(capture.crops) == 2
 
 
+def test_capture_excludes_top_row_without_a_complete_card_height() -> None:
+    screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    name_color = (18, 98, 162)
+    frame_color = (0, 170, 235)
+    screen[190:232, 86:278] = name_color
+    screen[708:750, 86:278] = name_color
+    screen[345:348, 86:278] = frame_color
+    reader = MaterialViewportReader(
+        MagicMock(),
+        locate=lambda _image: [[127, 155], [472, 500]],
+    )
+
+    capture = reader.capture(screen)
+
+    assert capture.row_lengths == (1,)
+    assert capture.bands == ((708, 750),)
+    assert [crop.shape for crop in capture.crops] == [(405, 192, 3)]
+
+
+def test_capture_excludes_row_without_complete_cyan_card_top() -> None:
+    clipped_path = Path(
+        r'C:\Users\23264\AppData\Local\Temp\kilo\intensify-material-identity-failure\crop-57.png'
+    )
+    complete_path = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\material-selected.png')
+    if not clipped_path.exists() or not complete_path.exists():
+        pytest.skip('live clipped/complete material fixtures unavailable')
+    clipped = cv2.cvtColor(cv2.imread(str(clipped_path)), cv2.COLOR_BGR2RGB)
+    complete_screen = cv2.cvtColor(cv2.imread(str(complete_path)), cv2.COLOR_BGR2RGB)
+    complete = complete_screen[282:687, 86:278]
+
+    assert not MaterialViewportReader._has_complete_card_top(clipped)
+    assert MaterialViewportReader._has_complete_card_top(complete)
+
+
 def test_capture_best_rejects_geometry_change_between_frames() -> None:
     reader = MaterialViewportReader(MagicMock())
     crop = np.zeros((63, 352, 3), dtype=np.uint8)
@@ -115,51 +162,28 @@ def test_capture_best_rejects_geometry_change_between_frames() -> None:
         reader.capture_best((MagicMock(), MagicMock()))
 
 
-def test_viewport_reader_rejects_unrecognized_present_name_slot() -> None:
-    ocr = MagicMock(return_value=[])
-    ocr.recognize_batch.return_value = [[]]
-    reader = MaterialViewportReader(ocr, locate=lambda _image: [[346, 374]])
+def test_viewport_reader_rejects_unrecognized_present_card() -> None:
+    identities = MagicMock()
+    identities.recognize.return_value = [None]
+    reader = MaterialViewportReader(identities, locate=lambda _image: [[346, 374]])
 
-    with pytest.raises(MaterialInventoryScanError, match='舰名栏'):
+    with pytest.raises(MaterialInventoryScanError, match='拒绝宣称素材库存完整'):
         reader.read(_material_screen(row_columns=(1,)))
+    assert len(identities.recognize.call_args.args[0]) == 1
 
 
-def test_viewport_reader_rejects_ambiguous_overlap_even_with_history() -> None:
-    ocr = MagicMock()
-    ocr.recognize_batch.return_value = [
-        [OCRResult('企业', 0.99)],
-        [OCRResult('晓仙', 0.80)],
-        [OCRResult('U-96', 0.99)],
-    ]
+def test_viewport_reader_rejects_empty_identity_among_other_candidates() -> None:
+    identities = MagicMock()
+    identities.recognize.return_value = [_identity('企业', 1), None, _identity('U-96', 2)]
     reader = MaterialViewportReader(
-        ocr,
+        identities,
         locate=lambda _image: [[346, 374], [634, 662]],
     )
 
-    with pytest.raises(MaterialInventoryScanError, match='舰名栏'):
-        reader.read(
-            _material_screen(row_columns=(2, 1)),
-        )
-    assert ocr.recognize_batch.call_count == 1
-
-
-def test_unique_long_ship_suffix_allows_one_ocr_error() -> None:
-    assert _normalize_ocr_name(OCRResult('维内特', 0.9)) == '维托里奥·维内托'
-
-
-def test_unique_long_ship_prefix_handles_scrolling_name_bar() -> None:
-    assert _normalize_ocr_name(OCRResult('。安德烈', 0.9)) == '安德烈亚·多利亚'
-
-
-def test_short_or_ambiguous_suffix_is_not_guessed() -> None:
-    assert _normalize_ocr_name(OCRResult('企业', 0.9)) == '企业'
-    assert (
-        _normalize_ocr_name(
-            OCRResult('维内特', 0.9),
-            ['甲·维内托', '乙·维内托'],
-        )
-        is None
-    )
+    with pytest.raises(MaterialInventoryScanError, match='拒绝宣称素材库存完整'):
+        reader.read(_material_screen(row_columns=(2, 1)))
+    assert identities.recognize.call_count == 1
+    assert len(identities.recognize.call_args.args[0]) == 3
 
 
 def test_real_fixture_native_bands_filter_one_pixel_noise() -> None:
@@ -192,9 +216,38 @@ def test_overlap_merge_preserves_duplicate_occurrences() -> None:
     assert merged == ('A', 'A', 'B', 'C', 'C', 'D')
 
 
-def test_overlap_merge_rejects_disconnected_viewport() -> None:
-    with pytest.raises(MaterialInventoryScanError, match='衔接'):
-        merge_viewport_names(('A', 'B'), ('C', 'D'), minimum_overlap=2)
+def test_overlap_merge_uses_unique_sorted_name_boundary() -> None:
+    merged, overlap = merge_viewport_names(
+        ('A', 'A', 'B', 'B'),
+        ('A', 'B', 'B', 'C', 'C'),
+        minimum_overlap=2,
+    )
+
+    assert overlap == 3
+    assert merged == ('A', 'A', 'B', 'B', 'C', 'C')
+
+
+def test_overlap_merge_coalesces_sorted_same_name_group() -> None:
+    merged, overlap = merge_viewport_names(
+        ('A', 'A', 'A'),
+        ('A', 'A', 'B'),
+        minimum_overlap=1,
+    )
+
+    assert overlap == 2
+    assert merged == ('A', 'A', 'A', 'B')
+
+
+def test_overlap_merge_rejects_name_reappearing_after_merge() -> None:
+    with pytest.raises(MaterialInventoryScanError, match='连续分组'):
+        merge_viewport_names(('A', 'B'), ('A', 'B', 'A'), minimum_overlap=2)
+
+
+def test_overlap_merge_appends_disconnected_next_sorted_groups() -> None:
+    merged, overlap = merge_viewport_names(('A', 'B'), ('C', 'D'), minimum_overlap=2)
+
+    assert overlap == 0
+    assert merged == ('A', 'B', 'C', 'D')
 
 
 def test_adb_stepper_only_drags_inside_right_scrollbar_thumb() -> None:
@@ -205,6 +258,22 @@ def test_adb_stepper_only_drags_inside_right_scrollbar_thumb() -> None:
     stepper.advance(thumb_bottom=440, screen_height=1080)
 
     ctrl.shell.assert_called_once_with('input swipe 1580 298 1580 309 300')
+
+
+def test_adb_device_accepts_explicit_serial_and_verifies_cetus_identity() -> None:
+    adb_device = MagicMock()
+    adb_device.shell.side_effect = ['Cetus', 'CET-AL00']
+    device = AdbLosslessMaterialDevice('127.0.0.1:16449', adb_device=adb_device)
+
+    device.verify_cetus()
+
+    assert adb_device.shell.call_args_list[0].args == ('getprop ro.product.name',)
+    assert adb_device.shell.call_args_list[1].args == ('getprop ro.product.model',)
+
+
+def test_adb_device_requires_explicit_serial() -> None:
+    with pytest.raises(MaterialInventoryScanError, match='显式指定'):
+        AdbLosslessMaterialDevice('', adb_device=MagicMock())
 
 
 @pytest.mark.parametrize(
@@ -233,9 +302,24 @@ def test_scanner_merges_views_and_stops_after_stagnation() -> None:
     reader = MagicMock()
     reader.capture_best.side_effect = [MagicMock(), MagicMock(), MagicMock()]
     reader.recognize_captures.return_value = [
-        MagicMock(names=('A', 'B', 'C'), row_lengths=(3,)),
-        MagicMock(names=('B', 'C', 'D'), row_lengths=(2,)),
-        MagicMock(names=('B', 'C', 'D'), row_lengths=(2,)),
+        MagicMock(
+            names=('A', 'B', 'C'),
+            ship_ids=(1, 2, 3),
+            row_lengths=(3,),
+            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3), (0, 2, 0.3, 0.3)),
+        ),
+        MagicMock(
+            names=('B', 'C', 'D'),
+            ship_ids=(2, 3, 4),
+            row_lengths=(2,),
+            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3), (0, 2, 0.3, 0.3)),
+        ),
+        MagicMock(
+            names=('B', 'C', 'D'),
+            ship_ids=(2, 3, 4),
+            row_lengths=(2,),
+            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3), (0, 2, 0.3, 0.3)),
+        ),
     ]
     stepper = MagicMock()
     stepper.thumb_bottom.side_effect = [100, 200, 200]
@@ -256,7 +340,9 @@ def test_scanner_merges_views_and_stops_after_stagnation() -> None:
 
     assert snapshot.names == ('A', 'B', 'C', 'D')
     assert snapshot.total == 4
+    assert snapshot.ship_ids == (1, 2, 3, 4)
     assert snapshot.viewport_count == 3
+    assert len(snapshot.refs) == snapshot.total
     assert stepper.advance.call_count == 2
     reader.recognize_captures.assert_called_once()
 
@@ -267,8 +353,18 @@ def test_scanner_samples_multiple_frames_per_scroll_position() -> None:
     reader = MagicMock()
     reader.capture_best.return_value = MagicMock()
     reader.recognize_captures.return_value = [
-        MagicMock(names=('A', 'B'), row_lengths=(2,)),
-        MagicMock(names=('A', 'B'), row_lengths=(2,)),
+        MagicMock(
+            names=('A', 'B'),
+            ship_ids=(1, 2),
+            row_lengths=(2,),
+            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3)),
+        ),
+        MagicMock(
+            names=('A', 'B'),
+            ship_ids=(1, 2),
+            row_lengths=(2,),
+            positions=((0, 0, 0.1, 0.3), (0, 1, 0.2, 0.3)),
+        ),
     ]
     stepper = MagicMock()
     stepper.thumb_bounds.return_value = (10, 20)
@@ -292,16 +388,16 @@ def test_scanner_samples_multiple_frames_per_scroll_position() -> None:
     assert all(len(call.args[0]) == 5 for call in reader.capture_best.call_args_list)
 
 
-def test_all_captured_viewports_use_one_inventory_ocr_call() -> None:
-    ocr = MagicMock()
-    ocr.recognize_batch.return_value = [
-        [OCRResult('霞飞', 0.99)],
-        [OCRResult('企业', 0.99)],
-        [OCRResult('企业', 0.99)],
-        [OCRResult('U-96', 0.99)],
+def test_all_captured_viewports_use_one_inventory_identity_call() -> None:
+    identities = MagicMock()
+    identities.recognize.return_value = [
+        _identity('霞飞', 1),
+        _identity('企业', 2),
+        _identity('企业', 2),
+        _identity('U-96', 3),
     ]
-    reader = MaterialViewportReader(ocr, locate=MagicMock())
-    crop = np.zeros((63, 352, 3), dtype=np.uint8)
+    reader = MaterialViewportReader(identities, locate=MagicMock())
+    crop = np.zeros((405, 192, 3), dtype=np.uint8)
     captures = (
         CapturedMaterialViewport((crop, crop), (2,), ((1, 2),)),
         CapturedMaterialViewport((crop, crop), (2,), ((3, 4),)),
@@ -313,8 +409,22 @@ def test_all_captured_viewports_use_one_inventory_ocr_call() -> None:
         ('霞飞', '企业'),
         ('企业', 'U-96'),
     ]
-    ocr.recognize_batch.assert_called_once()
-    assert len(ocr.recognize_batch.call_args.args[0]) == 4
+    assert [viewport.ship_ids for viewport in viewports] == [(1, 2), (2, 3)]
+    identities.recognize.assert_called_once()
+    assert len(identities.recognize.call_args.args[0]) == 4
+
+
+def test_material_reference_center_scales_with_capture_height() -> None:
+    identities = MagicMock()
+    identities.recognize.return_value = [_identity('霞飞', 1)]
+    reader = MaterialViewportReader(identities, locate=MagicMock())
+    crop = np.zeros((270, 128, 3), dtype=np.uint8)
+
+    viewport = reader.recognize_captures(
+        (CapturedMaterialViewport((crop,), (1,), ((346, 374),), screen_height=720),)
+    )[0]
+
+    assert viewport.positions[0][3] == pytest.approx((374 - 270 / 2) / 720)
 
 
 def test_scanner_fails_before_input_when_page_is_unknown() -> None:
@@ -382,9 +492,11 @@ def test_scanner_rejects_stuck_scrollbar_before_bottom() -> None:
         scanner.scan()
 
 
-def test_single_name_overlap_is_not_sufficient() -> None:
-    with pytest.raises(MaterialInventoryScanError, match='衔接'):
-        merge_viewport_names(('A', 'B'), ('B', 'C'), minimum_overlap=2)
+def test_single_name_overlap_coalesces_sorted_boundary_group() -> None:
+    merged, overlap = merge_viewport_names(('A', 'B', 'B'), ('B', 'C'), minimum_overlap=1)
+
+    assert overlap == 1
+    assert merged == ('A', 'B', 'B', 'C')
 
 
 @pytest.mark.parametrize(
@@ -417,12 +529,31 @@ def test_large_live_selected_material_badge_is_detected() -> None:
     assert has_selected_material(_fixture('../live-explicit-dayodo-selected.png'))
 
 
-def test_material_scanner_has_no_portrait_or_feature_matching_path() -> None:
-    source = Path(r'E:\AutoWSGR-backend\autowsgr\ui\material_inventory_scanner.py').read_text(
-        encoding='utf-8'
-    )
+def test_live_unselected_material_card_decoration_is_not_a_sequence_badge() -> None:
+    from autowsgr.ui.material_inventory_scanner import has_selected_material
 
-    for forbidden in ('ShipPortraitLibrary', 'ship_portrait_matcher', 'SIFT', 'SURF', 'ORB_create'):
+    path = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\material-unselected-after-toggle.png')
+    if not path.exists():
+        pytest.skip(f'live unselected material fixture not available: {path}')
+    screen = cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
+
+    assert not has_selected_material(screen)
+
+
+def test_material_scanner_has_no_sift_or_ship_name_ocr_path() -> None:
+    source = (
+        Path(__file__).parents[2] / 'autowsgr' / 'ui' / 'material_inventory_scanner.py'
+    ).read_text(encoding='utf-8')
+
+    for forbidden in (
+        'ShipPortraitLibrary',
+        'ship_portrait_matcher',
+        'SIFT',
+        'SURF',
+        'ORB_create',
+        'recognize_batch',
+        '_normalize_ocr_name',
+    ):
         assert forbidden not in source
 
 
@@ -455,9 +586,18 @@ def test_adb_lossless_device_click_uses_exact_shell_pixels() -> None:
     adb_device.shell.assert_called_once_with('input tap 960 270')
 
 
+def test_adb_lossless_device_key_event_uses_exact_shell_command() -> None:
+    adb_device = MagicMock()
+    device = AdbLosslessMaterialDevice('127.0.0.1:16416', adb_device=adb_device)
+
+    device.key_event(4, delay=False)
+
+    adb_device.shell.assert_called_once_with('input keyevent 4')
+
+
 def test_complete_entry_navigates_then_scans(monkeypatch: pytest.MonkeyPatch) -> None:
     device = MagicMock()
-    ocr = MagicMock()
+    identities = MagicMock()
     navigation = MagicMock()
     scanner = MagicMock()
     expected = MagicMock()
@@ -479,7 +619,7 @@ def test_complete_entry_navigates_then_scans(monkeypatch: pytest.MonkeyPatch) ->
         MagicMock(return_value=scanner),
     )
 
-    result = scan_material_inventory_from_main(device, ocr, max_viewports=12)
+    result = scan_material_inventory_from_main(device, identities, max_viewports=12)
 
     navigation.enter_material_selector_from_main.assert_called_once_with()
     scanner.scan.assert_called_once_with(max_viewports=12)

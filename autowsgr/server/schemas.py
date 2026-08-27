@@ -44,6 +44,105 @@ class LogLevel(StrEnum):
     ERROR = 'ERROR'
 
 
+class IntensifyRequest(BaseModel):
+    """Manual intensify policy. It never carries selector refs or authorization proofs."""
+
+    target_ship: str = Field(min_length=1)
+    material_ship_types: list[str] | None = None
+    max_materials: int = Field(ge=1, le=12)
+    protected_ships: list[str] = Field(default_factory=list)
+
+    @field_validator('target_ship')
+    @classmethod
+    def _normalize_target_ship(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError('target_ship 不能为空')
+        return normalized
+
+    @field_validator('material_ship_types')
+    @classmethod
+    def _normalize_material_ship_types(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        normalized = [item.strip().upper() for item in value if item.strip()]
+        if not normalized:
+            raise ValueError('material_ship_types 不能为空列表')
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('material_ship_types 不能重复')
+        return normalized
+
+    @field_validator('protected_ships')
+    @classmethod
+    def _normalize_protected_ships(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip() for item in value if item.strip()]
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('protected_ships 不能重复')
+        return normalized
+
+    @model_validator(mode='after')
+    def _protect_target(self) -> IntensifyRequest:
+        if self.target_ship in self.protected_ships:
+            raise ValueError('强化目标不能同时位于保护名单')
+        return self
+
+    model_config = {'extra': 'forbid'}
+
+
+class IntensifySnapshotPreviewRequest(BaseModel):
+    """Read-only preview intent bound to one server-owned inventory snapshot."""
+
+    session_id: str = Field(min_length=1)
+    selected_target_ref: str = Field(min_length=1)
+    allowed_material_identities: list[str] = Field(min_length=1)
+    maximum_materials: int = Field(default=1, ge=1, le=12)
+    selected_material_refs: list[str] = Field(default_factory=list)
+
+    @field_validator('session_id')
+    @classmethod
+    def _normalize_session_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError('session_id 不能为空')
+        return normalized
+
+    @field_validator('selected_target_ref')
+    @classmethod
+    def _normalize_selected_target_ref(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError('selected_target_ref 不能为空')
+        return normalized
+
+    @field_validator('allowed_material_identities')
+    @classmethod
+    def _normalize_allowed_material_identities(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip() for item in value]
+        if not normalized or any(not item for item in normalized):
+            raise ValueError('allowed_material_identities 必须是非空字符串列表')
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('allowed_material_identities 不能重复')
+        return normalized
+
+    @field_validator('selected_material_refs')
+    @classmethod
+    def _normalize_selected_material_refs(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip() for item in value]
+        if any(not item for item in normalized):
+            raise ValueError('selected_material_refs 必须是非空字符串列表')
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('selected_material_refs 不能重复')
+        return normalized
+
+    @model_validator(mode='after')
+    def _limit_selected_materials(self) -> IntensifySnapshotPreviewRequest:
+        if len(self.selected_material_refs) > self.maximum_materials:
+            raise ValueError('selected_material_refs 超过 maximum_materials')
+        return self
+
+    model_config = {'extra': 'forbid'}
+
+
 type FormationAction = Annotated[int, Field(strict=True, ge=1, le=5)]
 type RuleSpec = tuple[str, Literal['retreat', 'detour'] | FormationAction]
 """HTTP rule item: condition expression plus retreat/detour/formation action."""

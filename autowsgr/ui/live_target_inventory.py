@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import cv2
@@ -16,40 +16,48 @@ from autowsgr.ui.target_inventory_scanner import (
     TargetCardIdentity,
     TargetInventoryScanError,
     TargetInventoryScanner,
-    TargetShipSnapshot,
+    TargetInventorySnapshot,
 )
 
 
 if TYPE_CHECKING:
     from autowsgr.ui.material_inventory_scanner import AdbLosslessMaterialDevice
+    from autowsgr.vision.named_portrait_matcher import NamedPortraitMatcher
     from autowsgr.vision.ocr import OCREngine
-    from autowsgr.vision.ship_portrait_matcher import ShipPortraitLibrary
+    from autowsgr.vision.ship_card_recognizer import ShipCardRecognizer
 
 
-_PORTRAIT_CROP = (0.03, 0.02, 0.97, 0.59)
-_NAME_CROP = (0.02, 0.897, 0.98, 1.0)
 _STRENGTHEN_CROPS = (
     (0.09, 0.58, 0.28, 0.82),
     (0.33, 0.58, 0.52, 0.82),
     (0.57, 0.58, 0.76, 0.82),
     (0.81, 0.58, 0.99, 0.82),
 )
+_NAME_CROP = (0.0, 0.88, 1.0, 1.0)
+_UNOBSCURED_PORTRAIT_BOTTOM = 0.36
 _TRACK_X_1920 = 1580
 _TRACK_TOP_1080 = 130
 _TRACK_BOTTOM_1080 = 1034
-_PAUSE_FILE = Path(r'C:\Users\23264\AppData\Local\Temp\kilo\pause-expedition-daemon')
 
 
 class TargetStatFallback(Protocol):
     def __call__(self, image: np.ndarray) -> int | None: ...
 
 
-class TargetNameRecognizer(Protocol):
-    def recognize_ship_name(self, image: np.ndarray, candidates: list[str]) -> str | None: ...
-
-
 class TargetMaxResolver(Protocol):
     def __call__(self, ship_id: int) -> ShipStats | None: ...
+
+
+class TargetScrollInput(Protocol):
+    def scroll(
+        self,
+        x: float,
+        y: float,
+        *,
+        horizontal: float = 0.0,
+        vertical: float = 0.0,
+        delay: bool = True,
+    ) -> None: ...
 
 
 def _relative_crop(
@@ -74,6 +82,12 @@ def _average_hash(image: np.ndarray, size: int = 16) -> int:
     for bit in bits.flat:
         value = (value << 1) | int(bit)
     return value
+
+
+def _stable_card_hash(card_image: np.ndarray) -> int:
+    """Hash the static card body while excluding the scrolling name ticker."""
+    stable_bottom = max(1, round(card_image.shape[0] * _NAME_CROP[1]))
+    return _average_hash(card_image[:stable_bottom])
 
 
 def target_thumb_bounds(screen: np.ndarray) -> tuple[int, int]:
@@ -120,7 +134,19 @@ def _is_cross(crop: np.ndarray) -> bool:
         and 4 <= stats[index, cv2.CC_STAT_WIDTH] <= round(width * 0.35)
         and 20 <= stats[index, cv2.CC_STAT_AREA] <= 90
     ]
-    return len(diagonals) >= 2
+    if len(diagonals) >= 2:
+        return True
+    if count <= 1:
+        return False
+    dominant = max((stats[index] for index in range(1, count)), key=lambda item: item[4])
+    width = int(dominant[cv2.CC_STAT_WIDTH])
+    height = int(dominant[cv2.CC_STAT_HEIGHT])
+    area = int(dominant[cv2.CC_STAT_AREA])
+    return (
+        width >= round(center.shape[1] * 0.85)
+        and height >= round(center.shape[0] * 0.50)
+        and area / (width * height) >= 0.65
+    )
 
 
 def _topology_digit(crop: np.ndarray) -> int | None:
@@ -139,7 +165,7 @@ def _topology_digit(crop: np.ndarray) -> int | None:
         and 2 <= stats[label, cv2.CC_STAT_WIDTH] <= round(mask.shape[1] * 0.50)
         and stats[label, cv2.CC_STAT_AREA] >= 8
     ]
-    if not accepted:
+    if len(accepted) != 1:
         return None
     cleaned = np.zeros_like(mask)
     for label in accepted:
@@ -151,8 +177,8 @@ def _topology_digit(crop: np.ndarray) -> int | None:
     glyph = cleaned[y : y + height, x : x + width]
     _contours, hierarchy = cv2.findContours(glyph, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     holes = 0 if hierarchy is None else sum(1 for item in hierarchy[0] if item[3] >= 0)
-    if holes == 1:
-        return 0
+    if holes in (1, 2):
+        return 0 if holes == 1 else 8
     column_ink = (glyph > 0).sum(axis=0)
     if height >= 14 and int((column_ink >= height - 2).sum()) >= 3:
         return 1
@@ -202,6 +228,48 @@ def _extract_digit_glyph(crop: np.ndarray) -> np.ndarray | None:
     )
 
 
+def _extract_digit_color(crop: np.ndarray) -> np.ndarray | None:
+    """Locate the blue glyphs but preserve their original antialiased RGB pixels."""
+    hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
+    mask = cv2.inRange(hsv, np.array((90, 150, 70)), np.array((125, 255, 255)))
+    mask[: round(mask.shape[0] * 0.18), :] = 0
+    mask[round(mask.shape[0] * 0.88) :, :] = 0
+    mask[:, : round(mask.shape[1] * 0.12)] = 0
+    mask[:, round(mask.shape[1] * 0.94) :] = 0
+    count, labels, stats, _centers = cv2.connectedComponentsWithStats(mask)
+    accepted = [
+        label
+        for label in range(1, count)
+        if 7 <= stats[label, cv2.CC_STAT_HEIGHT] <= round(mask.shape[0] * 0.55)
+        and 2 <= stats[label, cv2.CC_STAT_WIDTH] <= round(mask.shape[1] * 0.50)
+        and stats[label, cv2.CC_STAT_AREA] >= 8
+    ]
+    if not accepted:
+        return None
+    cleaned = np.zeros_like(mask)
+    for label in accepted:
+        cleaned[labels == label] = 255
+    points = cv2.findNonZero(cleaned)
+    if points is None:
+        return None
+    x, y, width, height = cv2.boundingRect(points)
+    glyph = crop[y : y + height, x : x + width]
+    enlarged = cv2.resize(
+        glyph,
+        (max(1, width * 6), max(1, height * 6)),
+        interpolation=cv2.INTER_CUBIC,
+    )
+    return cv2.copyMakeBorder(
+        enlarged,
+        24,
+        24,
+        24,
+        24,
+        cv2.BORDER_CONSTANT,
+        value=(0, 0, 0),
+    )
+
+
 def _is_max(crop: np.ndarray) -> bool:
     hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)
     orange = cv2.inRange(hsv, np.array((5, 150, 140)), np.array((35, 255, 255)))
@@ -214,38 +282,56 @@ def _is_max(crop: np.ndarray) -> bool:
 
 @dataclass(slots=True)
 class CetusTargetCardReader:
-    portraits: ShipPortraitLibrary
+    identities: ShipCardRecognizer
     ocr: OCREngine | None = None
     max_resolver: TargetMaxResolver | None = None
+    named_portraits: NamedPortraitMatcher | None = None
 
-    def identify(self, screen: np.ndarray, card: CardRect) -> TargetCardIdentity | None:
-        portrait = _relative_crop(screen, card, _PORTRAIT_CROP)
-        match = self.portraits.identify(portrait)
-        if match is None and self.ocr is not None:
-            search_names = sorted({record.search_name for record in self.portraits.records})
-            rendered_name = self.ocr.recognize_ship_name(
-                _relative_crop(screen, card, _NAME_CROP),
-                search_names,
+    def identify_all(
+        self,
+        screen: np.ndarray,
+        cards: tuple[CardRect, ...],
+    ) -> tuple[TargetCardIdentity, ...]:
+        card_images = [screen[card.top : card.bottom, card.left : card.right] for card in cards]
+        identities = self.identities.recognize(card_images)
+        if len(identities) != len(card_images):
+            raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
+        for index, identity in enumerate(identities):
+            if identity is not None or self.ocr is None or self.named_portraits is None:
+                continue
+            card_image = card_images[index]
+            name = self.ocr.recognize_ship_name(
+                card_image[round(card_image.shape[0] * _NAME_CROP[1]) :],
+                candidates=self.named_portraits.search_names,
             )
-            if rendered_name is not None:
-                candidates = self.portraits.records_for_search_name(rendered_name)
-                if candidates:
-                    match = self.portraits.identify(
-                        portrait,
-                        candidate_names={rendered_name},
-                        min_good_matches=12,
-                        min_ratio=0.015,
-                        ambiguity_margin=4,
-                    )
-        if match is None:
-            return None
-        return TargetCardIdentity(
-            ship_id=match.record.ship_id,
-            name=match.record.name,
-            ship_type=match.record.ship_type,
-            visual_hash=_average_hash(portrait),
-            portrait_good_matches=match.good_matches,
-            portrait_match_ratio=match.ratio,
+            if name is None:
+                continue
+            portrait = card_image[: round(card_image.shape[0] * _UNOBSCURED_PORTRAIT_BOTTOM)]
+            match = self.named_portraits.identify(portrait, name)
+            if match is None:
+                continue
+            from autowsgr.vision.ship_card_recognizer import ShipCardIdentity
+
+            identities[index] = ShipCardIdentity(
+                ship_id=match.record.ship_id,
+                name=match.record.name,
+                ship_type=match.record.ship_type,
+                confidence=match.ratio,
+                match_key=f'portrait:{match.record.portrait_path.name}',
+            )
+        if any(identity is None for identity in identities):
+            raise TargetInventoryScanError('目标舰页面存在未识别完整卡片，拒绝宣称扫描完成')
+        return tuple(
+            TargetCardIdentity(
+                ship_id=identity.ship_id,
+                name=identity.name,
+                ship_type=identity.ship_type,
+                visual_hash=_stable_card_hash(card_image),
+                identity_confidence=identity.confidence,
+                identity_match_key=identity.match_key,
+            )
+            for identity, card_image in zip(identities, card_images, strict=True)
+            if identity is not None
         )
 
     def _read_stat(self, crop: np.ndarray, maximum: int) -> int | None:
@@ -258,10 +344,13 @@ class CetusTargetCardReader:
             return topology
         if self.ocr is None:
             return None
-        glyph = _extract_digit_glyph(crop)
-        if glyph is None:
-            return None
-        value = self.ocr.recognize_number(glyph)
+        color_glyph = _extract_digit_color(crop)
+        value = None if color_glyph is None else self.ocr.recognize_number(color_glyph)
+        if value is None:
+            binary_glyph = _extract_digit_glyph(crop)
+            value = None if binary_glyph is None else self.ocr.recognize_number(binary_glyph)
+        # The final material contribution may leave a numeric panel value above
+        # the requirement represented by MAX. Preserve the observed value.
         return value if value is not None and 0 <= value <= 999 else None
 
     def read_levels(
@@ -298,9 +387,16 @@ class CetusTargetCardReader:
 
 
 class CetusTargetScanDevice:
-    def __init__(self, device: AdbLosslessMaterialDevice, *, step_pixels: int = 11) -> None:
+    def __init__(
+        self,
+        device: AdbLosslessMaterialDevice,
+        *,
+        scroll_input: TargetScrollInput,
+        scroll_amount: float = -0.25,
+    ) -> None:
         self._device = device
-        self._step_pixels = step_pixels
+        self._scroll_input = scroll_input
+        self._scroll_amount = scroll_amount
 
     def screenshot(self) -> np.ndarray:
         screen = self._device.screenshot()
@@ -327,31 +423,34 @@ class CetusTargetScanDevice:
             self._swipe_track((top + bottom) // 2, target_top, screen.shape[0])
         raise TargetInventoryScanError('目标列表回顶超过最大尝试次数')
 
-    def advance_target_list(self) -> None:
-        screen = self.screenshot()
-        top, bottom = target_thumb_bounds(screen)
-        start = max(top + 1, bottom - round(20 * screen.shape[0] / 1080))
-        end = min(
-            round(_TRACK_BOTTOM_1080 * screen.shape[0] / 1080) - 1,
-            start + max(1, round(self._step_pixels * screen.shape[0] / 1080)),
-        )
-        self._swipe_track(start, end, screen.shape[0])
+    def advance_target_list(self) -> np.ndarray:
+        self._scroll_input.scroll(0.5, 0.5, vertical=self._scroll_amount, delay=False)
+        time.sleep(0.03)
+        return self.screenshot()
+
+    @staticmethod
+    def _target_list_at_bottom(screen: np.ndarray) -> bool:
+        _top, bottom = target_thumb_bounds(screen)
+        return bottom >= round((_TRACK_BOTTOM_1080 - 10) * screen.shape[0] / 1080)
+
+    def target_list_at_bottom(self, screen: np.ndarray) -> bool:
+        return self._target_list_at_bottom(screen)
 
 
 def scan_live_target_inventory(
     device: AdbLosslessMaterialDevice,
-    portraits: ShipPortraitLibrary,
+    identities: ShipCardRecognizer,
     *,
+    scroll_input: TargetScrollInput,
     ocr: OCREngine | None = None,
     max_resolver: TargetMaxResolver | None = None,
+    named_portraits: NamedPortraitMatcher | None = None,
     max_scrolls: int = 80,
-) -> list[TargetShipSnapshot]:
+) -> TargetInventorySnapshot:
     """Run a target-only, scrollbar-only scan on the verified Cetus device."""
     device.verify_cetus()
-    if not _PAUSE_FILE.exists():
-        raise TargetInventoryScanError(f'远征暂停文件不存在: {_PAUSE_FILE}')
-    adapter = CetusTargetScanDevice(device)
-    reader = CetusTargetCardReader(portraits, ocr, max_resolver)
-    result = TargetInventoryScanner(adapter, reader).scan_all(max_scrolls=max_scrolls)
+    adapter = CetusTargetScanDevice(device, scroll_input=scroll_input)
+    reader = CetusTargetCardReader(identities, ocr, max_resolver, named_portraits)
+    result = TargetInventoryScanner(adapter, reader).scan_snapshot(max_scrolls=max_scrolls)
     device.verify_cetus()
     return result

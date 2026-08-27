@@ -13,6 +13,92 @@ if TYPE_CHECKING:
     from autowsgr.combat import CombatPlan
     from autowsgr.combat.fleet import ResolvedFleetSelection
     from autowsgr.server.schemas import CombatPlanRequest
+    from autowsgr.ui.intensify_inventory_semantics import IntensifyCandidatePreview
+    from autowsgr.ui.intensify_workflow import ShipStats
+    from autowsgr.ui.material_inventory_scanner import MaterialInventorySnapshot
+    from autowsgr.ui.target_inventory_scanner import TargetInventorySnapshot
+
+
+def _serialize_intensify_stats(stats: ShipStats) -> dict[str, int]:
+    return {
+        'firepower': stats.firepower,
+        'torpedo': stats.torpedo,
+        'armor': stats.armor,
+        'antiAir': stats.anti_air,
+    }
+
+
+def serialize_intensify_candidate_preview(preview: IntensifyCandidatePreview) -> dict[str, Any]:
+    """Serialize a read-only intensify preview without leaking internal wrappers or proofs."""
+    return {
+        'targetRevision': preview.target_revision,
+        'materialRevision': preview.material_revision,
+        'executionPath': preview.execution_path,
+        'executable': preview.executable,
+        'targets': [
+            {
+                'ref': target.ref.value,
+                'shipId': target.ship_id,
+                'identity': target.identity,
+                'occurrence': target.occurrence,
+                'current': _serialize_intensify_stats(target.current),
+                'maximum': _serialize_intensify_stats(target.maximum),
+                'deficit': _serialize_intensify_stats(target.deficit),
+                'projectedGains': _serialize_intensify_stats(target.projected_gains),
+                'projected': _serialize_intensify_stats(target.projected),
+                'needsIntensify': target.needs_intensify,
+            }
+            for target in preview.targets
+        ],
+        'materials': [
+            {
+                'ref': material.ref.value,
+                'identity': material.identity,
+                'index': material.index,
+                'contribution': _serialize_intensify_stats(material.contribution),
+                'rarity': material.rarity,
+                'requiresConfirmation': material.requires_confirmation,
+                'eligible': material.eligible,
+                'reason': material.reason,
+            }
+            for material in preview.materials
+        ],
+    }
+
+
+def serialize_intensify_target_inventory(
+    snapshot: TargetInventorySnapshot,
+) -> list[dict[str, Any]]:
+    """Expose only the exact target occurrences required for read-only GUI selection."""
+    return [
+        {
+            'ref': target.ref.value,
+            'shipId': target.ship_id,
+            'identity': target.name,
+            'occurrence': target.occurrence,
+            'current': _serialize_intensify_stats(target.levels),
+        }
+        for target in snapshot.targets
+    ]
+
+
+def serialize_intensify_material_inventory(
+    snapshot: MaterialInventorySnapshot,
+) -> list[dict[str, Any]]:
+    """Expose only immutable material identities and revision-bound selection refs."""
+    if not (snapshot.total == len(snapshot.names) == len(snapshot.ship_ids) == len(snapshot.refs)):
+        raise ValueError('素材快照名称、ID、引用和总数不一致')
+    return [
+        {
+            'ref': ref,
+            'shipId': ship_id,
+            'identity': identity,
+            'index': index,
+        }
+        for index, (identity, ship_id, ref) in enumerate(
+            zip(snapshot.names, snapshot.ship_ids, snapshot.refs, strict=True)
+        )
+    ]
 
 
 def serialize_resources(resources: Any) -> dict[str, int]:
