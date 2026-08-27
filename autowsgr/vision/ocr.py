@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import cv2
 import easyocr
+from easyocr.recognition import get_text as easyocr_get_text
 
 from autowsgr.constants import SHIPNAMES, normalize_ship_name
 from autowsgr.infra.logger import get_logger
@@ -172,6 +173,14 @@ class OCREngine(ABC):
         """
         params = get_easyocr_params(easyocr_profile)
         return self.recognize(image, allowlist or params.allowlist)
+
+    def recognize_batch(
+        self,
+        images: list[np.ndarray],
+        allowlist: str = '',
+    ) -> list[list[OCRResult]]:
+        """Recognize equal-purpose image regions as one logical batch."""
+        return [self.recognize(image, allowlist) for image in images]
 
     # ── 便捷方法 ──
 
@@ -482,6 +491,44 @@ class EasyOCREngine(OCREngine):
             kwargs['allowlist'] = effective_allowlist
         raw = self._reader.recognize(image, **kwargs)
         return self._convert_results(raw)
+
+    def recognize_batch(
+        self,
+        images: list[np.ndarray],
+        allowlist: str = '',
+    ) -> list[list[OCRResult]]:
+        if not images:
+            return []
+        ignore_char = (
+            ''.join(set(self._reader.character) - set(allowlist))
+            if allowlist
+            else ''.join(set(self._reader.character) - set(self._reader.lang_char))
+        )
+        width = max(image.shape[1] for image in images)
+        image_list = []
+        for image in images:
+            height, image_width = image.shape[:2]
+            box = ((0, 0), (image_width, 0), (image_width, height), (0, height))
+            grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            image_list.append((box, grey))
+        raw = easyocr_get_text(
+            self._reader.character,
+            64,
+            width,
+            self._reader.recognizer,
+            self._reader.converter,
+            image_list,
+            ignore_char,
+            batch_size=1,
+            contrast_ths=0,
+            workers=0,
+            device=self._reader.device,
+        )
+        if len(raw) != len(images):
+            raise RuntimeError('EasyOCR recognizer batch result count mismatch')
+        return [
+            [OCRResult(text=text, confidence=float(conf), bbox=None)] for _box, text, conf in raw
+        ]
 
 
 class FastOCREngine(OCREngine):

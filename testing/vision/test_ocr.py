@@ -60,6 +60,26 @@ def _dummy_image() -> np.ndarray:
     return np.zeros((10, 10, 3), dtype=np.uint8)
 
 
+def test_easyocr_batch_uses_one_api_call_with_bounded_internal_batch() -> None:
+    engine = EasyOCREngine.__new__(EasyOCREngine)
+    engine._reader = MagicMock()
+    engine._reader.character = ['A', 'B']
+    engine._reader.lang_char = ['A', 'B']
+    engine._reader.device = 'cpu'
+    images = [np.zeros((63, 352, 3), dtype=np.uint8) for _ in range(20)]
+
+    raw = [(((0, 0),), f'name-{index}', 0.9) for index in range(20)]
+    with patch('autowsgr.vision.ocr.easyocr_get_text', return_value=raw) as get_text:
+        results = engine.recognize_batch(images)
+
+    assert [result[0].text for result in results] == [f'name-{index}' for index in range(20)]
+    get_text.assert_called_once()
+    assert get_text.call_args.kwargs['batch_size'] == 1
+    assert get_text.call_args.kwargs['contrast_ths'] == 0
+    assert len(get_text.call_args.args[5]) == 20
+    engine._reader.readtext_batched.assert_not_called()
+
+
 # ─────────────────────────────────────────────
 # 等级 OCR 引擎
 # ─────────────────────────────────────────────
@@ -533,6 +553,15 @@ class TestPoolAwareMatch:
 
     def test_only_confirmed_cjk_separator_is_corrected(self):
         assert apply_ship_patches('安德烈亚:多利亚') == '安德烈亚·多利亚'
+        assert apply_ship_patches('奥:维内托') == '维托里奥·维内托'
+        assert apply_ship_patches('7奥:维内托') == '维托里奥·维内托'
+        assert apply_ship_patches('维内托!') == '维托里奥·维内托'
+        assert apply_ship_patches('。维托里') == '维托里奥·维内托'
+        assert apply_ship_patches('屋尼.维瓦尔迪') == '乌戈里尼·维瓦尔迪'
+        assert apply_ship_patches('。艮尼.维瓦尔迪') == '乌戈里尼·维瓦尔迪'
+        assert apply_ship_patches('。昆尼.维瓦尔迪') == '乌戈里尼·维瓦尔迪'
+        assert apply_ship_patches('。新洚四') == '新泽西'
+        assert apply_ship_patches(';冽亚.多利亚') == '安德烈亚·多利亚'
         assert apply_ship_patches('鳟盹') == '鳞鲀'
         assert apply_ship_patches('U/96') == 'U/96'
         assert apply_ship_patches('U:96') == 'U:96'

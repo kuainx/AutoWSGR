@@ -16,6 +16,7 @@ from autowsgr.server.routes import game, ops
     'route_call',
     [
         ops.expedition_check,
+        ops.intensify_snapshot_session,
         lambda: ops.expedition_auto_check(ops.ExpeditionAutoCheckRequest()),
         ops.build_collect,
         lambda: ops.build_start(ops.BuildStartRequest()),

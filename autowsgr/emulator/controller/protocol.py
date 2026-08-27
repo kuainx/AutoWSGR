@@ -118,6 +118,22 @@ class AndroidController(ABC):
         ...
 
     @abstractmethod
+    def scroll(
+        self,
+        x: float,
+        y: float,
+        *,
+        horizontal: float = 0.0,
+        vertical: float = 0.0,
+        delay: bool = True,
+    ) -> None:
+        """发送鼠标滚轮事件。
+
+        ``x``/``y`` 是事件位置的相对坐标，滚动量限制为 ``[-1.0, 1.0]``。
+        """
+        ...
+
+    @abstractmethod
     def long_tap(self, x: float, y: float, duration: float = 1.0) -> None:
         """长按。
 

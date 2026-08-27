@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+from collections import deque
+
+import numpy as np
+import pytest
+
+from autowsgr.ui.material_first_intensify import (
+    MaterialFirstIntensifyController,
+    MaterialFirstNavigationError,
+    is_material_selector_screen,
+)
+
+
+def _screen(kind: str) -> np.ndarray:
+    screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    if kind == 'main':
+        for x, y, color in (
+            (0.6453, 0.9375, (52, 115, 168)),
+            (0.8126, 0.8681, (213, 206, 180)),
+            (0.9696, 0.8903, (121, 130, 135)),
+            (0.0570, 0.8847, (251, 252, 255)),
+        ):
+            screen[round(y * 1080), round(x * 1920)] = color
+    elif kind == 'sidebar':
+        for x, y in (
+            (0.0417, 0.0806),
+            (0.0422, 0.2102),
+            (0.0453, 0.3463),
+            (0.0406, 0.4676),
+            (0.0396, 0.6028),
+            (0.0432, 0.7231),
+        ):
+            screen[round(y * 1080), round(x * 1920)] = (57, 57, 57)
+    elif kind == 'intensify':
+        screen[round(0.0472 * 1080), round(0.1539 * 1920)] = (15, 132, 228)
+        screen[round(0.0625 * 1080), round(0.2719 * 1920)] = (22, 37, 62)
+        screen[round(0.0528 * 1080), round(0.4039 * 1920)] = (22, 37, 62)
+    elif kind == 'material':
+        screen[120:1030, :1550] = (15, 45, 70)
+        for x in range(86, 1546, 211):
+            screen[145:1010, x : x + 4] = (0, 170, 235)
+        screen[929:1026, 1613:1882] = (20, 135, 225)
+        screen[120:886, 1594:1900] = (35, 45, 55)
+    return screen
+
+
+class _Controller:
+    def __init__(self, screens: list[np.ndarray]) -> None:
+        self.screens = deque(screens)
+        self.clicks: list[tuple[float, float]] = []
+
+    def screenshot(self) -> np.ndarray:
+        if len(self.screens) > 1:
+            return self.screens.popleft()
+        return self.screens[0]
+
+    def click(self, x: float, y: float) -> None:
+        self.clicks.append((x, y))
+
+
+def test_enters_intensify_home_and_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctrl = _Controller(
+        [
+            _screen('main'),
+            _screen('main'),
+            _screen('sidebar'),
+            _screen('sidebar'),
+            _screen('intensify'),
+            _screen('intensify'),
+            _screen('intensify'),
+            _screen('intensify'),
+        ]
+    )
+    monkeypatch.setattr('autowsgr.ui.material_first_intensify.time.sleep', lambda _seconds: None)
+
+    MaterialFirstIntensifyController(ctrl).enter_intensify_home_from_main()
+
+    assert ctrl.clicks == [
+        (0.0490, 0.8981),
+        (0.1563, 0.5000),
+        (0.3750, 0.5000),
+        (0.1875, 0.0463),
+    ]
+    assert len(ctrl.screens) == 1
+
+
+def test_enters_material_selector_without_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctrl = _Controller(
+        [
+            _screen('main'),
+            _screen('main'),
+            _screen('sidebar'),
+            _screen('sidebar'),
+            _screen('intensify'),
+            _screen('intensify'),
+            _screen('intensify'),
+            _screen('intensify'),
+            _screen('material'),
+            _screen('material'),
+        ]
+    )
+    monkeypatch.setattr('autowsgr.ui.material_first_intensify.time.sleep', lambda _seconds: None)
+
+    evidence = MaterialFirstIntensifyController(ctrl).enter_material_selector_from_main()
+
+    assert ctrl.clicks[-1] == (0.2630, 0.3380)
+    assert evidence.confirm_blue_ratio >= 0.35
+
+
+def test_material_selector_requires_confirm_button() -> None:
+    screen = _screen('material')
+    screen[929:1026, 1613:1882] = 0
+
+    assert not is_material_selector_screen(screen)
+
+
+def test_target_selector_is_not_material_selector() -> None:
+    screen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    screen[135:1034, :1550] = (15, 45, 70)
+    screen[135:260, 1580] = (192, 193, 195)
+
+    assert not is_material_selector_screen(screen)
+
+
+def test_fails_closed_before_any_click_when_main_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctrl = _Controller([_screen('unknown')])
+    ticks = iter([0.0, 0.1, 10.0])
+    monkeypatch.setattr('autowsgr.ui.material_first_intensify.time.monotonic', lambda: next(ticks))
+    monkeypatch.setattr('autowsgr.ui.material_first_intensify.time.sleep', lambda _seconds: None)
+
+    with pytest.raises(MaterialFirstNavigationError, match='main'):
+        MaterialFirstIntensifyController(ctrl, timeout=1.0).enter_intensify_home_from_main()
+
+    assert ctrl.clicks == []

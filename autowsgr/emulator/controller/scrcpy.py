@@ -479,6 +479,12 @@ class ScrcpyController(AndroidController):
         clamped = max(0.0, min(1.0, value))
         return round(clamped * 0xFFFF)
 
+    @staticmethod
+    def _float_to_i16fp(value: float) -> int:
+        """将 [-1.0, 1.0] 滚动量编码为 scrcpy i16 定点数。"""
+        clamped = max(-1.0, min(1.0, value))
+        return round(clamped * 0x7FFF)
+
     def _to_absolute(self, x: float, y: float) -> tuple[int, int]:
         """将相对坐标 [0.0, 1.0] 转换为设备像素坐标。"""
         w, h = self._resolution
@@ -528,6 +534,30 @@ class ScrcpyController(AndroidController):
             key_code,
             0,  # repeat
             0,  # metastate
+        )
+        self._send_control(data)
+
+    def _inject_scroll(
+        self,
+        x: float,
+        y: float,
+        *,
+        horizontal: float,
+        vertical: float,
+    ) -> None:
+        """发送 INJECT_SCROLL_EVENT 控制消息（scrcpy 2.7，21 字节）。"""
+        width, height = self._resolution
+        px, py = self._to_absolute(x, y)
+        data = struct.pack(
+            '>BIIHHhhI',
+            _TYPE_INJECT_SCROLL_EVENT,
+            px,
+            py,
+            width,
+            height,
+            self._float_to_i16fp(horizontal),
+            self._float_to_i16fp(vertical),
+            0,
         )
         self._send_control(data)
 
@@ -665,6 +695,27 @@ class ScrcpyController(AndroidController):
 
         # 增加延迟，改动同 click_delay
         if delay:  # True 才走延迟
+            time.sleep(operation_delay())
+
+    def scroll(
+        self,
+        x: float,
+        y: float,
+        *,
+        horizontal: float = 0.0,
+        vertical: float = 0.0,
+        delay: bool = True,
+    ) -> None:
+        _log.trace(
+            '[Emulator] scroll({:.3f}, {:.3f}, h={:.3f}, v={:.3f})  {}',
+            x,
+            y,
+            horizontal,
+            vertical,
+            caller_info(),
+        )
+        self._inject_scroll(x, y, horizontal=horizontal, vertical=vertical)
+        if delay:
             time.sleep(operation_delay())
 
     def long_tap(self, x: float, y: float, duration: float = 1.0) -> None:
