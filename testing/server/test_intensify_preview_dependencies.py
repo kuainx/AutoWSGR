@@ -107,32 +107,32 @@ def test_scan_service_composes_only_trusted_context_and_environment_inputs(
     strengthen = tmp_path / 'strengthen.json'
     strengthen.write_text('[]', encoding='utf-8')
     context = SimpleNamespace(
-        config=SimpleNamespace(emulator=SimpleNamespace(serial='127.0.0.1:16448')),
+        config=SimpleNamespace(
+            emulator=SimpleNamespace(serial='127.0.0.1:16448'),
+            ocr=SimpleNamespace(gpu=True),
+        ),
         ctrl=MagicMock(),
         ocr=MagicMock(),
     )
     device = MagicMock()
     identities = MagicMock()
     resolver = MagicMock()
-    portraits = MagicMock()
     scan_pair = MagicMock(return_value=(MagicMock(), MagicMock()))
     monkeypatch.setenv('AUTOWSGR_STRENGTHEN_DATA', str(strengthen))
     monkeypatch.setenv('AUTOWSGR_SHIP_LIBRARY', str(tmp_path / 'ship-library'))
+    monkeypatch.setenv('AUTOWSGR_OCR_GPU_MODE', 'cpu')
     monkeypatch.setattr(
         'autowsgr.ui.material_inventory_scanner.AdbLosslessMaterialDevice',
         MagicMock(return_value=device),
     )
+    load_recognizer = MagicMock(return_value=identities)
     monkeypatch.setattr(
         'autowsgr.vision.ship_card_recognizer.load_default_ship_card_recognizer',
-        MagicMock(return_value=identities),
+        load_recognizer,
     )
     monkeypatch.setattr(
         'autowsgr.ui.target_strengthen_max.TargetStrengthenMaxResolver.from_source',
         MagicMock(return_value=resolver),
-    )
-    monkeypatch.setattr(
-        'autowsgr.vision.named_portrait_matcher.NamedPortraitMatcher',
-        MagicMock(return_value=portraits),
     )
     monkeypatch.setattr(
         'autowsgr.ui.intensify_snapshot_scan.scan_intensify_inventory_pair', scan_pair
@@ -142,11 +142,12 @@ def test_scan_service_composes_only_trusted_context_and_environment_inputs(
     assert scan_pair.call_count == 0
     service.scan_inventory_pair()
 
+    load_recognizer.assert_called_once_with(use_gpu=False)
     scan_pair.assert_called_once_with(
         device,
         identities,
         scroll_input=context.ctrl,
         ocr=context.ocr,
         max_resolver=resolver,
-        named_portraits=portraits,
+        ctx=context,
     )

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from autowsgr.infra import resolve_ocr_gpu_enabled
 from autowsgr.server.intensify_preview_service import IntensifyPreviewService
 from autowsgr.server.intensify_snapshot_scan_service import IntensifySnapshotScanService
 from autowsgr.server.intensify_snapshot_store import IntensifySnapshotStore
@@ -59,9 +60,17 @@ def get_intensify_snapshot_scan_service(context: object) -> IntensifySnapshotSca
     config = getattr(context, 'config', None)
     emulator = getattr(config, 'emulator', None)
     serial = getattr(emulator, 'serial', None)
-    if not isinstance(serial, str) or not serial.strip():
-        raise IntensifyPreviewConfigurationError('强化库存扫描要求配置明确的 emulator.serial')
     ctrl = getattr(context, 'ctrl', None)
+    if not isinstance(serial, str) or not serial.strip():
+        if (
+            ctrl is not None
+            and hasattr(ctrl, 'serial')
+            and isinstance(ctrl.serial, str)
+            and ctrl.serial.strip()
+        ):
+            serial = ctrl.serial
+        else:
+            raise IntensifyPreviewConfigurationError('强化库存扫描要求配置明确的 emulator.serial')
     if ctrl is None:
         raise IntensifyPreviewConfigurationError('系统上下文缺少设备控制器')
 
@@ -69,20 +78,20 @@ def get_intensify_snapshot_scan_service(context: object) -> IntensifySnapshotSca
         from autowsgr.ui.intensify_snapshot_scan import scan_intensify_inventory_pair
         from autowsgr.ui.material_inventory_scanner import AdbLosslessMaterialDevice
         from autowsgr.ui.target_strengthen_max import TargetStrengthenMaxResolver
-        from autowsgr.vision.named_portrait_matcher import NamedPortraitMatcher
         from autowsgr.vision.ship_card_recognizer import load_default_ship_card_recognizer
 
         device = AdbLosslessMaterialDevice(serial.strip())
-        identities = load_default_ship_card_recognizer()
+        identities = load_default_ship_card_recognizer(
+            use_gpu=resolve_ocr_gpu_enabled(config.ocr.gpu)
+        )
         max_resolver = TargetStrengthenMaxResolver.from_source(Path(strengthen_value))
-        named_portraits = NamedPortraitMatcher(Path(library_value))
         return scan_intensify_inventory_pair(
             device,
             identities,
             scroll_input=ctrl,
             ocr=getattr(context, 'ocr', None),
             max_resolver=max_resolver,
-            named_portraits=named_portraits,
+            ctx=context,
         )
 
     return IntensifySnapshotScanService(get_intensify_snapshot_store(), scan)

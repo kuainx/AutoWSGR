@@ -21,7 +21,6 @@ if TYPE_CHECKING:
         MaterialInventorySnapshot,
     )
     from autowsgr.ui.target_inventory_scanner import TargetInventorySnapshot
-    from autowsgr.vision.named_portrait_matcher import NamedPortraitMatcher
     from autowsgr.vision.ocr import OCREngine
     from autowsgr.vision.ship_card_recognizer import ShipCardRecognizer
 
@@ -54,13 +53,13 @@ class IntensifySnapshotNavigator:
         self._interval = interval
         self._stable_frames = stable_frames
 
-    def enter_home_from_main(self) -> None:
+    def ensure_home(self, ctx: object | None = None) -> None:
         MaterialFirstIntensifyController(
             self._device,
             timeout=self._timeout,
             interval=self._interval,
             stable_frames=self._stable_frames,
-        ).enter_intensify_home_from_main()
+        ).ensure_intensify_home(ctx=ctx)
 
     def open_target_selector(self) -> None:
         self._transition_from_home(self._TARGET_SLOT, IntensifyUiState.TARGET_SELECTOR)
@@ -90,11 +89,9 @@ class IntensifySnapshotNavigator:
 
     def _require(self, expected: IntensifyUiState) -> None:
         try:
-            actual = self._recognition.state()
-        except IntensifyWorkflowError as error:
-            raise IntensifySnapshotNavigationError('无法识别强化扫描页面状态') from error
-        if actual != expected:
-            raise IntensifySnapshotNavigationError(f'强化扫描页面状态不是 {expected}')
+            self._wait(expected)
+        except IntensifySnapshotNavigationError as error:
+            raise IntensifySnapshotNavigationError(f'强化扫描页面状态不是 {expected}') from error
 
     def _wait(self, expected: IntensifyUiState) -> None:
         deadline = time.monotonic() + self._timeout
@@ -140,27 +137,14 @@ def scan_intensify_inventory_pair(
     scroll_input: TargetScrollInput,
     ocr: OCREngine | None,
     max_resolver: TargetMaxResolver,
-    named_portraits: NamedPortraitMatcher | None = None,
     max_target_scrolls: int = 80,
     max_material_viewports: int = 24,
+    ctx: object | None = None,
 ) -> tuple[TargetInventorySnapshot, MaterialInventorySnapshot]:
     """Create both complete snapshots before returning either to the server store."""
+    device.verify_cetus()
     navigator = IntensifySnapshotNavigator(device)
-    navigator.enter_home_from_main()
-    navigator.open_target_selector()
-    targets = _scan_and_close_selector(
-        lambda: scan_live_target_inventory(
-            device,
-            identities,
-            scroll_input=scroll_input,
-            ocr=ocr,
-            max_resolver=max_resolver,
-            named_portraits=named_portraits,
-            max_scrolls=max_target_scrolls,
-        ),
-        navigator.close_target_selector,
-        label='目标库存',
-    )
+    navigator.ensure_home(ctx=ctx)
     navigator.open_material_selector()
     materials = _scan_and_close_selector(
         lambda: scan_material_inventory_from_selector(
@@ -170,5 +154,18 @@ def scan_intensify_inventory_pair(
         ),
         navigator.close_material_selector,
         label='素材库存',
+    )
+    navigator.open_target_selector()
+    targets = _scan_and_close_selector(
+        lambda: scan_live_target_inventory(
+            device,
+            identities,
+            scroll_input=scroll_input,
+            ocr=ocr,
+            max_resolver=max_resolver,
+            max_scrolls=max_target_scrolls,
+        ),
+        navigator.close_target_selector,
+        label='目标库存',
     )
     return targets, materials

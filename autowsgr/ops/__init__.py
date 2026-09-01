@@ -65,6 +65,9 @@ from autowsgr.ops.exercise import ExerciseRunner, run_exercise
 # ── 远征 ──
 from autowsgr.ops.expedition import collect_expedition
 
+# ── 自动强化 ──
+from autowsgr.ops.intensify import auto_intensify
+
 # ── 导航 ──
 from autowsgr.ops.navigate import goto_page, identify_current_page
 

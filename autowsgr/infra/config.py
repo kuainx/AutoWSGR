@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, model_v
 from autowsgr.infra.logger import get_logger
 from autowsgr.types import (
     DestroyShipWorkMode,
+    DockFullAction,
     EmulatorType,
     GameAPP,
     OcrMirror,
@@ -80,6 +81,16 @@ class AccountConfig(BaseModel):
     def package_name(self) -> str:
         """Android 包名。"""
         return self.game_app.package_name
+
+
+def resolve_ocr_gpu_enabled(configured: bool) -> bool:
+    """Apply the process OCR GPU override to one configured GPU preference."""
+    override = os.getenv('AUTOWSGR_OCR_GPU_MODE', '').lower()
+    if override == 'cuda':
+        return True
+    if override == 'cpu':
+        return False
+    return configured
 
 
 class OCRConfig(BaseModel):
@@ -362,6 +373,48 @@ class DecisiveConfig(BaseModel):
 # ── 顶层用户配置 ──
 
 
+class IntensifyConfig(BaseModel):
+    """Autonomous intensify material policy persisted in usersettings.yaml."""
+
+    model_config = {'frozen': True}
+
+    target_ship: str = ''
+    material_ship_types: list[str] | None = None
+    max_materials: int | None = Field(default=4, ge=1)
+    protected_ships: list[str] = Field(default_factory=list)
+    reuse_target_inventory_baseline: bool = False
+
+    @field_validator('material_ship_types')
+    @classmethod
+    def _normalize_material_types(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        from autowsgr.combat.fleet import (
+            ALLOWED_SHIP_TYPE_CODES,
+            LEGACY_SHIP_TYPE_ALIASES,
+            SHIP_TYPE_BY_CODE,
+        )
+
+        normalized: list[str] = []
+        for item in value:
+            code = item.strip().lower()
+            canonical = LEGACY_SHIP_TYPE_ALIASES.get(code, code)
+            if not code or canonical not in SHIP_TYPE_BY_CODE:
+                allowed = ', '.join(sorted(ALLOWED_SHIP_TYPE_CODES))
+                raise ValueError(f'material_ship_types 不合法: {item!r}, 可选值: {allowed}')
+            if canonical not in normalized:
+                normalized.append(canonical)
+        return normalized or None
+
+    @field_validator('protected_ships')
+    @classmethod
+    def _normalize_protected_ships(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip() for item in value if item.strip()]
+        if len(set(normalized)) != len(normalized):
+            raise ValueError('protected_ships 不能重复')
+        return normalized
+
+
 class UserConfig(BaseModel):
     """用户配置（顶层聚合）。"""
 
@@ -374,6 +427,7 @@ class UserConfig(BaseModel):
     log: LogConfig = Field(default_factory=LogConfig)
     daily_automation: DailyAutomationConfig | None = None
     decisive_battle: DecisiveConfig | None = None
+    intensify: IntensifyConfig = Field(default_factory=IntensifyConfig)
 
     # 系统（自动检测）
     os_type: OSType = Field(default_factory=OSType.auto)
@@ -388,12 +442,39 @@ class UserConfig(BaseModel):
     """UI 操作后随机延迟下界 (秒)。兼容层把 classic 的 delay 同时迁为本字段与 _max。"""
     operation_delay_max: float = 0.0
     """UI 操作后随机延迟上界 (秒)。"""
+    dock_full_mode: DockFullAction = DockFullAction.auto
+    """船坞满处理模式: 0=关闭, 1=解装, 2=强化, 3=自动(先强化后解装)"""
     dock_full_destroy: bool = True
-    """船坞满时自动清空"""
+    """兼容旧版布尔字段"""
     repair_manually: bool = False
     """是否手动修理"""
     bathroom_count: int = 2
     """修理位置总数 (≤12)。预留:智能浴场空位调度用。"""
+
+    @field_validator('dock_full_mode', mode='before')
+    @classmethod
+    def _coerce_dock_full_mode(cls, v: object) -> object:
+        """允许用中文别名或英文成员名指定船坞满处理模式。"""
+        _alias: dict[str, int] = {
+            '关闭': 0,
+            'disable': 0,
+            '解装': 1,
+            'destroy': 1,
+            '强化': 2,
+            'intensify': 2,
+            '自动': 3,
+            'auto': 3,
+            '混合': 3,
+        }
+        if isinstance(v, bool):
+            return 1 if v else 0
+        if isinstance(v, str):
+            key = v.strip()
+            if key in _alias:
+                return _alias[key]
+            if key.isdigit():
+                return int(key)
+        return v
 
     # 解装设置
     destroy_ship_work_mode: DestroyShipWorkMode = DestroyShipWorkMode.disable

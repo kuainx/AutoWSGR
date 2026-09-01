@@ -16,12 +16,16 @@ import adbutils
 import cv2
 import numpy as np
 
+from autowsgr.infra.logger import get_logger
 from autowsgr.ui.material_first_intensify import (
     MaterialFirstIntensifyController,
     is_material_selector_screen,
 )
 from autowsgr.ui.utils.ship_list import LEGACY_LIST_WIDTH, to_legacy_format
 from autowsgr.vision import get_api_dll
+
+
+_log = get_logger('ops.intensify')
 
 
 if TYPE_CHECKING:
@@ -96,8 +100,15 @@ class AdbLosslessMaterialDevice:
         self._resolution: tuple[int, int] | None = None
 
     def screenshot(self) -> np.ndarray:
-        image = self._device.screenshot(error_ok=False).convert('RGB')
-        return np.asarray(image, dtype=np.uint8)
+        last_error = None
+        for _ in range(3):
+            try:
+                image = self._device.screenshot(error_ok=False).convert('RGB')
+                return np.asarray(image, dtype=np.uint8)
+            except Exception as err:
+                last_error = err
+                time.sleep(0.1)
+        raise MaterialInventoryScanError(f'ADB 截图失败: {last_error}') from last_error
 
     def shell(self, command: str) -> str:
         result = self._device.shell(command)
@@ -278,25 +289,6 @@ class MaterialViewportReader:
             screen.shape[0],
         )
 
-    def capture_best(
-        self,
-        screens: Sequence[np.ndarray],
-    ) -> CapturedMaterialViewport:
-        """Keep the sharpest complete-card crop from geometry-identical frames."""
-        captures = tuple(self.capture(screen) for screen in screens)
-        geometry = (captures[0].row_lengths, captures[0].bands)
-        if any((capture.row_lengths, capture.bands) != geometry for capture in captures[1:]):
-            raise MaterialInventoryScanError('稳定帧之间的舰名栏几何不一致')
-
-        def detail_score(crop: np.ndarray) -> float:
-            return float(cv2.Laplacian(crop, cv2.CV_32F).var())
-
-        crops = tuple(
-            max((capture.crops[index] for capture in captures), key=detail_score)
-            for index in range(len(captures[0].crops))
-        )
-        return CapturedMaterialViewport(crops, *geometry, captures[0].screen_height)
-
     def recognize_captures(
         self,
         captures: Sequence[CapturedMaterialViewport],
@@ -449,6 +441,10 @@ class AdbScrollbarStepper:
         self._x = x
         self._step_pixels = step_pixels
 
+    @staticmethod
+    def _track_bounds(screen_height: int) -> tuple[int, int]:
+        return round(0.12 * screen_height), round(1034 * screen_height / 1080)
+
     def thumb_bounds(self, screen: np.ndarray) -> tuple[int, int]:
         """Locate the light-grey scrollbar thumb on its fixed vertical track."""
         height, width = screen.shape[:2]
@@ -458,22 +454,21 @@ class AdbScrollbarStepper:
         # while the underlying track is dark grey around RGB 65-80.
         neutral = np.max(column, axis=1) - np.min(column, axis=1) <= 8
         light = np.min(column, axis=1) >= 160
-        track_top = round(0.12 * height)
-        track_bottom = round(1034 * height / 1080)
+        track_top, track_bottom = self._track_bounds(height)
         mask = neutral & light
         mask[:track_top] = False
         mask[track_bottom:] = False
         runs: list[tuple[int, int]] = []
         start: int | None = None
+        minimum_run = max(2, round(3 * height / 1080))
         for y, present in enumerate(mask):
             if present and start is None:
                 start = y
             elif not present and start is not None:
-                minimum = 150 if y == track_bottom else 250
-                if y - start >= round(minimum * height / 1080):
+                if y - start >= minimum_run:
                     runs.append((start, y))
                 start = None
-        if start is not None and track_bottom - start >= round(150 * height / 1080):
+        if start is not None and track_bottom - start >= minimum_run:
             runs.append((start, track_bottom))
         if len(runs) != 1:
             raise MaterialInventoryScanError(f'滚动条滑块定位不唯一: {runs}')
@@ -484,19 +479,25 @@ class AdbScrollbarStepper:
 
     def is_top(self, screen: np.ndarray) -> bool:
         top, _bottom = self.thumb_bounds(screen)
-        return top <= round(140 * screen.shape[0] / 1080)
+        track_top, _track_bottom = self._track_bounds(screen.shape[0])
+        return top <= track_top + round(10 * screen.shape[0] / 1080)
 
     def is_bottom(self, screen: np.ndarray) -> bool:
         _top, bottom = self.thumb_bounds(screen)
-        return bottom >= round(1024 * screen.shape[0] / 1080)
+        _track_top, track_bottom = self._track_bounds(screen.shape[0])
+        return bottom >= track_bottom - round(10 * screen.shape[0] / 1080)
 
-    def advance(self, *, thumb_bottom: int, screen_height: int) -> None:
-        half_thumb = round(142 * screen_height / 1080)
-        start_y = max(round(130 * screen_height / 1080), thumb_bottom - half_thumb)
-        end_y = min(screen_height - 1, start_y + self._step_pixels)
+    def advance(self, *, thumb_bounds: tuple[int, int], screen_height: int) -> None:
+        track_top, track_bottom = self._track_bounds(screen_height)
+        thumb_top, thumb_bottom = thumb_bounds
+        usable_top = max(track_top, thumb_top)
+        usable_bottom = min(track_bottom, thumb_bottom)
+        if usable_bottom - usable_top < 2:
+            raise MaterialInventoryScanError(f'滚动条滑块边界异常: {thumb_bounds}')
+        start_y = min(usable_bottom - 2, max(usable_top, (thumb_top + thumb_bottom) // 2))
         x = round(self._x * self._ctrl.resolution[0] / 1920)
         step = max(1, round(self._step_pixels * screen_height / 1080))
-        end_y = min(screen_height - 1, start_y + step)
+        end_y = min(usable_bottom - 1, start_y + step)
         self._ctrl.shell(f'input swipe {x} {start_y} {x} {end_y} 300')
 
 
@@ -563,8 +564,6 @@ class MaterialInventoryScanner:
         is_material_screen: Callable[[np.ndarray], bool] = is_material_selector_screen,
         stagnant_limit: int = 2,
         settle_seconds: float = 0.8,
-        sample_count: int = 8,
-        sample_interval_seconds: float = 0.65,
     ) -> None:
         self._ctrl = ctrl
         self._reader = reader
@@ -572,49 +571,51 @@ class MaterialInventoryScanner:
         self._is_material_screen = is_material_screen
         self._stagnant_limit = stagnant_limit
         self._settle_seconds = settle_seconds
-        if sample_count < 2:
-            raise ValueError('素材视口至少需要采样两帧')
-        self._sample_count = sample_count
-        self._sample_interval_seconds = sample_interval_seconds
 
-    def _stable_screens(self) -> tuple[np.ndarray, ...]:
-        screens: list[np.ndarray] = []
-        thumb_bounds: tuple[int, int] | None = None
-        for index in range(self._sample_count):
-            screen = self._ctrl.screenshot()
-            if not self._is_material_screen(screen) or has_selected_material(screen):
-                raise MaterialInventoryScanError('素材页面状态不安全或已有素材被选中')
-            current_thumb = self._stepper.thumb_bounds(screen)
-            if thumb_bounds is None:
-                thumb_bounds = current_thumb
-            elif current_thumb != thumb_bounds:
-                raise MaterialInventoryScanError('多帧采样期间滚动条位置发生变化')
-            screens.append(screen)
-            if index + 1 < self._sample_count:
-                time.sleep(self._sample_interval_seconds)
-        return tuple(screens)
+    def _settled_screen(self) -> np.ndarray:
+        """Capture one authoritative viewport after the preceding scroll settles."""
+        screen = self._ctrl.screenshot()
+        if not self._is_material_screen(screen) or has_selected_material(screen):
+            raise MaterialInventoryScanError('素材页面状态不安全或已有素材被选中')
+        return screen
 
     def scan(self, *, max_viewports: int = 24) -> MaterialInventorySnapshot:
         captures: list[CapturedMaterialViewport] = []
         previous_thumb: int | None = None
         stagnant = 0
         for viewport_count in range(1, max_viewports + 1):
-            stable_screens = self._stable_screens()
-            screen = stable_screens[-1]
-            if viewport_count == 1 and not self._stepper.is_top(screen):
-                raise MaterialInventoryScanError('素材扫描必须从滚动条顶部开始')
-            captured = self._reader.capture_best(stable_screens)
-            thumb = self._stepper.thumb_bottom(screen)
-            no_thumb_move = previous_thumb is not None and thumb == previous_thumb
+            screen = self._settled_screen()
+            if viewport_count == 1:
+                # 检查素材库是否为空（0 艘素材）
+                if not self._reader.locate_name_bands(screen):
+                    _log.info('[OPS] 素材库当前为空 (0 艘素材)')
+                    return MaterialInventorySnapshot(
+                        names=(),
+                        ship_ids=(),
+                        total=0,
+                        viewport_count=0,
+                        refs=(),
+                    )
+                if not self._stepper.is_top(screen):
+                    raise MaterialInventoryScanError('素材扫描必须从滚动条顶部开始')
+            thumb_bounds = self._stepper.thumb_bounds(screen)
+            thumb_bottom = thumb_bounds[1]
+            no_thumb_move = previous_thumb is not None and thumb_bottom == previous_thumb
             at_bottom = self._stepper.is_bottom(screen)
             if no_thumb_move and not at_bottom:
                 raise MaterialInventoryScanError('滚动条在未到底时没有移动')
             if not (at_bottom and no_thumb_move):
-                captures.append(captured)
+                captures.append(self._reader.capture(screen))
+                _log.info(
+                    '[OPS] 扫描素材库存: 视口第 {} 步, 已捕获 {} 组视口',
+                    viewport_count,
+                    len(captures),
+                )
             stagnant = stagnant + 1 if at_bottom and no_thumb_move else 0
             if stagnant >= self._stagnant_limit:
                 if not captures:
                     raise MaterialInventoryScanError('素材库存没有权威视口证据')
+                _log.info('[OPS] 正在解析素材舰船图像 (共 {} 组视口)...', len(captures))
                 viewports = self._reader.recognize_captures(captures)
                 revision_payload = '|'.join(
                     f'{viewport_index}:{ship_id}:{name}'
@@ -649,9 +650,9 @@ class MaterialInventoryScanner:
                     len(viewports),
                     refs,
                 )
-            self._stepper.advance(thumb_bottom=thumb, screen_height=screen.shape[0])
+            self._stepper.advance(thumb_bounds=thumb_bounds, screen_height=screen.shape[0])
             time.sleep(self._settle_seconds)
-            previous_thumb = thumb
+            previous_thumb = thumb_bottom
         raise MaterialInventoryScanError(f'超过最大视口数 {max_viewports}，无法证明素材列表到底')
 
 

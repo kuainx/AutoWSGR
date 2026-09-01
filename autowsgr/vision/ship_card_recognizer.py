@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
+import sys
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +32,7 @@ class ShipCardIdentity:
     ship_type: ShipType
     confidence: float
     match_key: str
+    masked: bool = False
 
 
 class ShipCardRecognizer(Protocol):
@@ -72,18 +75,19 @@ def _read_json(source: Path, member: str | None = None) -> object:
         return json.loads(archive.read(member).decode('utf-8'))
 
 
-def _canonical_ships(manifest_path: Path) -> dict[int, tuple[str, ShipType]]:
+def _canonical_ships(manifest_path: Path) -> dict[int, tuple[str, str, ShipType]]:
     from autowsgr.types import ShipType
 
     raw = _read_json(manifest_path)
     if not isinstance(raw, dict) or not isinstance(raw.get('ships'), list):
         raise ShipCardRecognitionError('规范舰船 manifest 缺少 ships 列表')
-    result: dict[int, tuple[str, ShipType]] = {}
+    result: dict[int, tuple[str, str, ShipType]] = {}
     for index, ship in enumerate(raw['ships']):
         if not isinstance(ship, dict):
             raise ShipCardRecognitionError(f'规范舰船 manifest 条目格式错误: {index}')
         ship_id = ship.get('id')
         name = ship.get('name')
+        search_name = ship.get('search_name', name)
         type_code = ship.get('ship_type')
         type_value = _SHIP_TYPE_CODES.get(str(type_code).lower())
         if (
@@ -92,18 +96,20 @@ def _canonical_ships(manifest_path: Path) -> dict[int, tuple[str, ShipType]]:
             or ship_id < 0
             or not isinstance(name, str)
             or not name.strip()
+            or not isinstance(search_name, str)
+            or not search_name.strip()
             or type_value is None
         ):
             raise ShipCardRecognitionError(f'规范舰船 manifest 条目无效: {index}')
         if ship_id in result:
             raise ShipCardRecognitionError(f'规范舰船 manifest ID 重复: {ship_id}')
-        result[ship_id] = (name.strip(), ShipType(type_value))
+        result[ship_id] = (name.strip(), search_name.strip(), ShipType(type_value))
     if not result:
         raise ShipCardRecognitionError('规范舰船 manifest 没有有效舰船')
     return result
 
 
-def _load_metadata(
+def _load_metadata(  # noqa: PLR0912
     path: Path,
     *,
     archive_member: str | None = None,
@@ -127,10 +133,38 @@ def _load_metadata(
         if ship_type_value is None:
             canonical_identity = canonical.get(ship_id)
             if canonical_identity is None:
-                raise ShipCardRecognitionError(
-                    f'WSG-NCC metadata 身份不在规范 manifest 中: {key}/{ship_id}'
+                costume_match = re.search(r'(?:^|/)(\d+)_(\d+)(?:/|$)', key.replace('\\', '/'))
+                canonical_ship_id = int(costume_match.group(1)) if costume_match else None
+                canonical_identity = canonical.get(canonical_ship_id)
+                if canonical_identity is None and isinstance(name, str):
+                    exact_name_matches = tuple(
+                        (candidate_id, identity)
+                        for candidate_id, identity in canonical.items()
+                        if identity[0] == name.strip()
+                    )
+                    if len(exact_name_matches) == 1:
+                        canonical_ship_id, canonical_identity = exact_name_matches[0]
+                if canonical_identity is None:
+                    continue
+                encoded_costume_id = (
+                    int(''.join(costume_match.groups())) if costume_match else ship_id
                 )
-            canonical_name, ship_type = canonical_identity
+                if costume_match and ship_id != encoded_costume_id:
+                    raise ShipCardRecognitionError(
+                        f'WSG-NCC 换装 ID 与资源 key 不一致: {key}/{ship_id}'
+                    )
+                canonical_name, _canonical_search_name, ship_type = canonical_identity
+                ship_id = canonical_ship_id
+                name = canonical_name
+                result[key.replace('\\', '/')] = ShipCardIdentity(
+                    ship_id=ship_id,
+                    name=name,
+                    ship_type=ship_type,
+                    confidence=0.0,
+                    match_key=key,
+                )
+                continue
+            canonical_name, _canonical_search_name, ship_type = canonical_identity
             name = canonical_name
         else:
             if not isinstance(name, str) or not name:
@@ -211,7 +245,12 @@ class WsgNccShipCardRecognizer:
             return normalized.split(gallery_marker, 1)[1]
         return normalized.lstrip('/')
 
-    def _identity_from_matches(self, matches: object) -> ShipCardIdentity | None:
+    def _identity_from_matches(
+        self,
+        matches: object,
+        *,
+        masked: bool = False,
+    ) -> ShipCardIdentity | None:
         if not isinstance(matches, list) or not matches:
             return None
         for match in matches:
@@ -236,6 +275,7 @@ class WsgNccShipCardRecognizer:
                 ship_type=metadata.ship_type,
                 confidence=confidence,
                 match_key=normalized_key,
+                masked=masked,
             )
         return None
 
@@ -250,12 +290,8 @@ class WsgNccShipCardRecognizer:
         )
         if len(raw_results) != len(arrays):
             raise ShipCardRecognitionError('WSG-NCC 返回数量与船卡数量不一致')
-        identities = [self._identity_from_matches(matches) for matches in raw_results]
-        retry_indices = [
-            index
-            for index, (matches, identity) in enumerate(zip(raw_results, identities, strict=True))
-            if not matches and identity is None
-        ]
+        identities = [self._identity_from_matches(matches, masked=False) for matches in raw_results]
+        retry_indices = [index for index, identity in enumerate(identities) if identity is None]
         if retry_indices:
             masked_results = self._engine.recognize(
                 [arrays[index] for index in retry_indices],
@@ -267,7 +303,7 @@ class WsgNccShipCardRecognizer:
             if len(masked_results) != len(retry_indices):
                 raise ShipCardRecognitionError('WSG-NCC 蒙版重试返回数量与船卡数量不一致')
             for index, matches in zip(retry_indices, masked_results, strict=True):
-                identities[index] = self._identity_from_matches(matches)
+                identities[index] = self._identity_from_matches(matches, masked=True)
         return identities
 
     @classmethod
@@ -279,6 +315,9 @@ class WsgNccShipCardRecognizer:
         use_gpu: bool = False,
     ) -> WsgNccShipCardRecognizer:
         root = Path(data_root)
+        python_pkg = root / 'python'
+        if python_pkg.is_dir() and str(python_pkg) not in sys.path:
+            sys.path.insert(0, str(python_pkg))
         if root.is_file() and root.suffix.lower() == '.zip':
             with zipfile.ZipFile(root) as archive:
                 try:
@@ -305,15 +344,22 @@ class WsgNccShipCardRecognizer:
         )
 
 
-def load_default_ship_card_recognizer() -> WsgNccShipCardRecognizer:
-    """Load the licensed WSG-NCC runtime assets from explicit environment paths."""
+def load_default_ship_card_recognizer(*, use_gpu: bool = False) -> WsgNccShipCardRecognizer:
+    """Load WSG-NCC runtime assets with the caller's authoritative GPU setting."""
     data_root = os.getenv('AUTOWSGR_WSG_NCC_DATA', '').strip()
     library_root = os.getenv('AUTOWSGR_SHIP_LIBRARY', '').strip()
     if not data_root:
-        raise ShipCardRecognitionError('未设置 AUTOWSGR_WSG_NCC_DATA')
+        default_ncc = Path(r'E:\wsgrgui\resource\wsg-ncc')
+        if default_ncc.is_dir():
+            data_root = str(default_ncc)
+        else:
+            raise ShipCardRecognitionError('未设置 AUTOWSGR_WSG_NCC_DATA')
     if not library_root:
-        raise ShipCardRecognitionError('未设置 AUTOWSGR_SHIP_LIBRARY')
-    use_gpu = os.getenv('AUTOWSGR_WSG_NCC_GPU', '').strip().lower() in {'1', 'true', 'yes'}
+        default_lib = Path(r'E:\wsgrgui\resource\ship-library')
+        if default_lib.is_dir():
+            library_root = str(default_lib)
+        else:
+            raise ShipCardRecognitionError('未设置 AUTOWSGR_SHIP_LIBRARY')
     return WsgNccShipCardRecognizer.from_data_root(
         data_root,
         manifest_path=Path(library_root) / 'manifest.json',

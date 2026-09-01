@@ -9,10 +9,12 @@ from .config import (
     EmulatorConfig,
     ExerciseConfig,
     FightConfig,
+    IntensifyConfig,
     LogConfig,
     NodeConfig,
     OCRConfig,
     UserConfig,
+    resolve_ocr_gpu_enabled,
 )
 from .exceptions import (
     ActionFailedError,
@@ -55,6 +57,7 @@ __all__ = [
     'FightConfig',
     'GameError',
     'ImageNotFoundError',
+    'IntensifyConfig',
     'LogConfig',
     'NavigationError',
     'NodeConfig',
@@ -69,6 +72,7 @@ __all__ = [
     'get_logger',
     'load_yaml',
     'merge_dicts',
+    'resolve_ocr_gpu_enabled',
     'resolve_plan_path',
     'save_image',
     'save_yaml',
